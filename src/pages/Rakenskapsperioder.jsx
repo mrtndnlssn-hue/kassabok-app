@@ -183,7 +183,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   const [dirty, setDirty]       = useState(false);
   const [editIdx, setEditIdx]   = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [newForm, setNewForm]   = useState({ label:'', start:'', end:'' });
+  const [newForm, setNewForm]   = useState({ label:'', start:'', end:'', openingBalance:'' });
   const [error, setError]       = useState('');
   const [closeModal, setCloseModal] = useState(null);
 
@@ -217,8 +217,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
     }
     const baseId = label.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,20) || Date.now().toString();
     const id = periods.find(p => p.id === baseId) ? `${baseId}_${Date.now()}` : baseId;
-    setPeriods(prev => [...prev, { id, label, start:newForm.start, end:newForm.end }].sort((a,b) => a.start.localeCompare(b.start)));
-    setNewForm({ label:'', start:'', end:'' }); setDirty(true);
+    setPeriods(prev => [...prev, { id, label, start:newForm.start, end:newForm.end, openingBalance: Number(newForm.openingBalance)||0 }].sort((a,b) => a.start.localeCompare(b.start)));
+    setNewForm({ label:'', start:'', end:'', openingBalance:'' }); setDirty(true);
   }
 
   function remove(idx) {
@@ -272,6 +272,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
             <thead>
               <tr>
                 <th>Namn</th><th>Startdatum</th><th>Slutdatum</th>
+                <th style={{textAlign:'right'}}>Ing. saldo</th>
                 <th style={{textAlign:'center'}}>Längd</th>
                 <th style={{textAlign:'center'}}>Status</th>
                 <th></th>
@@ -286,6 +287,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                     <td><input value={editForm.label} onChange={e => setEditForm(f=>({...f,label:e.target.value}))} style={{width:'100%'}} autoFocus/></td>
                     <td><input type="date" value={editForm.start} onChange={e => setEditForm(f=>({...f,start:e.target.value}))} style={{width:'100%'}}/></td>
                     <td><input type="date" value={editForm.end}   onChange={e => setEditForm(f=>({...f,end:e.target.value}))}   style={{width:'100%'}}/></td>
+                    <td><input type="number" value={editForm.openingBalance ?? ''} onChange={e => setEditForm(f=>({...f,openingBalance:e.target.value}))} style={{width:'100%',textAlign:'right'}} placeholder="0"/></td>
                     <td style={{textAlign:'center',fontFamily:'var(--font-mono)',fontSize:'0.82rem',color:'var(--ink-muted)'}}>{monthsBetween(editForm.start,editForm.end)} mån</td>
                     <td/>
                     <td>
@@ -303,6 +305,9 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                     </td>
                     <td className="mono">{p.start}</td>
                     <td className="mono">{p.end}</td>
+                    <td className="mono" style={{textAlign:'right',fontSize:'0.82rem'}}>
+                      {p.openingBalance ? p.openingBalance.toLocaleString('sv-SE') + ' kr' : <span style={{color:'var(--ink-muted)'}}>–</span>}
+                    </td>
                     <td style={{textAlign:'center'}}>
                       <span style={{
                         fontFamily:'var(--font-mono)', fontSize:'0.8rem',
@@ -352,6 +357,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
           <div><label>Namn</label><input value={newForm.label} onChange={e=>setNewForm(f=>({...f,label:e.target.value}))} placeholder="t.ex. 2025"/></div>
           <div><label>Startdatum</label><input type="date" value={newForm.start} onChange={e=>handleNewStart(e.target.value)}/></div>
           <div><label>Slutdatum</label><input type="date" value={newForm.end} onChange={e=>setNewForm(f=>({...f,end:e.target.value}))}/></div>
+          <div><label>Ingående saldo (kr)</label><input type="number" value={newForm.openingBalance} onChange={e=>setNewForm(f=>({...f,openingBalance:e.target.value}))} placeholder="0" style={{textAlign:'right'}}/></div>
           <div>
             {newForm.start && newForm.end && (
               <div style={{fontSize:'0.78rem',marginBottom:6,color: findOverlaps(periods, newForm.start, newForm.end).length > 0 ? 'var(--red)' : 'var(--ink-muted)'}}>

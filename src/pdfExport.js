@@ -129,6 +129,7 @@ export function exportBudget({ orgName, period, categories, budget } = {}) {
 }
 
 export function exportAnnualReport({ orgName, period, transactions, categories, budget, doc: existingDoc } = {}) {
+  const openingBalance = Number(period?.openingBalance ?? 0);
   const doc = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   // transactions are already filtered for the period by Arsrapport
@@ -323,15 +324,43 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
     margin: { left: 18, right: 18 },
   });
 
+  // ── Kassarapport (saldo) ──────────────────────────────────
+  y = doc.lastAutoTable.finalY + 12;
+  if (y > 240) { doc.addPage(); y = 18; }
+
+  sectionHeader('Kassarapport');
+
+  const closingBalance = openingBalance + netResult;
+  autoTable(doc, {
+    startY: y,
+    body: [
+      ['Ingående saldo', fmt(openingBalance)],
+      [{ content: '+ Intäkter', styles: { textColor: GREEN } }, { content: fmt(totalIncome), styles: { halign: 'right', font: 'courier', textColor: GREEN } }],
+      [{ content: '− Kostnader', styles: { textColor: RED } }, { content: fmt(totalExpense), styles: { halign: 'right', font: 'courier', textColor: RED } }],
+    ],
+    foot: [[
+      { content: 'Utgående saldo (kontosaldo)', styles: { fontStyle: 'bold', fontSize: 9 } },
+      { content: fmt(closingBalance), styles: { halign: 'right', font: 'courier', fontStyle: 'bold', fontSize: 9, textColor: closingBalance >= 0 ? GREEN : RED } },
+    ]],
+    columnStyles: {
+      0: { cellWidth: 120 },
+      1: { halign: 'right', font: 'courier' },
+    },
+    footStyles: { fillColor: [207, 226, 243], textColor: DARK },
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    alternateRowStyles: { fillColor: PAPER },
+    margin: { left: 18, right: 18 },
+  });
+
   // ── Footer on each page ───────────────────────────────────
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let p = 1; p <= pageCount; p++) {
+  const pageCount2 = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount2; p++) {
     doc.setPage(p);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(160, 160, 180);
     doc.text(`${orgName} · ${period?.label || ''}`, 18, 291);
-    doc.text(`Sida ${p} av ${pageCount}`, W - 18, 291, { align: 'right' });
+    doc.text(`Sida ${p} av ${pageCount2}`, W - 18, 291, { align: 'right' });
     doc.setDrawColor(...BORDER);
     doc.line(18, 288, W - 18, 288);
   }

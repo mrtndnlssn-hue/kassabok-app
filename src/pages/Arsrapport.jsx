@@ -16,9 +16,11 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
   const actuals   = sumByCategory(periodTxs, categories);
   const incCats   = categories.filter(c => c.type === 'income');
   const expCats   = categories.filter(c => c.type === 'expense');
-  const totalInc  = incCats.reduce((s,c) => s+(actuals[c.id]||0), 0);
-  const totalExp  = expCats.reduce((s,c) => s+(actuals[c.id]||0), 0);
-  const net       = totalInc - totalExp;
+  const totalInc       = incCats.reduce((s,c) => s+(actuals[c.id]||0), 0);
+  const totalExp       = expCats.reduce((s,c) => s+(actuals[c.id]||0), 0);
+  const net            = totalInc - totalExp;
+  const openingBalance = Number(period?.openingBalance ?? 0);
+  const closingBalance = openingBalance + net;
 
   async function handleExport() {
     setLoading(true); setDone(false);
@@ -65,10 +67,12 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
 
         <div className="stat-grid" style={{ marginBottom:20 }}>
           {[
-            { label:'Antal verifikat', val: periodTxs.length, cls:'' },
-            { label:'Totala intäkter', val: fmt(totalInc), cls:'positive' },
-            { label:'Totala kostnader', val: fmt(totalExp), cls:'negative' },
-            { label:'Nettoresultat', val: fmt(net), cls: net>=0?'positive':'negative' },
+            { label:'Antal verifikat',   val: periodTxs.length,  cls:'' },
+            { label:'Totala intäkter',   val: fmt(totalInc),     cls:'positive' },
+            { label:'Totala kostnader',  val: fmt(totalExp),     cls:'negative' },
+            { label:'Nettoresultat',     val: fmt(net),          cls: net>=0?'positive':'negative' },
+            { label:'Ingående saldo',    val: fmt(openingBalance), cls:'' },
+            { label:'Utgående saldo',    val: fmt(closingBalance), cls: closingBalance>=0?'positive':'negative' },
           ].map((s,i) => (
             <div key={i} className="stat-card">
               <div className="stat-label">{s.label}</div>

@@ -36,11 +36,12 @@ export const store = {
       })),
       budget:         budgetObj,
       fiscalPeriods:  (periodsRes.data || []).map(p => ({
-        id:     p.id,
-        label:  p.label,
-        start:  p.start_date,
-        end:    p.end_date,
-        locked: p.locked,
+        id:             p.id,
+        label:          p.label,
+        start:          p.start_date,
+        end:            p.end_date,
+        locked:         p.locked,
+        openingBalance: Number(p.opening_balance ?? 0),
       })),
     }
   },
@@ -85,12 +86,13 @@ export const store = {
     if (periods.length > 0) {
       const { error } = await supabase.from('fiscal_periods').insert(
         periods.map(p => ({
-          id:         p.id,
-          org_id:     orgId,
-          label:      p.label,
-          start_date: p.start,
-          end_date:   p.end,
-          locked:     p.locked ?? false,
+          id:              p.id,
+          org_id:          orgId,
+          label:           p.label,
+          start_date:      p.start,
+          end_date:        p.end,
+          locked:          p.locked ?? false,
+          opening_balance: p.openingBalance ?? 0,
         }))
       )
       if (error) throw error
