@@ -19,7 +19,7 @@ export default function Medlemmar({ orgId }) {
       const [membersRes, invitesRes] = await Promise.all([
         supabase
           .from('organization_members')
-          .select('user_id, role, created_at')
+          .select('user_id, role')
           .eq('org_id', orgId),
         supabase
           .from('org_invites')
@@ -33,10 +33,9 @@ export default function Medlemmar({ orgId }) {
 
       // Fetch email for each member via RPC or use user_id display
       const memberList = (membersRes.data || []).map(m => ({
-        userId:    m.user_id,
-        role:      m.role,
-        createdAt: m.created_at,
-        isMe:      m.user_id === session.user.id,
+        userId: m.user_id,
+        role:   m.role,
+        isMe:   m.user_id === session.user.id,
       }))
       setMembers(memberList)
       setInvites(invitesRes.data || [])
@@ -104,7 +103,6 @@ export default function Medlemmar({ orgId }) {
             <tr>
               <th>Användar-ID</th>
               <th>Roll</th>
-              <th>Tillagd</th>
               <th></th>
             </tr>
           </thead>
@@ -127,9 +125,6 @@ export default function Medlemmar({ orgId }) {
                   }}>
                     {m.role === 'owner' ? 'Ägare' : m.role === 'viewer' ? 'Läsare' : 'Medlem'}
                   </span>
-                </td>
-                <td style={{ fontSize: '0.82rem', color: 'var(--ink-muted)' }}>
-                  {new Date(m.createdAt).toLocaleDateString('sv-SE')}
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   {!m.isMe && m.role !== 'owner' && (
