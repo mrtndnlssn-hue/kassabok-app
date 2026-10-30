@@ -39,7 +39,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
     try {
       const tables = [
         { table: 'transactions',         col: 'org_id' },
-        { table: 'budget_lines',         col: 'org_id' },
+        { table: 'budget',                col: 'org_id' },
         { table: 'categories',           col: 'org_id' },
         { table: 'fiscal_periods',       col: 'org_id' },
         { table: 'org_settings',         col: 'org_id' },
