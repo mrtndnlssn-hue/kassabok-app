@@ -289,8 +289,13 @@ export default function Medlemmar({ orgId, orgName }) {
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {inviteUrl(inv.code)}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
-                      {ROLE_LABEL[inv.invited_role] || inv.invited_role} · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
+                    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
+                      {ROLE_LABEL[inv.invited_role] || inv.invited_role}
+                      · Skapad {new Date(inv.created_at).toLocaleString('sv-SE', { dateStyle:'short', timeStyle:'short' })}
+                      · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
+                      {(Date.now() - new Date(inv.created_at).getTime()) < 5 * 60 * 1000 && (
+                        <span style={{ background:'var(--green)', color:'#fff', fontSize:'0.65rem', fontWeight:700, padding:'1px 6px', borderRadius:99 }}>Ny</span>
+                      )}
                     </div>
                   </div>
                   <button className="btn btn-secondary btn-sm" onClick={() => copyLink(inv.code)} title="Kopiera länk">
