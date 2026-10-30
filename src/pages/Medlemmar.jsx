@@ -61,7 +61,9 @@ export default function Medlemmar({ orgId, orgName }) {
         email:  m.email,
         isMe:   m.user_id === session.user.id,
       })))
-      setInvites(invitesRes.data || [])
+      const fetchedInvites = invitesRes.data || []
+      setInvites(fetchedInvites)
+      return fetchedInvites
     } catch (e) {
       setError(e.message)
     } finally {
@@ -135,14 +137,12 @@ export default function Medlemmar({ orgId, orgName }) {
 
   async function createInvite() {
     setError('')
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('org_invites')
       .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole })
-      .select('code')
-      .single()
     if (error) { setError(error.message); return }
-    if (data?.code) setNewestCode(data.code)
-    await fetchAll()
+    const fetched = await fetchAll()
+    if (fetched?.length) setNewestCode(fetched[0].code) // sorted desc, so [0] is newest
   }
 
   async function deleteInvite(code) {
