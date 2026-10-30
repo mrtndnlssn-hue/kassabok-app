@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, X, Check, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, X, Check, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown } from 'lucide-react';
 import { store, getYear, getOrBuildPeriods } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
@@ -25,8 +25,10 @@ const NAV = [
 ];
 
 function MainApp({ orgId, role }) {
+  const { orgs, setOrgId: switchOrg } = useAuth()
   const canWrite = role !== 'viewer'
   const [page, setPage]               = useState('dashboard');
+  const [orgNames, setOrgNames]       = useState({});
   const [loading, setLoading]         = useState(true);
   const [transactions, setTxs]        = useState([]);
   const [categories, setCats]         = useState([]);
@@ -46,6 +48,7 @@ function MainApp({ orgId, role }) {
       setCats(data.categories || []);
       setBudget(data.budget || {});
       setOrgName(data.orgName || '');
+      setOrgNames(prev => ({ ...prev, [orgId]: data.orgName || '' }));
       setFiscalPeriods(periods);
 
       const today  = new Date().toISOString().slice(0, 10);
@@ -60,6 +63,17 @@ function MainApp({ orgId, role }) {
   }
 
   useEffect(() => { fetchAll(); }, [orgId]);
+
+  useEffect(() => {
+    if (orgs.length <= 1) return
+    const otherIds = orgs.map(o => o.orgId).filter(id => !orgNames[id])
+    if (!otherIds.length) return
+    supabase.from('organizations').select('id, name').in('id', otherIds)
+      .then(({ data }) => {
+        if (!data) return
+        setOrgNames(prev => ({ ...prev, ...Object.fromEntries(data.map(r => [r.id, r.name])) }))
+      })
+  }, [orgs]);
 
   const activePeriod  = fiscalPeriods.find(p => p.id === activePeriodId) || null;
   const sortedPeriods = [...fiscalPeriods].sort((a, b) => b.start.localeCompare(a.start));
@@ -190,6 +204,25 @@ function MainApp({ orgId, role }) {
         </nav>
 
         <div className="sidebar-footer" style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          {orgs.length > 1 && (
+            <div>
+              <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4 }}>Förening</div>
+              <div style={{ position:'relative' }}>
+                <select
+                  value={orgId}
+                  onChange={e => { switchOrg(e.target.value); setPage('dashboard'); }}
+                  style={{ width:'100%', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:4, color:'#fff', fontSize:'0.8rem', padding:'4px 24px 4px 8px', cursor:'pointer', appearance:'none' }}
+                >
+                  {orgs.map(o => (
+                    <option key={o.orgId} value={o.orgId} style={{ background:'#1a1a2e' }}>
+                      {orgNames[o.orgId] || o.orgId.slice(0,8)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronsUpDown size={12} style={{ position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,0.4)', pointerEvents:'none' }}/>
+              </div>
+            </div>
+          )}
           <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.25)' }}>☁ Sparas i Supabase</div>
           <button
             onClick={() => supabase.auth.signOut()}
@@ -230,7 +263,12 @@ export default function App() {
     </div>
   );
 
-  if (!session)  return <LoginPage />;
-  if (!orgId)    return <OrgSetup />;
+  if (!session) return <LoginPage />;
+
+  // Inbjudningslänk – visa OrgSetup oavsett om användaren redan har en förening
+  if (new URLSearchParams(window.location.search).has('invite')) return <OrgSetup />;
+
+  if (!orgId) return <OrgSetup />;
+
   return <MainApp orgId={orgId} role={role} />;
 }

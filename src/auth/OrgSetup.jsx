@@ -23,7 +23,7 @@ const DEFAULT_CATEGORIES = [
 ]
 
 export default function OrgSetup() {
-  const { session, setOrgId, setRole } = useAuth()
+  const { session, setOrgId, addOrg } = useAuth()
   const [name, setName]       = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
@@ -74,8 +74,7 @@ export default function OrgSetup() {
       // Remove invite param from URL without reload
       window.history.replaceState({}, '', window.location.pathname)
 
-      setRole('member')
-      setOrgId(invite.org_id)
+      addOrg(invite.org_id, invite.invited_role || 'member')
     } catch (e) {
       setError(e.message)
       setLoading(false)
@@ -123,7 +122,7 @@ export default function OrgSetup() {
         locked:     false,
       })
 
-      setOrgId(orgId)
+      addOrg(orgId, 'owner')
     } catch (e) {
       setError(e.message)
       setLoading(false)
