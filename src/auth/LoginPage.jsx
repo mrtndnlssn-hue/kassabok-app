@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
 export default function LoginPage() {
@@ -8,6 +8,16 @@ export default function LoginPage() {
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
   const [success, setSuccess]   = useState('')
+  const [inviteOrg, setInviteOrg] = useState(null) // org name from invite in URL
+
+  const inviteCode = new URLSearchParams(window.location.search).get('invite')
+
+  useEffect(() => {
+    if (!inviteCode) return
+    supabase.rpc('validate_invite', { p_code: inviteCode }).then(({ data }) => {
+      if (data && !data.error) setInviteOrg(data.org_name)
+    })
+  }, [inviteCode])
 
   function switchMode(m) { setMode(m); setError(''); setSuccess('') }
 
@@ -36,7 +46,13 @@ export default function LoginPage() {
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontFamily:'var(--font-body)', background:'var(--paper)' }}>
       <div style={{ width:380, background:'var(--paper-2)', borderRadius:'var(--r-lg)', border:'1px solid var(--border)', padding:32, boxShadow:'0 4px 24px rgba(0,0,0,0.08)' }}>
         <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'1.8rem', marginBottom:4, color:'var(--ink)' }}>Kassabok</h1>
-        <p style={{ color:'var(--ink-muted)', fontSize:'0.85rem', marginBottom:24 }}>Bokföring för ideell förening</p>
+        <p style={{ color:'var(--ink-muted)', fontSize:'0.85rem', marginBottom: inviteOrg ? 16 : 24 }}>Bokföring för ideell förening</p>
+
+        {inviteOrg && (
+          <div style={{ background:'var(--green-soft)', border:'1px solid var(--green)', borderRadius:'var(--r)', padding:'10px 14px', marginBottom:20, fontSize:'0.85rem', color:'var(--ink)' }}>
+            Du är inbjuden att gå med i <strong>{inviteOrg}</strong> – logga in eller registrera dig för att fortsätta.
+          </div>
+        )}
 
         {mode !== 'reset' && (
           <div style={{ display:'flex', gap:8, marginBottom:24 }}>
