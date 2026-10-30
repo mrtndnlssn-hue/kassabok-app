@@ -6,6 +6,7 @@ import { supabase } from './supabase';
 import LoginPage from './auth/LoginPage';
 import OrgSetup from './auth/OrgSetup';
 import OrgPicker from './auth/OrgPicker';
+import SetNewPassword from './auth/SetNewPassword';
 import Dashboard from './pages/Dashboard';
 import Kassabok from './pages/Kassabok';
 import BudgetResultat from './pages/BudgetResultat';
@@ -242,7 +243,7 @@ function MainApp({ orgId, role }) {
 function sessionPickedKey(userId) { return `orgPicked_${userId}` }
 
 export default function App() {
-  const { session, orgs, orgId, role, loading, setOrgId } = useAuth();
+  const { session, orgs, orgId, role, loading, setOrgId, recoveryMode } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [pickerDone, setPickerDone] = useState(() => {
     try { return !!sessionStorage.getItem('orgPicked') } catch { return false }
@@ -260,6 +261,8 @@ export default function App() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
+
+  if (recoveryMode) return <SetNewPassword />;
 
   if (!session) return <LoginPage />;
 

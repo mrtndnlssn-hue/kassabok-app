@@ -57,13 +57,20 @@ export default function AuthProvider({ children }) {
     if (session?.user?.id) saveOrgId(session.user.id, newOrgId)
   }
 
+  const [recoveryMode, setRecoveryMode] = useState(false)
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       if (session) loadOrgs(session.user.id)
       else setSession(null)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setSession(session)
+        setRecoveryMode(true)
+        return
+      }
       setSession(session)
       if (session) loadOrgs(session.user.id)
       else { setSession(null); setOrgs([]); setOrgIdState(null); setRole(null) }
@@ -72,7 +79,7 @@ export default function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ session, orgs, orgId, setOrgId, addOrg, role, setRole, loading: session === undefined }}>
+    <AuthContext.Provider value={{ session, orgs, orgId, setOrgId, addOrg, role, setRole, loading: session === undefined, recoveryMode, setRecoveryMode }}>
       {children}
     </AuthContext.Provider>
   )
