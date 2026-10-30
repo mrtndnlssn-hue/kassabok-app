@@ -285,8 +285,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                 return editIdx === globalIdx ? (
                   <tr key={p.id} style={{ background:'var(--amber-soft)' }}>
                     <td><input value={editForm.label} onChange={e => setEditForm(f=>({...f,label:e.target.value}))} style={{width:'100%'}} autoFocus/></td>
-                    <td><input type="date" value={editForm.start} onChange={e => setEditForm(f=>({...f,start:e.target.value}))} style={{width:'100%'}}/></td>
-                    <td><input type="date" value={editForm.end}   onChange={e => setEditForm(f=>({...f,end:e.target.value}))}   style={{width:'100%'}}/></td>
+                    <td><input type="text" value={editForm.start} onChange={e => setEditForm(f=>({...f,start:e.target.value}))} style={{width:'100%',fontFamily:'var(--font-mono)'}} placeholder="YYYY-MM-DD"/></td>
+                    <td><input type="text" value={editForm.end}   onChange={e => setEditForm(f=>({...f,end:e.target.value}))}   style={{width:'100%',fontFamily:'var(--font-mono)'}} placeholder="YYYY-MM-DD"/></td>
                     <td><input type="number" value={editForm.openingBalance ?? ''} onChange={e => setEditForm(f=>({...f,openingBalance:e.target.value}))} style={{width:'100%',textAlign:'right'}} placeholder="0"/></td>
                     <td style={{textAlign:'center',fontFamily:'var(--font-mono)',fontSize:'0.82rem',color:'var(--ink-muted)'}}>{monthsBetween(editForm.start,editForm.end)} mån</td>
                     <td/>
@@ -355,8 +355,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
         <div className="section-title">Lägg till ny period</div>
         <div className="form-row form-row-cols" style={{ alignItems:'flex-end' }}>
           <div><label>Namn</label><input value={newForm.label} onChange={e=>setNewForm(f=>({...f,label:e.target.value}))} placeholder="t.ex. 2025"/></div>
-          <div><label>Startdatum</label><input type="date" value={newForm.start} onChange={e=>handleNewStart(e.target.value)}/></div>
-          <div><label>Slutdatum</label><input type="date" value={newForm.end} onChange={e=>setNewForm(f=>({...f,end:e.target.value}))}/></div>
+          <div><label>Startdatum</label><input type="text" value={newForm.start} onChange={e=>handleNewStart(e.target.value)} placeholder="YYYY-MM-DD" style={{fontFamily:'var(--font-mono)'}}/></div>
+          <div><label>Slutdatum</label><input type="text" value={newForm.end} onChange={e=>setNewForm(f=>({...f,end:e.target.value}))} placeholder="YYYY-MM-DD" style={{fontFamily:'var(--font-mono)'}}/></div>
           <div><label>Ingående saldo (kr)</label><input type="number" value={newForm.openingBalance} onChange={e=>setNewForm(f=>({...f,openingBalance:e.target.value}))} placeholder="0" style={{textAlign:'right'}}/></div>
           <div>
             {newForm.start && newForm.end && (
