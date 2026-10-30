@@ -252,6 +252,11 @@ export default function App() {
     try { return !!sessionStorage.getItem('orgPicked') } catch { return false }
   });
 
+  // Nollställ pickervalet när sessionen avslutas
+  useEffect(() => {
+    if (!session) setPickerDone(false);
+  }, [session]);
+
   function pickOrg(id) {
     try { sessionStorage.setItem('orgPicked', '1') } catch {}
     setPickerDone(true);
