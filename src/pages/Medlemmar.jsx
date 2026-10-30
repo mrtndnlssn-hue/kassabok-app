@@ -35,8 +35,9 @@ export default function Medlemmar({ orgId, orgName }) {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied]   = useState(false)
   const [error, setError]     = useState('')
-  const [newRole, setNewRole] = useState('member')
-  const [transferTo, setTransferTo] = useState(null) // userId to transfer main_owner to
+  const [newRole, setNewRole]     = useState('member')
+  const [transferTo, setTransferTo] = useState(null)
+  const [newestCode, setNewestCode] = useState(null) // code of most recently created invite
 
   async function fetchAll() {
     setLoading(true)
@@ -134,10 +135,13 @@ export default function Medlemmar({ orgId, orgName }) {
 
   async function createInvite() {
     setError('')
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('org_invites')
       .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole })
+      .select('code')
+      .single()
     if (error) { setError(error.message); return }
+    if (data?.code) setNewestCode(data.code)
     await fetchAll()
   }
 
@@ -293,7 +297,7 @@ export default function Medlemmar({ orgId, orgName }) {
                       {ROLE_LABEL[inv.invited_role] || inv.invited_role}
                       · Skapad {new Date(inv.created_at).toLocaleString('sv-SE', { dateStyle:'short', timeStyle:'short' })}
                       · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
-                      {(Date.now() - new Date(inv.created_at).getTime()) < 5 * 60 * 1000 && (
+                      {inv.code === newestCode && (
                         <span style={{ background:'var(--green)', color:'#fff', fontSize:'0.65rem', fontWeight:700, padding:'1px 6px', borderRadius:99 }}>Ny</span>
                       )}
                     </div>
