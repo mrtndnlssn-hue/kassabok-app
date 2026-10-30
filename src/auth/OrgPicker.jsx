@@ -17,8 +17,8 @@ const ROLE_STYLE = {
   viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)' },
 }
 
-export default function OrgPicker({ onCreateNew }) {
-  const { orgs, setOrgId } = useAuth()
+export default function OrgPicker({ onCreateNew, onPick }) {
+  const { orgs } = useAuth()
   const [orgNames, setOrgNames] = useState({})
   const [loading, setLoading]   = useState(true)
 
@@ -57,7 +57,7 @@ export default function OrgPicker({ onCreateNew }) {
           }).map(o => (
             <button
               key={o.orgId}
-              onClick={() => setOrgId(o.orgId)}
+              onClick={() => onPick(o.orgId)}
               style={{
                 display:'flex', alignItems:'center', justifyContent:'space-between',
                 background:'var(--paper-2)', border:'1px solid var(--border)',

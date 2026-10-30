@@ -255,9 +255,20 @@ function MainApp({ orgId, role }) {
   );
 }
 
+function sessionPickedKey(userId) { return `orgPicked_${userId}` }
+
 export default function App() {
-  const { session, orgs, orgId, role, loading } = useAuth();
+  const { session, orgs, orgId, role, loading, setOrgId } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
+  const [pickerDone, setPickerDone] = useState(() => {
+    try { return !!sessionStorage.getItem('orgPicked') } catch { return false }
+  });
+
+  function pickOrg(id) {
+    try { sessionStorage.setItem('orgPicked', '1') } catch {}
+    setPickerDone(true);
+    setOrgId(id);
+  }
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', color:'var(--ink-muted)', fontFamily:'var(--font-body)' }}>
@@ -274,8 +285,10 @@ export default function App() {
   // Skapa ny förening (från OrgPicker)
   if (showCreate) return <OrgSetup />;
 
-  // Har föreningar men inget valt – visa väljaren
-  if (orgs.length > 0 && !orgId) return <OrgPicker onCreateNew={() => setShowCreate(true)} />;
+  // Visa väljare efter inloggning om användaren har föreningar och inte redan valt
+  if (orgs.length > 0 && !pickerDone) {
+    return <OrgPicker onCreateNew={() => setShowCreate(true)} onPick={pickOrg} />;
+  }
 
   // Inga föreningar alls – skapa direkt
   if (!orgId) return <OrgSetup />;
