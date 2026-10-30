@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
-import { Copy, Check, Trash2, RefreshCw } from 'lucide-react'
+import { Copy, Check, Trash2 } from 'lucide-react'
 
 export default function Medlemmar({ orgId }) {
   const { session } = useAuth()
@@ -62,6 +62,16 @@ export default function Medlemmar({ orgId }) {
     setInvites(prev => prev.filter(i => i.code !== code))
   }
 
+  async function changeRole(userId, newRole) {
+    const { error } = await supabase
+      .from('organization_members')
+      .update({ role: newRole })
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+    if (error) { setError(error.message); return }
+    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole } : m))
+  }
+
   async function removeMember(userId) {
     if (!window.confirm('Ta bort denna användares åtkomst till föreningen?')) return
     const { error } = await supabase
@@ -113,21 +123,29 @@ export default function Medlemmar({ orgId }) {
                   {m.userId.slice(0, 8)}…{m.isMe ? ' (du)' : ''}
                 </td>
                 <td>
-                  <span style={{
-                    display: 'inline-block',
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    background: m.role === 'owner' ? 'var(--green-soft)' : m.role === 'viewer' ? 'var(--paper-2)' : 'var(--blue-soft, #e8f0fe)',
-                    color: m.role === 'owner' ? 'var(--green)' : m.role === 'viewer' ? 'var(--ink-muted)' : 'var(--blue, #1a73e8)',
-                    border: '1px solid var(--border)',
-                  }}>
-                    {m.role === 'owner' ? 'Ägare' : m.role === 'viewer' ? 'Läsare' : 'Medlem'}
-                  </span>
+                  {m.isMe ? (
+                    <span style={{
+                      display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                      fontSize: '0.75rem', fontWeight: 600, border: '1px solid var(--border)',
+                      background: m.role === 'owner' ? 'var(--green-soft)' : m.role === 'viewer' ? 'var(--paper-2)' : 'var(--blue-soft, #e8f0fe)',
+                      color: m.role === 'owner' ? 'var(--green)' : m.role === 'viewer' ? 'var(--ink-muted)' : 'var(--blue, #1a73e8)',
+                    }}>
+                      {m.role === 'owner' ? 'Ägare' : m.role === 'viewer' ? 'Läsare' : 'Medlem'}
+                    </span>
+                  ) : (
+                    <select
+                      value={m.role}
+                      onChange={e => changeRole(m.userId, e.target.value)}
+                      style={{ fontSize: '0.8rem', padding: '3px 6px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer' }}
+                    >
+                      <option value="owner">Ägare</option>
+                      <option value="member">Medlem</option>
+                      <option value="viewer">Läsare</option>
+                    </select>
+                  )}
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  {!m.isMe && m.role !== 'owner' && (
+                  {!m.isMe && (
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => removeMember(m.userId)}
