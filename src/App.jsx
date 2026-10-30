@@ -5,6 +5,7 @@ import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import LoginPage from './auth/LoginPage';
 import OrgSetup from './auth/OrgSetup';
+import OrgPicker from './auth/OrgPicker';
 import Dashboard from './pages/Dashboard';
 import Kassabok from './pages/Kassabok';
 import BudgetResultat from './pages/BudgetResultat';
@@ -255,7 +256,8 @@ function MainApp({ orgId, role }) {
 }
 
 export default function App() {
-  const { session, orgId, role, loading } = useAuth();
+  const { session, orgs, orgId, role, loading } = useAuth();
+  const [showCreate, setShowCreate] = useState(false);
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', color:'var(--ink-muted)', fontFamily:'var(--font-body)' }}>
@@ -269,6 +271,13 @@ export default function App() {
   // Inbjudningslänk – visa OrgSetup oavsett om användaren redan har en förening
   if (new URLSearchParams(window.location.search).has('invite')) return <OrgSetup />;
 
+  // Skapa ny förening (från OrgPicker)
+  if (showCreate) return <OrgSetup />;
+
+  // Har föreningar men inget valt – visa väljaren
+  if (orgs.length > 0 && !orgId) return <OrgPicker onCreateNew={() => setShowCreate(true)} />;
+
+  // Inga föreningar alls – skapa direkt
   if (!orgId) return <OrgSetup />;
 
   return <MainApp orgId={orgId} role={role} />;
