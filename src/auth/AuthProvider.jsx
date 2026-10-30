@@ -73,7 +73,10 @@ export default function AuthProvider({ children }) {
       }
       setSession(session)
       if (session) loadOrgs(session.user.id)
-      else { setSession(null); setOrgs([]); setOrgIdState(null); setRole(null) }
+      else {
+        setSession(null); setOrgs([]); setOrgIdState(null); setRole(null)
+        try { sessionStorage.removeItem('orgPicked') } catch {}
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
