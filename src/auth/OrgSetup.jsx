@@ -34,17 +34,12 @@ export default function OrgSetup() {
   useEffect(() => {
     if (!inviteCode) return
     async function checkInvite() {
-      const { data, error } = await supabase
-        .from('org_invites')
-        .select('org_id, expires_at, organizations(name)')
-        .eq('code', inviteCode)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle()
-      if (error || !data) {
-        setError('Inbjudningslänken är ogiltig eller har gått ut.')
+      const { data, error } = await supabase.rpc('validate_invite', { p_code: inviteCode })
+      if (error || data?.error) {
+        setError(data?.error || 'Inbjudningslänken är ogiltig eller har gått ut.')
         return
       }
-      setInviteOrgName(data.organizations?.name || 'föreningen')
+      setInviteOrgName(data.org_name || 'föreningen')
     }
     checkInvite()
   }, [inviteCode])
@@ -53,28 +48,13 @@ export default function OrgSetup() {
     setLoading(true)
     setError('')
     try {
-      const { data: invite, error: invErr } = await supabase
-        .from('org_invites')
-        .select('org_id, invited_role')
-        .eq('code', inviteCode)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle()
-      if (invErr || !invite) throw new Error('Inbjudningslänken är ogiltig eller har gått ut.')
+      // Atomic: validates + inserts member + deletes invite in one DB transaction
+      const { data, error } = await supabase.rpc('claim_invite', { p_code: inviteCode })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
 
-      const { error: memberErr } = await supabase.from('organization_members').insert({
-        user_id: session.user.id,
-        org_id:  invite.org_id,
-        role:    invite.invited_role || 'member',
-      })
-      if (memberErr) throw memberErr
-
-      // Clean up used invite
-      await supabase.from('org_invites').delete().eq('code', inviteCode)
-
-      // Remove invite param from URL without reload
       window.history.replaceState({}, '', window.location.pathname)
-
-      addOrg(invite.org_id, invite.invited_role || 'member')
+      addOrg(data.org_id, data.role)
     } catch (e) {
       setError(e.message)
       setLoading(false)
