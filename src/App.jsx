@@ -211,6 +211,9 @@ function MainApp({ orgId, role }) {
             </div>
           )}
           <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.25)' }}>☁ Sparas i Supabase</div>
+          <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.18)', fontFamily:'var(--font-mono)' }}>
+            {new Date(__BUILD_TIME__).toLocaleString('sv-SE', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}
+          </div>
           <button
             onClick={() => supabase.auth.signOut()}
             style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', fontSize:'0.75rem', padding:'4px 0' }}
