@@ -98,7 +98,7 @@ export default function OrgSetup() {
       const { error: memberErr } = await supabase.from('organization_members').insert({
         user_id: session.user.id,
         org_id:  orgId,
-        role:    'owner',
+        role:    'main_owner',
       })
       if (memberErr) throw memberErr
 
@@ -122,7 +122,7 @@ export default function OrgSetup() {
         locked:     false,
       })
 
-      addOrg(orgId, 'owner')
+      addOrg(orgId, 'main_owner')
     } catch (e) {
       setError(e.message)
       setLoading(false)

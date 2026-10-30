@@ -1,26 +1,49 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
-import { Copy, Check, Trash2 } from 'lucide-react'
+import { Copy, Check, Trash2, ArrowRightLeft } from 'lucide-react'
+
+const ROLE_LABEL = {
+  main_owner: 'Huvudägare',
+  owner:      'Ägare',
+  member:     'Medlem',
+  viewer:     'Läsare',
+}
+
+const ROLE_STYLE = {
+  main_owner: { background: 'var(--amber-soft, #fef3c7)', color: 'var(--amber, #b45309)', border: '1px solid #fcd34d' },
+  owner:      { background: 'var(--green-soft)', color: 'var(--green)', border: '1px solid var(--border)' },
+  member:     { background: 'var(--blue-soft, #e8f0fe)', color: 'var(--blue, #1a73e8)', border: '1px solid var(--border)' },
+  viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)', border: '1px solid var(--border)' },
+}
+
+function RoleBadge({ role }) {
+  return (
+    <span style={{ display:'inline-block', padding:'2px 8px', borderRadius:999, fontSize:'0.75rem', fontWeight:600, ...ROLE_STYLE[role] }}>
+      {ROLE_LABEL[role] || role}
+    </span>
+  )
+}
 
 export default function Medlemmar({ orgId }) {
-  const { session } = useAuth()
-  const [members, setMembers]   = useState([])
-  const [invites, setInvites]   = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [copied, setCopied]     = useState(false)
-  const [error, setError]       = useState('')
-  const [newRole, setNewRole]   = useState('member')
+  const { session, role: myRole } = useAuth()
+  const isMainOwner = myRole === 'main_owner'
+  const canManage   = myRole === 'main_owner' || myRole === 'owner'
+
+  const [members, setMembers] = useState([])
+  const [invites, setInvites] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [copied, setCopied]   = useState(false)
+  const [error, setError]     = useState('')
+  const [newRole, setNewRole] = useState('member')
+  const [transferTo, setTransferTo] = useState(null) // userId to transfer main_owner to
 
   async function fetchAll() {
     setLoading(true)
     setError('')
     try {
       const [membersRes, invitesRes] = await Promise.all([
-        supabase
-          .from('organization_members')
-          .select('user_id, role')
-          .eq('org_id', orgId),
+        supabase.rpc('get_org_members_with_email', { p_org_id: orgId }),
         supabase
           .from('org_invites')
           .select('code, invited_role, expires_at, created_at')
@@ -31,13 +54,12 @@ export default function Medlemmar({ orgId }) {
       if (membersRes.error) throw membersRes.error
       if (invitesRes.error) throw invitesRes.error
 
-      // Fetch email for each member via RPC or use user_id display
-      const memberList = (membersRes.data || []).map(m => ({
+      setMembers((membersRes.data || []).map(m => ({
         userId: m.user_id,
         role:   m.role,
+        email:  m.email,
         isMe:   m.user_id === session.user.id,
-      }))
-      setMembers(memberList)
+      })))
       setInvites(invitesRes.data || [])
     } catch (e) {
       setError(e.message)
@@ -47,6 +69,68 @@ export default function Medlemmar({ orgId }) {
   }
 
   useEffect(() => { fetchAll() }, [orgId])
+
+  async function changeRole(userId, newRole) {
+    // Prevent demoting the last main_owner
+    if (members.find(m => m.userId === userId)?.role === 'main_owner') {
+      setError('Använd "Lämna över" för att byta huvudägare.')
+      return
+    }
+    // Prevent assigning main_owner via dropdown (use transfer instead)
+    if (newRole === 'main_owner') {
+      setError('Använd "Lämna över"-knappen för att utse ny huvudägare.')
+      return
+    }
+    const { error } = await supabase
+      .from('organization_members')
+      .update({ role: newRole })
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+    if (error) { setError(error.message); return }
+    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole } : m))
+  }
+
+  async function transferMainOwner(toUserId) {
+    setError('')
+    // Step 1: demote current main_owner to owner
+    const { error: e1 } = await supabase
+      .from('organization_members')
+      .update({ role: 'owner' })
+      .eq('org_id', orgId)
+      .eq('user_id', session.user.id)
+    if (e1) { setError(e1.message); return }
+
+    // Step 2: promote target to main_owner
+    const { error: e2 } = await supabase
+      .from('organization_members')
+      .update({ role: 'main_owner' })
+      .eq('org_id', orgId)
+      .eq('user_id', toUserId)
+    if (e2) {
+      // Rollback
+      await supabase.from('organization_members').update({ role: 'main_owner' }).eq('org_id', orgId).eq('user_id', session.user.id)
+      setError(e2.message)
+      return
+    }
+    setTransferTo(null)
+    await fetchAll()
+  }
+
+  async function removeMember(userId) {
+    const m = members.find(m => m.userId === userId)
+    if (m?.role === 'main_owner') {
+      setError('Huvudägaren kan inte tas bort. Lämna över rollen först.')
+      return
+    }
+    if (!window.confirm(`Ta bort ${m?.email || 'användaren'}s åtkomst till föreningen?`)) return
+    const { error } = await supabase
+      .from('organization_members')
+      .delete()
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+    if (error) { setError(error.message); return }
+    setMembers(prev => prev.filter(m => m.userId !== userId))
+  }
 
   async function createInvite() {
     setError('')
@@ -62,27 +146,6 @@ export default function Medlemmar({ orgId }) {
     setInvites(prev => prev.filter(i => i.code !== code))
   }
 
-  async function changeRole(userId, newRole) {
-    const { error } = await supabase
-      .from('organization_members')
-      .update({ role: newRole })
-      .eq('org_id', orgId)
-      .eq('user_id', userId)
-    if (error) { setError(error.message); return }
-    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole } : m))
-  }
-
-  async function removeMember(userId) {
-    if (!window.confirm('Ta bort denna användares åtkomst till föreningen?')) return
-    const { error } = await supabase
-      .from('organization_members')
-      .delete()
-      .eq('org_id', orgId)
-      .eq('user_id', userId)
-    if (error) { setError(error.message); return }
-    setMembers(prev => prev.filter(m => m.userId !== userId))
-  }
-
   function inviteUrl(code) {
     return `${window.location.origin}/?invite=${code}`
   }
@@ -95,11 +158,27 @@ export default function Medlemmar({ orgId }) {
 
   if (loading) return <p style={{ color: 'var(--ink-muted)', padding: 8 }}>Laddar…</p>
 
+  const otherMembers = members.filter(m => !m.isMe && m.role !== 'main_owner')
+
   return (
-    <div style={{ maxWidth: 600 }}>
+    <div style={{ maxWidth: 640 }}>
       {error && (
         <div className="notice" style={{ background: 'var(--red-soft)', borderColor: '#f5c6cb', color: 'var(--red)', marginBottom: 16 }}>
-          {error}
+          {error} <button onClick={() => setError('')} style={{ marginLeft:8, background:'none', border:'none', cursor:'pointer', fontWeight:700 }}>×</button>
+        </div>
+      )}
+
+      {/* Transfer confirmation */}
+      {transferTo && (
+        <div className="notice" style={{ background: 'var(--amber-soft, #fef3c7)', borderColor: '#fcd34d', color: 'var(--amber, #b45309)', marginBottom: 16 }}>
+          <strong>Lämna över huvudägarrollen?</strong><br/>
+          <span style={{ fontSize:'0.85rem' }}>
+            {members.find(m => m.userId === transferTo)?.email} blir ny huvudägare. Du blir vanlig ägare och kan inte längre byta föreningsnamn.
+          </span>
+          <div style={{ display:'flex', gap:8, marginTop:10 }}>
+            <button className="btn btn-primary btn-sm" onClick={() => transferMainOwner(transferTo)}>Bekräfta</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setTransferTo(null)}>Avbryt</button>
+          </div>
         </div>
       )}
 
@@ -111,27 +190,24 @@ export default function Medlemmar({ orgId }) {
         <table className="data-table" style={{ width: '100%' }}>
           <thead>
             <tr>
-              <th>Användar-ID</th>
+              <th>E-post</th>
               <th>Roll</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {members.map(m => (
+            {[...members].sort((a, b) => {
+              const order = { main_owner: 0, owner: 1, member: 2, viewer: 3 }
+              return (order[a.role] ?? 9) - (order[b.role] ?? 9)
+            }).map(m => (
               <tr key={m.userId}>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
-                  {m.userId.slice(0, 8)}…{m.isMe ? ' (du)' : ''}
+                <td style={{ fontSize: '0.85rem' }}>
+                  {m.email}
+                  {m.isMe && <span style={{ marginLeft:6, fontSize:'0.72rem', color:'var(--ink-muted)', background:'var(--paper-2)', padding:'1px 6px', borderRadius:99, border:'1px solid var(--border)' }}>du</span>}
                 </td>
                 <td>
-                  {m.isMe ? (
-                    <span style={{
-                      display: 'inline-block', padding: '2px 8px', borderRadius: 999,
-                      fontSize: '0.75rem', fontWeight: 600, border: '1px solid var(--border)',
-                      background: m.role === 'owner' ? 'var(--green-soft)' : m.role === 'viewer' ? 'var(--paper-2)' : 'var(--blue-soft, #e8f0fe)',
-                      color: m.role === 'owner' ? 'var(--green)' : m.role === 'viewer' ? 'var(--ink-muted)' : 'var(--blue, #1a73e8)',
-                    }}>
-                      {m.role === 'owner' ? 'Ägare' : m.role === 'viewer' ? 'Läsare' : 'Medlem'}
-                    </span>
+                  {m.isMe || m.role === 'main_owner' || !canManage ? (
+                    <RoleBadge role={m.role} />
                   ) : (
                     <select
                       value={m.role}
@@ -145,16 +221,28 @@ export default function Medlemmar({ orgId }) {
                   )}
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  {!m.isMe && (
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => removeMember(m.userId)}
-                      title="Ta bort åtkomst"
-                      style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
+                  <div style={{ display:'flex', gap:4, justifyContent:'flex-end' }}>
+                    {isMainOwner && !m.isMe && m.role !== 'main_owner' && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setTransferTo(m.userId)}
+                        title="Lämna över huvudägarrollen"
+                        style={{ fontSize:'0.72rem', gap:4 }}
+                      >
+                        <ArrowRightLeft size={12}/> Lämna över
+                      </button>
+                    )}
+                    {canManage && !m.isMe && m.role !== 'main_owner' && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => removeMember(m.userId)}
+                        title="Ta bort åtkomst"
+                        style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -163,70 +251,64 @@ export default function Medlemmar({ orgId }) {
       </section>
 
       {/* Invites */}
-      <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--ink)', margin: 0 }}>
-            Inbjudningslänkar
-          </h3>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <select
-              value={newRole}
-              onChange={e => setNewRole(e.target.value)}
-              style={{ fontSize: '0.82rem', padding: '4px 8px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer' }}
-            >
-              <option value="member">Medlem</option>
-              <option value="viewer">Läsare (skrivskyddad)</option>
-            </select>
-            <button className="btn btn-primary btn-sm" onClick={createInvite}>
-              + Ny inbjudan
-            </button>
+      {canManage && (
+        <section>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--ink)', margin: 0 }}>
+              Inbjudningslänkar
+            </h3>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select
+                value={newRole}
+                onChange={e => setNewRole(e.target.value)}
+                style={{ fontSize: '0.82rem', padding: '4px 8px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer' }}
+              >
+                <option value="member">Medlem</option>
+                <option value="viewer">Läsare (skrivskyddad)</option>
+                <option value="owner">Ägare</option>
+              </select>
+              <button className="btn btn-primary btn-sm" onClick={createInvite}>
+                + Ny inbjudan
+              </button>
+            </div>
           </div>
-        </div>
 
-        {invites.length === 0 ? (
-          <p style={{ color: 'var(--ink-muted)', fontSize: '0.85rem' }}>
-            Inga aktiva inbjudningslänkar. Skapa en för att bjuda in en ny användare.
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {invites.map(inv => (
-              <div key={inv.code} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: 'var(--paper-2)', border: '1px solid var(--border)',
-                borderRadius: 'var(--r)', padding: '10px 12px',
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {inviteUrl(inv.code)}
+          {invites.length === 0 ? (
+            <p style={{ color: 'var(--ink-muted)', fontSize: '0.85rem' }}>
+              Inga aktiva inbjudningslänkar.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {invites.map(inv => (
+                <div key={inv.code} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: 'var(--paper-2)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--r)', padding: '10px 12px',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {inviteUrl(inv.code)}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
+                      {ROLE_LABEL[inv.invited_role] || inv.invited_role} · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
-                    {inv.invited_role === 'viewer' ? 'Läsare' : 'Medlem'} · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
-                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => copyLink(inv.code)} title="Kopiera länk">
+                    {copied === inv.code ? <Check size={13} /> : <Copy size={13} />}
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => deleteInvite(inv.code)} title="Radera inbjudan"
+                    style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>
+                    <Trash2 size={13} />
+                  </button>
                 </div>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => copyLink(inv.code)}
-                  title="Kopiera länk"
-                >
-                  {copied === inv.code ? <Check size={13} /> : <Copy size={13} />}
-                </button>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => deleteInvite(inv.code)}
-                  title="Radera inbjudan"
-                  style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p style={{ marginTop: 12, fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
-          Länken är giltig i 7 dagar. Den som öppnar länken och loggar in kopplas automatiskt till föreningen.
-        </p>
-      </section>
+              ))}
+            </div>
+          )}
+          <p style={{ marginTop: 12, fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
+            Länken är giltig i 7 dagar.
+          </p>
+        </section>
+      )}
     </div>
   )
 }

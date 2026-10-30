@@ -26,7 +26,8 @@ const NAV = [
 
 function MainApp({ orgId, role }) {
   const { orgs, setOrgId: switchOrg } = useAuth()
-  const canWrite = role !== 'viewer'
+  const canWrite    = role !== 'viewer'
+  const canEditName = role === 'main_owner'
   const [page, setPage]               = useState('dashboard');
   const [orgNames, setOrgNames]       = useState({});
   const [loading, setLoading]         = useState(true);
@@ -144,7 +145,7 @@ function MainApp({ orgId, role }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          {editOrg && canWrite ? (
+          {editOrg && canEditName ? (
             <div style={{ display:'flex', gap:6, alignItems:'center' }}>
               <input value={orgInput} onChange={e => setOrgInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSaveOrg()}
@@ -153,7 +154,7 @@ function MainApp({ orgId, role }) {
               <button onClick={() => setEditOrg(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', padding:2 }}><X size={14}/></button>
             </div>
           ) : (
-            <h1 title={role === 'owner' ? "Klicka för att byta föreningsnamn" : undefined} onClick={() => { if (canWrite) { setOrgInput(orgName); setEditOrg(true); } }} style={{ cursor: role === 'owner' ? 'pointer' : 'default' }}>
+            <h1 title={canEditName ? "Klicka för att byta föreningsnamn" : undefined} onClick={() => { if (canEditName) { setOrgInput(orgName); setEditOrg(true); } }} style={{ cursor: canEditName ? 'pointer' : 'default' }}>
               {orgName || 'Min Förening'}
             </h1>
           )}
@@ -189,7 +190,7 @@ function MainApp({ orgId, role }) {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.filter(n => !n.ownerOnly || role === 'owner').map(n => {
+          {NAV.filter(n => !n.ownerOnly || role === 'main_owner' || role === 'owner').map(n => {
             const Icon  = n.icon;
             const isSep = n.id === 'perioder';
             return (
