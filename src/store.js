@@ -61,10 +61,15 @@ export const store = {
     if (delErr) throw delErr
     if (categories.length > 0) {
       const { error } = await supabase.from('categories').insert(
-        categories.map(c => ({ id: c.id, org_id: orgId, name: c.name, type: c.type }))
+        categories.map(c => ({ id: c.id, org_id: orgId, name: c.name, type: c.type, hidden: c.hidden ?? false }))
       )
       if (error) throw error
     }
+  },
+
+  async toggleCategoryHidden(orgId, catId, hidden) {
+    const { error } = await supabase.from('categories').update({ hidden }).eq('org_id', orgId).eq('id', catId)
+    if (error) throw error
   },
 
   async setBudgetLine(orgId, periodId, catId, amount) {

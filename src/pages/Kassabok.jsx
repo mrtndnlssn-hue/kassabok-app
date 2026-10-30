@@ -68,8 +68,9 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
     else setDeleteConfirm(id);
   }
 
-  const incCats  = categories.filter(c => c.type === 'income');
-  const expCats  = categories.filter(c => c.type === 'expense');
+  const visibleCats = categories.filter(c => !c.hidden);
+  const incCats  = visibleCats.filter(c => c.type === 'income');
+  const expCats  = visibleCats.filter(c => c.type === 'expense');
 
   return (
     <div>
