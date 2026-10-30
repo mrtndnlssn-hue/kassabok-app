@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { Copy, Check, Trash2, ArrowRightLeft } from 'lucide-react'
+import TaBortForening from './TaBortForening'
 
 const ROLE_LABEL = {
   main_owner: 'Huvudägare',
@@ -25,7 +26,7 @@ function RoleBadge({ role }) {
   )
 }
 
-export default function Medlemmar({ orgId }) {
+export default function Medlemmar({ orgId, orgName }) {
   const { session, role: myRole } = useAuth()
   const isMainOwner = myRole === 'main_owner'
   const canManage   = myRole === 'main_owner' || myRole === 'owner'
@@ -309,6 +310,8 @@ export default function Medlemmar({ orgId }) {
           </p>
         </section>
       )}
+
+      {isMainOwner && <TaBortForening orgId={orgId} orgName={orgName || 'föreningen'} />}
     </div>
   )
 }

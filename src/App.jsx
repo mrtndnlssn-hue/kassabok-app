@@ -129,7 +129,7 @@ function MainApp({ orgId, role }) {
     kategorier: <Kategorier {...pageProps} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
-    medlemmar:  <Medlemmar orgId={orgId} />,
+    medlemmar:  <Medlemmar orgId={orgId} orgName={orgName} />,
   };
 
   const subtitles = {
