@@ -289,10 +289,11 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
 
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]));
   const sorted = [...yearTxs].sort((a, b) => a.date.localeCompare(b.date));
+  const fmtNum = v => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v ?? 0);
 
   autoTable(doc, {
     startY: y,
-    head: [['Ver.nr', 'Datum', 'Beskrivning', 'Kategori', 'Inkomst', 'Utgift']],
+    head: [['Ver.nr', 'Datum', 'Beskrivning', 'Kategori', 'Inkomst (kr)', 'Utgift (kr)']],
     body: sorted.map((tx, i) => {
       const cat = catMap[tx.categoryId];
       const isInc = cat?.type === 'income';
@@ -301,14 +302,14 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
         tx.date,
         tx.description || '',
         cat ? `${cat.id} ${cat.name}` : tx.categoryId,
-        isInc ? fmt(tx.amount) : '',
-        !isInc ? fmt(tx.amount) : '',
+        isInc ? fmtNum(tx.amount) : '',
+        !isInc ? fmtNum(tx.amount) : '',
       ];
     }),
     foot: [[
       '', '', '', 'TOTALT',
-      fmt(totalIncome),
-      fmt(totalExpense),
+      fmtNum(totalIncome),
+      fmtNum(totalExpense),
     ]],
     headStyles: { fillColor: DARK, fontSize: 7.5 },
     footStyles: { fillColor: [207, 226, 243], fontStyle: 'bold', fontSize: 8 },
