@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Plus, Trash2, Check, AlertCircle, X, ArrowRight } from 'lucide-react';
+import { useAuth } from '../auth/AuthProvider';
 
 // ── Definierad UTANFÖR för att undvika remount-buggar ────────
-function CatTable({ items, allCats, transactions, onUpdate, onRemove }) {
+function CatTable({ items, allCats, transactions, onUpdate, onRemove, canWrite }) {
   return (
     <div className="table-wrap" style={{ marginBottom: 24 }}>
       <table>
@@ -27,9 +28,10 @@ function CatTable({ items, allCats, transactions, onUpdate, onRemove }) {
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <input
                       value={cat.name}
-                      onChange={e => onUpdate(cat.id, e.target.value)}
-                      style={{ border:'1px solid transparent', background:'transparent', padding:'4px 0', flex:1 }}
-                      onFocus={e => e.target.style.borderColor = 'var(--border)'}
+                      onChange={e => canWrite && onUpdate(cat.id, e.target.value)}
+                      readOnly={!canWrite}
+                      style={{ border:'1px solid transparent', background:'transparent', padding:'4px 0', flex:1, cursor: canWrite ? 'text' : 'default' }}
+                      onFocus={e => canWrite && (e.target.style.borderColor = 'var(--border)')}
                       onBlur={e  => e.target.style.borderColor = 'transparent'}
                     />
                     {txCount > 0 && (
@@ -43,9 +45,11 @@ function CatTable({ items, allCats, transactions, onUpdate, onRemove }) {
                   </div>
                 </td>
                 <td>
-                  <button className="btn btn-sm btn-danger" onClick={() => onRemove(cat)} title="Ta bort">
-                    <Trash2 size={12}/>
-                  </button>
+                  {canWrite && (
+                    <button className="btn btn-sm btn-danger" onClick={() => onRemove(cat)} title="Ta bort">
+                      <Trash2 size={12}/>
+                    </button>
+                  )}
                 </td>
               </tr>
             );
@@ -165,6 +169,8 @@ function DeleteWarningModal({ cat, affectedTxs, allCategories, onConfirm, onCanc
 
 // ── Huvudkomponent ───────────────────────────────────────────
 export default function Kategorier({ categories, transactions, onSave, onReasignAndDelete }) {
+  const { role } = useAuth()
+  const canWrite = role !== 'viewer'
   const [cats, setCats]               = useState(categories);
   const [dirty, setDirty]             = useState(false);
   const [newForm, setNewForm]         = useState({ id: '', name: '', type: 'income' });
@@ -229,7 +235,7 @@ export default function Kategorier({ categories, transactions, onSave, onReasign
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 24 }}>
+      {canWrite && <div className="card" style={{ marginBottom: 24 }}>
         <div className="section-title">Lägg till ny kategori</div>
         {error && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'#f5c6cb', color:'var(--red)', marginBottom:12 }}>{error}</div>}
         <div className="form-row form-row-cols" style={{ alignItems:'flex-end' }}>
@@ -269,7 +275,7 @@ export default function Kategorier({ categories, transactions, onSave, onReasign
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
         <div>
@@ -280,6 +286,7 @@ export default function Kategorier({ categories, transactions, onSave, onReasign
             transactions={transactions}
             onUpdate={update}
             onRemove={requestRemove}
+            canWrite={canWrite}
           />
         </div>
         <div>
@@ -290,11 +297,12 @@ export default function Kategorier({ categories, transactions, onSave, onReasign
             transactions={transactions}
             onUpdate={update}
             onRemove={requestRemove}
+            canWrite={canWrite}
           />
         </div>
       </div>
 
-      {dirty && (
+      {dirty && canWrite && (
         <div style={{ textAlign:'right', marginTop:8 }}>
           <button className="btn btn-primary" onClick={save}>
             <Check size={14}/> Spara alla ändringar

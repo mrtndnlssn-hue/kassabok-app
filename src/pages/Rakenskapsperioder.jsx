@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader } from 'lucide-react';
+import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
 import { getYear, txsForPeriod, attachments } from '../store';
 import { exportAnnualReport } from '../pdfExport';
-import { useAuth } from '../auth/AuthProvider';
 
 
 function periodsOverlap(a, b) {
@@ -177,6 +177,8 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
 
 // ── Huvudkomponent ───────────────────────────────────────────
 export default function Rakenskapsperioder({ fiscalPeriods, transactions, categories, budget, orgName, orgId, onSave }) {
+  const { role } = useAuth()
+  const canWrite = role !== 'viewer'
   const [periods, setPeriods]   = useState(fiscalPeriods);
   const [dirty, setDirty]       = useState(false);
   const [editIdx, setEditIdx]   = useState(null);
@@ -319,20 +321,22 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                       }
                     </td>
                     <td>
-                      <div className="gap-row" style={{gap:4}}>
-                        {!p.locked && <>
-                          <button className="btn btn-sm btn-secondary" onClick={() => startEdit(globalIdx)} title="Redigera"><Pencil size={12}/></button>
-                          <button className="btn btn-sm btn-primary" onClick={() => setCloseModal(p)} title="Stäng verksamhetsår och skapa ZIP">
-                            <Archive size={12}/> Stäng år
-                          </button>
-                          <button className="btn btn-sm btn-danger" onClick={() => remove(globalIdx)} title="Ta bort"><Trash2 size={12}/></button>
-                        </>}
-                        {p.locked &&
-                          <button className="btn btn-sm btn-secondary" onClick={() => toggleLock(globalIdx)} title="Lås upp">
-                            <Unlock size={12}/> Lås upp
-                          </button>
-                        }
-                      </div>
+                      {canWrite && (
+                        <div className="gap-row" style={{gap:4}}>
+                          {!p.locked && <>
+                            <button className="btn btn-sm btn-secondary" onClick={() => startEdit(globalIdx)} title="Redigera"><Pencil size={12}/></button>
+                            <button className="btn btn-sm btn-primary" onClick={() => setCloseModal(p)} title="Stäng verksamhetsår och skapa ZIP">
+                              <Archive size={12}/> Stäng år
+                            </button>
+                            <button className="btn btn-sm btn-danger" onClick={() => remove(globalIdx)} title="Ta bort"><Trash2 size={12}/></button>
+                          </>}
+                          {p.locked &&
+                            <button className="btn btn-sm btn-secondary" onClick={() => toggleLock(globalIdx)} title="Lås upp">
+                              <Unlock size={12}/> Lås upp
+                            </button>
+                          }
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -342,7 +346,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom:24 }}>
+      {canWrite && <div className="card" style={{ marginBottom:24 }}>
         <div className="section-title">Lägg till ny period</div>
         <div className="form-row form-row-cols" style={{ alignItems:'flex-end' }}>
           <div><label>Namn</label><input value={newForm.label} onChange={e=>setNewForm(f=>({...f,label:e.target.value}))} placeholder="t.ex. 2025"/></div>
@@ -372,9 +376,9 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
-      {dirty && <div style={{textAlign:'right'}}><button className="btn btn-primary" onClick={save}><Check size={14}/> Spara alla ändringar</button></div>}
+      {dirty && canWrite && <div style={{textAlign:'right'}}><button className="btn btn-primary" onClick={save}><Check size={14}/> Spara alla ändringar</button></div>}
 
       {closeModal && (
         <CloseYearModal

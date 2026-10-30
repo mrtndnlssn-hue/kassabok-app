@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
+import { useAuth } from '../auth/AuthProvider';
 
-function CatRow({ cat, budgetValue, actual, onBudgetChange }) {
+function CatRow({ cat, budgetValue, actual, onBudgetChange, canWrite }) {
   const [localVal, setLocalVal] = useState(budgetValue > 0 ? String(budgetValue) : '');
   const act = actual || 0;
   const bud = budgetValue || 0;
@@ -23,10 +24,11 @@ function CatRow({ cat, budgetValue, actual, onBudgetChange }) {
         <input
           type="number" step="100" min="0"
           value={localVal} placeholder="0"
-          onChange={e => setLocalVal(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={e => e.key==='Enter' && e.target.blur()}
-          style={{ width:'100%', textAlign:'right', fontFamily:'var(--font-mono)', fontSize:'0.85rem', background:'var(--paper)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'5px 8px', color:'var(--blue)' }}
+          onChange={e => canWrite && setLocalVal(e.target.value)}
+          onBlur={canWrite ? handleBlur : undefined}
+          onKeyDown={e => canWrite && e.key==='Enter' && e.target.blur()}
+          readOnly={!canWrite}
+          style={{ width:'100%', textAlign:'right', fontFamily:'var(--font-mono)', fontSize:'0.85rem', background:'var(--paper)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'5px 8px', color:'var(--blue)', cursor: canWrite ? 'text' : 'default' }}
         />
       </td>
       <td className={`text-right mono ${act>0?(cat.type==='income'?'positive':'negative'):''}`}>
@@ -61,6 +63,8 @@ function SectionTotal({ label, budgetTotal, actualTotal }) {
 }
 
 export default function BudgetResultat({ transactions, categories, budget, onBudgetChange, activePeriod }) {
+  const { role } = useAuth()
+  const canWrite = role !== 'viewer'
   const periodTxs    = useMemo(() => txsForPeriod(transactions, activePeriod), [transactions, activePeriod]);
   const actuals      = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
   const periodBudget = budget[activePeriod?.id] || {};
@@ -117,6 +121,7 @@ export default function BudgetResultat({ transactions, categories, budget, onBud
               <CatRow key={cat.id} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
                 actual={actuals[cat.id]||0}
+                canWrite={canWrite}
                 onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
               />
             ))}
@@ -127,6 +132,7 @@ export default function BudgetResultat({ transactions, categories, budget, onBud
               <CatRow key={cat.id} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
                 actual={actuals[cat.id]||0}
+                canWrite={canWrite}
                 onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
               />
             ))}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, X, Check, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, X, Check, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users } from 'lucide-react';
 import { store, getYear, getOrBuildPeriods } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
@@ -11,6 +11,7 @@ import BudgetResultat from './pages/BudgetResultat';
 import Kategorier from './pages/Kategorier';
 import Arsrapport from './pages/Arsrapport';
 import Rakenskapsperioder from './pages/Rakenskapsperioder';
+import Medlemmar from './pages/Medlemmar';
 import './index.css';
 
 const NAV = [
@@ -20,9 +21,11 @@ const NAV = [
   { id: 'kategorier', label: 'Kategorier',         icon: Tags },
   { id: 'arsrapport', label: 'Årsrapport (PDF)',   icon: FileText },
   { id: 'perioder',   label: 'Räkenskapsperioder', icon: CalendarDays },
+  { id: 'medlemmar',  label: 'Medlemmar',          icon: Users, ownerOnly: true },
 ];
 
-function MainApp({ orgId }) {
+function MainApp({ orgId, role }) {
+  const canWrite = role !== 'viewer'
   const [page, setPage]               = useState('dashboard');
   const [loading, setLoading]         = useState(true);
   const [transactions, setTxs]        = useState([]);
@@ -110,6 +113,7 @@ function MainApp({ orgId }) {
     kategorier: <Kategorier {...pageProps} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
+    medlemmar:  <Medlemmar orgId={orgId} />,
   };
 
   const subtitles = {
@@ -119,13 +123,14 @@ function MainApp({ orgId }) {
     kategorier: 'Definiera intäkts- och kostnadskategorier',
     arsrapport: 'Exportera PDF-årsrapport',
     perioder:   'Hantera räkenskapsperioder och verksamhetsår',
+    medlemmar:  'Bjud in och hantera föreningens användare',
   };
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          {editOrg ? (
+          {editOrg && canWrite ? (
             <div style={{ display:'flex', gap:6, alignItems:'center' }}>
               <input value={orgInput} onChange={e => setOrgInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSaveOrg()}
@@ -134,7 +139,7 @@ function MainApp({ orgId }) {
               <button onClick={() => setEditOrg(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', padding:2 }}><X size={14}/></button>
             </div>
           ) : (
-            <h1 title="Klicka för att byta föreningsnamn" onClick={() => { setOrgInput(orgName); setEditOrg(true); }} style={{ cursor:'pointer' }}>
+            <h1 title={role === 'owner' ? "Klicka för att byta föreningsnamn" : undefined} onClick={() => { if (canWrite) { setOrgInput(orgName); setEditOrg(true); } }} style={{ cursor: role === 'owner' ? 'pointer' : 'default' }}>
               {orgName || 'Min Förening'}
             </h1>
           )}
@@ -170,7 +175,7 @@ function MainApp({ orgId }) {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.map(n => {
+          {NAV.filter(n => !n.ownerOnly || role === 'owner').map(n => {
             const Icon  = n.icon;
             const isSep = n.id === 'perioder';
             return (
@@ -216,7 +221,7 @@ function MainApp({ orgId }) {
 }
 
 export default function App() {
-  const { session, orgId, loading } = useAuth();
+  const { session, orgId, role, loading } = useAuth();
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', color:'var(--ink-muted)', fontFamily:'var(--font-body)' }}>
@@ -227,5 +232,5 @@ export default function App() {
 
   if (!session)  return <LoginPage />;
   if (!orgId)    return <OrgSetup />;
-  return <MainApp orgId={orgId} />;
+  return <MainApp orgId={orgId} role={role} />;
 }

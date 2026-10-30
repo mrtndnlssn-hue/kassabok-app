@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, Check, Search, Paperclip } from 'lucide-react';
 import AttachmentPanel from './AttachmentPanel';
 import { fmt, txsForPeriod } from '../store';
+import { useAuth } from '../auth/AuthProvider';
 
 const EMPTY_FORM = {
   date: new Date().toISOString().slice(0, 10),
@@ -12,6 +13,8 @@ const EMPTY_FORM = {
 };
 
 export default function Kassabok({ transactions, categories, onAdd, onUpdate, onDelete, activePeriod }) {
+  const { role } = useAuth()
+  const canWrite = role !== 'viewer'
   const period = activePeriod;
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState(null);
@@ -87,9 +90,11 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
           <option value="expense">Kostnader</option>
         </select>
         <div className="ml-auto">
-          <button className="btn btn-primary" onClick={openAdd} disabled={!!activePeriod?.locked} style={{ opacity: activePeriod?.locked ? 0.4 : 1, cursor: activePeriod?.locked ? "not-allowed" : "pointer" }}>
-            <Plus size={15} /> Lägg till verifikat
-          </button>
+          {canWrite && (
+            <button className="btn btn-primary" onClick={openAdd} disabled={!!activePeriod?.locked} style={{ opacity: activePeriod?.locked ? 0.4 : 1, cursor: activePeriod?.locked ? "not-allowed" : "pointer" }}>
+              <Plus size={15} /> Lägg till verifikat
+            </button>
+          )}
         </div>
       </div>
 
@@ -157,19 +162,21 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
                     </button>
                   </td>
                   <td>
-                    <div className="gap-row" style={{ gap: 4 }}>
-                      <button className="btn btn-sm btn-secondary" onClick={() => openEdit(tx)} title="Redigera" disabled={!!activePeriod?.locked}>
-                        <Pencil size={12} />
-                      </button>
-                      <button
-                        className={`btn btn-sm ${deleteConfirm === tx.id ? 'btn-danger' : 'btn-secondary'}`}
-                        onClick={() => handleDelete(tx.id)}
-                        disabled={!!activePeriod?.locked}
-                        title={deleteConfirm === tx.id ? 'Bekräfta radering' : 'Radera'}
-                      >
-                        {deleteConfirm === tx.id ? <Check size={12} /> : <Trash2 size={12} />}
-                      </button>
-                    </div>
+                    {canWrite && (
+                      <div className="gap-row" style={{ gap: 4 }}>
+                        <button className="btn btn-sm btn-secondary" onClick={() => openEdit(tx)} title="Redigera" disabled={!!activePeriod?.locked}>
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          className={`btn btn-sm ${deleteConfirm === tx.id ? 'btn-danger' : 'btn-secondary'}`}
+                          onClick={() => handleDelete(tx.id)}
+                          disabled={!!activePeriod?.locked}
+                          title={deleteConfirm === tx.id ? 'Bekräfta radering' : 'Radera'}
+                        >
+                          {deleteConfirm === tx.id ? <Check size={12} /> : <Trash2 size={12} />}
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
