@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { Copy, Check, Trash2, ArrowRightLeft } from 'lucide-react'
-import TaBortForening from './TaBortForening'
 
 const ROLE_LABEL = {
   main_owner: 'Huvudägare',
@@ -311,7 +310,6 @@ export default function Medlemmar({ orgId, orgName }) {
         </section>
       )}
 
-      {isMainOwner && <TaBortForening orgId={orgId} orgName={orgName || 'föreningen'} />}
     </div>
   )
 }

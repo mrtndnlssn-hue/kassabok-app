@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, X, Check, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
 import { store, getYear, getOrBuildPeriods } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
@@ -13,6 +13,7 @@ import Kategorier from './pages/Kategorier';
 import Arsrapport from './pages/Arsrapport';
 import Rakenskapsperioder from './pages/Rakenskapsperioder';
 import Medlemmar from './pages/Medlemmar';
+import Installningar from './pages/Installningar';
 import './index.css';
 
 const NAV = [
@@ -22,13 +23,13 @@ const NAV = [
   { id: 'kategorier', label: 'Kategorier',         icon: Tags },
   { id: 'arsrapport', label: 'Årsrapport (PDF)',   icon: FileText },
   { id: 'perioder',   label: 'Räkenskapsperioder', icon: CalendarDays },
-  { id: 'medlemmar',  label: 'Medlemmar',          icon: Users, ownerOnly: true },
+  { id: 'medlemmar',    label: 'Medlemmar',    icon: Users,    ownerOnly: true },
+  { id: 'installningar', label: 'Inställningar', icon: Settings, ownerOnly: true },
 ];
 
 function MainApp({ orgId, role }) {
   const { orgs, setOrgId: switchOrg } = useAuth()
-  const canWrite    = role !== 'viewer'
-  const canEditName = role === 'main_owner'
+  const canWrite = role !== 'viewer'
   const [page, setPage]               = useState('dashboard');
   const [orgNames, setOrgNames]       = useState({});
   const [loading, setLoading]         = useState(true);
@@ -38,8 +39,6 @@ function MainApp({ orgId, role }) {
   const [orgName, setOrgName]         = useState('');
   const [fiscalPeriods, setFiscalPeriods] = useState([]);
   const [activePeriodId, setActivePeriodId] = useState(null);
-  const [editOrg, setEditOrg]         = useState(false);
-  const [orgInput, setOrgInput]       = useState('');
 
   async function fetchAll() {
     setLoading(true);
@@ -94,11 +93,6 @@ function MainApp({ orgId, role }) {
     const data = await store.getAll(orgId);
     setBudget(data.budget || {});
   }
-  async function handleSaveOrg() {
-    await store.setOrgName(orgId, orgInput);
-    setOrgName(orgInput);
-    setEditOrg(false);
-  }
   async function handlePeriodChange(id) {
     await store.setActivePeriodId(orgId, id);
     setActivePeriodId(id);
@@ -129,7 +123,8 @@ function MainApp({ orgId, role }) {
     kategorier: <Kategorier {...pageProps} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
-    medlemmar:  <Medlemmar orgId={orgId} orgName={orgName} />,
+    medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
+    installningar: <Installningar orgId={orgId} orgName={orgName} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };
 
   const subtitles = {
@@ -139,26 +134,15 @@ function MainApp({ orgId, role }) {
     kategorier: 'Definiera intäkts- och kostnadskategorier',
     arsrapport: 'Exportera PDF-årsrapport',
     perioder:   'Hantera räkenskapsperioder och verksamhetsår',
-    medlemmar:  'Bjud in och hantera föreningens användare',
+    medlemmar:     'Bjud in och hantera föreningens användare',
+    installningar: 'Föreningsnamn och borttagning',
   };
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          {editOrg && canEditName ? (
-            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-              <input value={orgInput} onChange={e => setOrgInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSaveOrg()}
-                style={{ flex:1, fontSize:'0.85rem', padding:'4px 8px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:4, color:'#fff' }} autoFocus />
-              <button onClick={handleSaveOrg} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.7)', padding:2 }}><Check size={14}/></button>
-              <button onClick={() => setEditOrg(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', padding:2 }}><X size={14}/></button>
-            </div>
-          ) : (
-            <h1 title={canEditName ? "Klicka för att byta föreningsnamn" : undefined} onClick={() => { if (canEditName) { setOrgInput(orgName); setEditOrg(true); } }} style={{ cursor: canEditName ? 'pointer' : 'default' }}>
-              {orgName || 'Min Förening'}
-            </h1>
-          )}
+          <h1>{orgName || 'Min Förening'}</h1>
 
           <div style={{ marginTop:10 }}>
             <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4 }}>Räkenskapsperiod</div>
