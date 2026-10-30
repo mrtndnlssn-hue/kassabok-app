@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { FileDown, Loader } from 'lucide-react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
-import { exportAnnualReport } from '../pdfExport';
+import { exportAnnualReport, exportBudget } from '../pdfExport';
 
 export default function Arsrapport({ transactions, categories, budget, orgName, fiscalPeriods, activePeriod }) {
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
-  const [loading, setLoading] = useState(false);
-  const [done, setDone]       = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [done, setDone]                 = useState(false);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetDone, setBudgetDone]       = useState(false);
 
   const period    = fiscalPeriods.find(p => p.id === selectedId) || fiscalPeriods[0];
   const periodBudget = budget[period?.id] || {};
@@ -24,6 +26,14 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
     exportAnnualReport({ orgName, period, transactions: periodTxs, categories, budget: periodBudget });
     setLoading(false); setDone(true);
     setTimeout(() => setDone(false), 4000);
+  }
+
+  async function handleBudgetExport() {
+    setBudgetLoading(true); setBudgetDone(false);
+    await new Promise(r => setTimeout(r, 300));
+    exportBudget({ orgName, period, categories, budget: periodBudget });
+    setBudgetLoading(false); setBudgetDone(true);
+    setTimeout(() => setBudgetDone(false), 4000);
   }
 
   if (!period) return <div className="notice notice-warn">Inga räkenskapsperioder definierade.</div>;
@@ -120,9 +130,35 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
         <button className="btn btn-primary" onClick={handleExport} disabled={loading} style={{ fontSize:'1rem', padding:'10px 24px' }}>
           {loading
             ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Genererar PDF…</>
-            : <><FileDown size={16}/> Ladda ner rapport för {period?.label} (PDF)</>}
+            : <><FileDown size={16}/> Ladda ner årsrapport för {period?.label} (PDF)</>}
         </button>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+
+      <div className="card">
+        <div className="section-title">Exportera budget</div>
+        <p style={{ fontSize:'0.85rem', color:'var(--ink-muted)', marginBottom:16 }}>
+          Exportera en ren budgetsammanställning – utan utfall. Lämplig inför t.ex. ett årsmöte.
+        </p>
+        <div style={{ display:'flex', gap:16, alignItems:'flex-end', marginBottom:16, flexWrap:'wrap' }}>
+          <div>
+            <label>Räkenskapsperiod</label>
+            <select value={selectedId} onChange={e => setSelectedId(e.target.value)} style={{ minWidth:200 }}>
+              {[...fiscalPeriods].sort((a,b)=>b.start.localeCompare(a.start)).map(p => (
+                <option key={p.id} value={p.id}>{p.label} ({p.start} – {p.end})</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ fontSize:'0.82rem', color:'var(--ink-muted)', paddingBottom:6 }}>
+            {categories.filter(c => (periodBudget[c.id] || 0) > 0).length} kategorier med budget
+          </div>
+        </div>
+        {budgetDone && <div className="notice notice-success">Budget-PDF genererad och nedladdad!</div>}
+        <button className="btn btn-secondary" onClick={handleBudgetExport} disabled={budgetLoading} style={{ fontSize:'1rem', padding:'10px 24px' }}>
+          {budgetLoading
+            ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Genererar PDF…</>
+            : <><FileDown size={16}/> Ladda ner budget för {period?.label} (PDF)</>}
+        </button>
       </div>
     </div>
   );
