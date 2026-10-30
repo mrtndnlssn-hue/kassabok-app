@@ -298,7 +298,7 @@ export default function Medlemmar({ orgId, orgName }) {
                       · Skapad {new Date(inv.created_at).toLocaleString('sv-SE', { dateStyle:'short', timeStyle:'short' })}
                       · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
                       {inv.code === newestCode && (
-                        <span style={{ background:'var(--green)', color:'#fff', fontSize:'0.65rem', fontWeight:700, padding:'1px 6px', borderRadius:99 }}>Ny</span>
+                        <span style={{ background:'#16a34a', color:'#fff', fontSize:'0.65rem', fontWeight:700, padding:'2px 7px', borderRadius:99, letterSpacing:'0.03em' }}>NY</span>
                       )}
                     </div>
                   </div>
