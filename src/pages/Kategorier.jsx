@@ -51,9 +51,9 @@ function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onUpda
                       value={cat.name}
                       onChange={e => !isLocked && canWrite && onUpdate(cat._k, e.target.value)}
                       readOnly={!canWrite || isLocked}
-                      style={{ border:'1px solid transparent', background:'transparent', padding:'4px 0', flex:1, cursor: (canWrite && !isLocked) ? 'text' : 'default' }}
-                      onFocus={e => canWrite && !isLocked && (e.target.style.borderColor = 'var(--border)')}
-                      onBlur={e  => e.target.style.borderColor = 'transparent'}
+                      style={codeEditable
+                        ? { flex:1, fontSize:'0.9rem', padding:'3px 8px', cursor:'text' }
+                        : { border:'1px solid transparent', background:'transparent', padding:'4px 0', flex:1, cursor:'default' }}
                     />
                     {txCount > 0 && (
                       <span title={`${txCount} verifikat`} style={{ fontSize:'0.7rem', color:'var(--ink-muted)', whiteSpace:'nowrap', background:'var(--paper-2)', padding:'1px 6px', borderRadius:99, border:'1px solid var(--border)' }}>
