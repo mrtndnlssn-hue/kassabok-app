@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Trash2, Check, AlertCircle, X, ArrowRight, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
-import { store } from '../store';
 
 function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onRemove, onToggleHidden, canWrite, showHidden }) {
   const visible = showHidden ? items : items.filter(c => !c.hidden)
@@ -180,9 +179,9 @@ export default function Kategorier({ categories, transactions, fiscalPeriods, on
     setDirty(true)
   }
 
-  async function toggleHidden(catId, hidden) {
+  function toggleHidden(catId, hidden) {
     setCats(prev => prev.map(c => c.id === catId ? { ...c, hidden } : c))
-    await store.toggleCategoryHidden(orgId, catId, hidden)
+    setDirty(true)
   }
 
   function addCategory() {
