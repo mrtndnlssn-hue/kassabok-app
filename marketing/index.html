@@ -105,14 +105,40 @@ body {
 .nav-logo img { width: 28px; height: 28px; display: block; }
 .nav-tab { white-space: nowrap; }
 @media (max-width: 520px) {
-  .nav-tab { padding-left: 9px; padding-right: 9px; }
   .nav-logo { font-size: .95rem; gap: 7px; }
   .nav-logo img { width: 26px; height: 26px; }
 }
 @media (max-width: 460px) {
   .nav-logo strong { display: none; }
+  .nav-logo img { width: 24px; height: 24px; }
+  .lang-switch { margin-left: 0; font-size: .6875rem; }
+  .lang-switch button { padding-left: 2px; padding-right: 2px; }
 }
 .nav-logo span { color: var(--ink); font-weight: 400; }
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--ink3);
+  white-space: nowrap;
+}
+.lang-switch button {
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  font: inherit;
+  color: var(--ink3);
+  cursor: pointer;
+}
+.lang-switch button:hover { color: var(--ink); }
+.lang-switch button.active { color: var(--accent); }
+@media (max-width: 520px) {
+  .lang-switch { margin-left: 2px; }
+  .lang-switch button { padding-left: 3px; padding-right: 3px; }
+}
 .nav-tab {
   display: block;
   padding: 16px 18px 14px;
@@ -131,6 +157,12 @@ body {
 }
 .nav-tab:hover { color: var(--ink); }
 .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+@media (max-width: 520px) {
+  .nav-tab { padding-left: 9px; padding-right: 9px; }
+}
+@media (max-width: 460px) {
+  .nav-tab { padding-left: 6px; padding-right: 6px; font-size: .8125rem; }
+}
 
 /* ── Shared ──────────────────────────────────────────────────────── */
 .view { display: none; }
@@ -530,10 +562,13 @@ footer a { color: var(--ink3); text-decoration: underline; }
 <nav class="site-nav">
   <div class="nav-inner">
     <a class="nav-logo" href="#start" onclick="navigate('start',this)"><img src="/favicon.svg" alt="Föreningsbalans" width="28" height="28"><strong style="font-weight:inherit">Förenings<span>balans</span></strong></a>
-    <button class="nav-tab active" id="tab-start"   onclick="navigate('start',  this)">Start</button>
-    <button class="nav-tab"        id="tab-priser"  onclick="navigate('priser', this)">Priser</button>
-    <button class="nav-tab"        id="tab-hjalp"   onclick="navigate('hjalp',  this)">Hjälp</button>
-    <a class="nav-tab" href="https://app.foreningsbalans.se" style="color:var(--accent)">Logga in →</a>
+    <button data-en="Start" class="nav-tab active" id="tab-start"   onclick="navigate('start',  this)">Start</button>
+    <button data-en="Pricing" class="nav-tab"        id="tab-priser"  onclick="navigate('priser', this)">Priser</button>
+    <button data-en="Help" class="nav-tab"        id="tab-hjalp"   onclick="navigate('hjalp',  this)">Hjälp</button>
+    <a data-en="Log in →" class="nav-tab" data-app href="https://app.foreningsbalans.se" style="color:var(--accent)">Logga in →</a>
+    <div class="lang-switch" role="group" aria-label="Språk / Language">
+      <button type="button" data-lang="sv" onclick="setLang('sv')">SV</button><span aria-hidden="true">|</span><button type="button" data-lang="en" onclick="setLang('en')">EN</button>
+    </div>
   </div>
 </nav>
 
@@ -543,96 +578,96 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
     <section class="hero">
       <div class="hero-eyebrow">
-        <span class="badge badge-blue">För ideella föreningar</span>
-        <span class="badge badge-green">Gratis att börja</span>
+        <span data-en="For non-profit associations" class="badge badge-blue">För ideella föreningar</span>
+        <span data-en="Free to start" class="badge badge-green">Gratis att börja</span>
       </div>
-      <h1>Enkel bokföring för <em>ideella föreningar</em></h1>
-      <p class="hero-sub">
+      <h1 data-en="Simple bookkeeping for <em>non-profit associations</em>">Enkel bokföring för <em>ideella föreningar</em></h1>
+      <p data-en="Föreningsbalans is a web tool that helps your treasurer keep track of payments in and out, generate annual reports and keep the finances transparent to the whole board." class="hero-sub">
         Föreningsbalans är ett webbverktyg som hjälper er kassör att hålla koll på in- och utbetalningar, generera årsrapporter och hålla ekonomin transparent inför hela styrelsen.
       </p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="https://app.foreningsbalans.se">Kom igång gratis →</a>
-        <a class="btn btn-outline"  href="#" onclick="navigate('priser', document.getElementById('tab-priser')); return false;">Se priser</a>
+        <a data-en="Get started free →" class="btn btn-primary" data-app href="https://app.foreningsbalans.se">Kom igång gratis →</a>
+        <a data-en="See pricing" class="btn btn-outline"  href="#" onclick="navigate('priser', document.getElementById('tab-priser')); return false;">Se priser</a>
       </div>
     </section>
 
     <section class="features">
       <div class="section-header">
-        <h2>Allt kassören behöver</h2>
-        <p>Från verifikat till årsredovisning — i en och samma vy.</p>
+        <h2 data-en="Everything the treasurer needs">Allt kassören behöver</h2>
+        <p data-en="From vouchers to annual accounts — all in one place.">Från verifikat till årsredovisning — i en och samma vy.</p>
       </div>
       <div class="feature-grid">
         <div class="feature-card">
           <div class="feature-icon">📒</div>
-          <h3>Kassabok</h3>
-          <p>Mata in inkomster och utgifter snabbt. Bifoga kvitton, lägg till kommentarer och se saldot löpande.</p>
+          <h3 data-en="Cash book">Kassabok</h3>
+          <p data-en="Enter income and expenses quickly. Attach receipts, add comments and follow the balance as you go.">Mata in inkomster och utgifter snabbt. Bifoga kvitton, lägg till kommentarer och se saldot löpande.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📊</div>
           <h3>Budget</h3>
-          <p>Sätt en budget per kategori och räkenskapsperiod. Jämför utfall mot budget i realtid.</p>
+          <p data-en="Set a budget per category and financial year. Compare actuals against budget in real time.">Sätt en budget per kategori och räkenskapsperiod. Jämför utfall mot budget i realtid.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📄</div>
-          <h3>Årsrapport (PDF)</h3>
-          <p>Generera en komplett resultaträkning med verifikatlista och kassarapport — redo för årsredovisningen.</p>
+          <h3 data-en="Annual report (PDF)">Årsrapport (PDF)</h3>
+          <p data-en="Generate a complete income statement with a voucher list and cash report — ready for the annual accounts.">Generera en komplett resultaträkning med verifikatlista och kassarapport — redo för årsredovisningen.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🏷️</div>
-          <h3>Kategorier</h3>
-          <p>Anpassa kontoplan efter er förening. Lås kategorier för stängda perioder och dölj gamla konton.</p>
+          <h3 data-en="Categories">Kategorier</h3>
+          <p data-en="Tailor the chart of accounts to your association. Lock categories for closed periods and hide old accounts.">Anpassa kontoplan efter er förening. Lås kategorier för stängda perioder och dölj gamla konton.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🗓️</div>
-          <h3>Räkenskapsperioder</h3>
-          <p>Hantera flera perioder med rätt start- och slutdatum. Lås avslutade perioder mot oavsiktliga ändringar.</p>
+          <h3 data-en="Financial years">Räkenskapsperioder</h3>
+          <p data-en="Manage several periods with the right start and end dates. Lock finished periods against accidental changes.">Hantera flera perioder med rätt start- och slutdatum. Lås avslutade perioder mot oavsiktliga ändringar.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">👥</div>
-          <h3>Flera användare</h3>
-          <p>Bjud in upp till 15 användare per förening med en inbjudningslänk, med roller som ägare, medlem eller läsare.</p>
+          <h3 data-en="Multiple users">Flera användare</h3>
+          <p data-en="Invite up to 15 users per association with an invite link, with roles such as owner, member or viewer.">Bjud in upp till 15 användare per förening med en inbjudningslänk, med roller som ägare, medlem eller läsare.</p>
         </div>
       </div>
     </section>
 
     <section class="howto">
       <div class="section-header">
-        <h2>Hur det fungerar</h2>
-        <p>Tre steg från noll till fungerande kassabok.</p>
+        <h2 data-en="How it works">Hur det fungerar</h2>
+        <p data-en="Three steps from zero to a working cash book.">Tre steg från noll till fungerande kassabok.</p>
       </div>
       <div class="steps">
         <div class="step">
           <div class="step-num">1</div>
-          <h3>Skapa en förening</h3>
-          <p>Logga in med din e-post, ge föreningen ett namn och din kassabok är redo att användas.</p>
+          <h3 data-en="Create an association">Skapa en förening</h3>
+          <p data-en="Log in with your email, give the association a name and your cash book is ready to use.">Logga in med din e-post, ge föreningen ett namn och din kassabok är redo att användas.</p>
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <h3>Lägg upp kategorier och period</h3>
-          <p>Definiera era inkomst- och utgiftskategorier och en räkenskapsperiod med rätt datum.</p>
+          <h3 data-en="Set up categories and a financial year">Lägg upp kategorier och period</h3>
+          <p data-en="Define your income and expense categories and a financial year with the right dates.">Definiera era inkomst- och utgiftskategorier och en räkenskapsperiod med rätt datum.</p>
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <h3>Börja bokföra</h3>
-          <p>Mata in verifikat löpande. Årsrapporten genereras automatiskt när ni behöver den.</p>
+          <h3 data-en="Start bookkeeping">Börja bokföra</h3>
+          <p data-en="Enter vouchers as you go. The annual report is generated automatically when you need it.">Mata in verifikat löpande. Årsrapporten genereras automatiskt när ni behöver den.</p>
         </div>
       </div>
     </section>
 
     <div class="who">
       <div class="section-header">
-        <h2>Passar för alla typer av föreningar</h2>
-        <p>Idrottsföreningar, byalag, kulturföreningar, hobbyföreningar — alla med behov av enkel och tydlig ekonomiredovisning.</p>
+        <h2 data-en="Fits every kind of association">Passar för alla typer av föreningar</h2>
+        <p data-en="Sports associations, village associations, cultural associations, hobby associations — anyone who needs simple, clear financial reporting.">Idrottsföreningar, byalag, kulturföreningar, hobbyföreningar — alla med behov av enkel och tydlig ekonomiredovisning.</p>
       </div>
       <div class="who-list">
-        <span class="who-chip">Idrottsföreningar</span>
-        <span class="who-chip">Snöskoterklubbar</span>
-        <span class="who-chip">Byalag</span>
-        <span class="who-chip">Kulturföreningar</span>
-        <span class="who-chip">Friluftsföreningar</span>
-        <span class="who-chip">Hobbyföreningar</span>
-        <span class="who-chip">Hembygdsföreningar</span>
-        <span class="who-chip">Studentföreningar</span>
+        <span data-en="Sports associations" class="who-chip">Idrottsföreningar</span>
+        <span data-en="Snowmobile associations" class="who-chip">Snöskoterklubbar</span>
+        <span data-en="Village associations" class="who-chip">Byalag</span>
+        <span data-en="Cultural associations" class="who-chip">Kulturföreningar</span>
+        <span data-en="Outdoor associations" class="who-chip">Friluftsföreningar</span>
+        <span data-en="Hobby associations" class="who-chip">Hobbyföreningar</span>
+        <span data-en="Local heritage associations" class="who-chip">Hembygdsföreningar</span>
+        <span data-en="Student associations" class="who-chip">Studentföreningar</span>
       </div>
     </div>
 
@@ -644,68 +679,68 @@ footer a { color: var(--ink3); text-decoration: underline; }
   <div class="container">
 
     <div class="pricing-hero">
-      <h2>Enkelt och transparent</h2>
-      <p>Börja utan kostnad. Uppgradera när er förening växer.</p>
+      <h2 data-en="Simple and transparent">Enkelt och transparent</h2>
+      <p data-en="Start for free. Upgrade as your association grows.">Börja utan kostnad. Uppgradera när er förening växer.</p>
     </div>
 
     <div class="plan-grid">
       <div class="plan-card">
-        <div class="plan-label">Gratis</div>
-        <div class="plan-price"><sup></sup>0 <small>kr/mån</small></div>
-        <p class="plan-desc">Perfekt för en liten förening som kommer igång.</p>
+        <div data-en="Free" class="plan-label">Gratis</div>
+        <div class="plan-price"><sup></sup>0 <small data-en="SEK/month">kr/mån</small></div>
+        <p data-en="Perfect for a small association getting started." class="plan-desc">Perfekt för en liten förening som kommer igång.</p>
         <hr class="plan-divider">
         <ul class="plan-features">
-          <li><span class="check">✓</span> <span>Upp till <strong>100 verifikat</strong> per räkenskapsår</span></li>
-          <li><span class="check">✓</span> <span>1 förening</span></li>
-          <li><span class="check">✓</span> <span>Upp till <strong>15 användare</strong> per förening</span></li>
-          <li><span class="check">✓</span> <span>Kategorier och budget</span></li>
-          <li><span class="check">✓</span> <span>PDF-årsrapport</span></li>
-          <li><span class="check">✓</span> <span>Räkenskapsperioder</span></li>
+          <li><span class="check">✓</span> <span data-en="Up to <strong>100 vouchers</strong> per financial year">Upp till <strong>100 verifikat</strong> per räkenskapsår</span></li>
+          <li><span class="check">✓</span> <span data-en="1 association">1 förening</span></li>
+          <li><span class="check">✓</span> <span data-en="Up to <strong>15 users</strong> per association">Upp till <strong>15 användare</strong> per förening</span></li>
+          <li><span class="check">✓</span> <span data-en="Categories and budget">Kategorier och budget</span></li>
+          <li><span class="check">✓</span> <span data-en="PDF annual report">PDF-årsrapport</span></li>
+          <li><span class="check">✓</span> <span data-en="Financial years">Räkenskapsperioder</span></li>
         </ul>
-        <a class="btn btn-outline plan-btn" href="https://app.foreningsbalans.se">Kom igång gratis →</a>
+        <a data-en="Get started free →" class="btn btn-outline plan-btn" data-app href="https://app.foreningsbalans.se">Kom igång gratis →</a>
       </div>
 
       <div class="plan-card featured">
         <div class="plan-label">Plus</div>
-        <div class="plan-price"><sup></sup>49 <small>kr/mån</small></div>
-        <p class="plan-desc">För aktiva föreningar som bokför löpande hela året.</p>
+        <div class="plan-price"><sup></sup>49 <small data-en="SEK/month">kr/mån</small></div>
+        <p data-en="For active associations that keep their books all year round." class="plan-desc">För aktiva föreningar som bokför löpande hela året.</p>
         <hr class="plan-divider">
         <ul class="plan-features">
-          <li><span class="check">✓</span> <span><strong>Obegränsat</strong> antal verifikat</span></li>
-          <li><span class="check">✓</span> <span>Upp till <strong>5 föreningar</strong></span></li>
-          <li><span class="check">✓</span> <span>Upp till <strong>15 användare</strong> per förening</span></li>
-          <li><span class="check">✓</span> <span>Kategorier och budget</span></li>
-          <li><span class="check">✓</span> <span>PDF-årsrapport + kassarapport</span></li>
-          <li><span class="check">✓</span> <span>Räkenskapsperioder med låsning</span></li>
-          <li><span class="check">✓</span> <span>Bifoga kvitton (bilagor)</span></li>
-          <li><span class="check">✓</span> <span>Prioriterad support</span></li>
+          <li><span class="check">✓</span> <span data-en="<strong>Unlimited</strong> vouchers"><strong>Obegränsat</strong> antal verifikat</span></li>
+          <li><span class="check">✓</span> <span data-en="Up to <strong>5 associations</strong>">Upp till <strong>5 föreningar</strong></span></li>
+          <li><span class="check">✓</span> <span data-en="Up to <strong>15 users</strong> per association">Upp till <strong>15 användare</strong> per förening</span></li>
+          <li><span class="check">✓</span> <span data-en="Categories and budget">Kategorier och budget</span></li>
+          <li><span class="check">✓</span> <span data-en="PDF annual report + cash report">PDF-årsrapport + kassarapport</span></li>
+          <li><span class="check">✓</span> <span data-en="Financial years with locking">Räkenskapsperioder med låsning</span></li>
+          <li><span class="check">✓</span> <span data-en="Attach receipts (attachments)">Bifoga kvitton (bilagor)</span></li>
+          <li><span class="check">✓</span> <span data-en="Priority support">Prioriterad support</span></li>
         </ul>
-        <a class="btn btn-primary plan-btn" href="mailto:hej@foreningsbalans.se">Kontakta oss →</a>
+        <a data-en="Contact us →" class="btn btn-primary plan-btn" href="mailto:hej@foreningsbalans.se">Kontakta oss →</a>
       </div>
     </div>
 
     <div class="faq">
-      <h3>Vanliga frågor</h3>
+      <h3 data-en="Frequently asked questions">Vanliga frågor</h3>
 
       <div class="faq-item">
-        <div class="faq-q">Behöver vi betala för att testa?</div>
-        <div class="faq-a">Nej. Gratis-planen är permanent — ni kan använda Föreningsbalans utan kostnad så länge ni håller er under 100 verifikat per räkenskapsår.</div>
+        <div data-en="Do we have to pay to try it?" class="faq-q">Behöver vi betala för att testa?</div>
+        <div data-en="No. The free plan is permanent — you can use Föreningsbalans at no cost as long as you stay under 100 vouchers per financial year." class="faq-a">Nej. Gratis-planen är permanent — ni kan använda Föreningsbalans utan kostnad så länge ni håller er under 100 verifikat per räkenskapsår.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Vad händer om vi når 100 verifikat?</div>
-        <div class="faq-a">Ni kan fortfarande se och exportera all data, men inte lägga till fler verifikat utan att uppgradera till Plus.</div>
+        <div data-en="What happens if we reach 100 vouchers?" class="faq-q">Vad händer om vi når 100 verifikat?</div>
+        <div data-en="You can still view and export all your data, but you cannot add more vouchers without upgrading to Plus." class="faq-a">Ni kan fortfarande se och exportera all data, men inte lägga till fler verifikat utan att uppgradera till Plus.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Kan kassören och revisorn använda appen samtidigt?</div>
-        <div class="faq-a">Ja. Du bjuder in upp till 15 användare per förening, t.ex. styrelsemedlemmar och revisor, via en inbjudningslänk — utan extra kostnad.</div>
+        <div data-en="Can the treasurer and the auditor use the app at the same time?" class="faq-q">Kan kassören och revisorn använda appen samtidigt?</div>
+        <div data-en="Yes. You invite up to 15 users per association, e.g. board members and the auditor, via an invite link — at no extra cost." class="faq-a">Ja. Du bjuder in upp till 15 användare per förening, t.ex. styrelsemedlemmar och revisor, via en inbjudningslänk — utan extra kostnad.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Var lagras vår data?</div>
-        <div class="faq-a">All data lagras i Sverige via Supabase (PostgreSQL), som uppfyller GDPR. Inga tredjeparter har tillgång till er ekonomidata.</div>
+        <div data-en="Where is our data stored?" class="faq-q">Var lagras vår data?</div>
+        <div data-en="All data is stored in Sweden via Supabase (PostgreSQL), which complies with GDPR. No third parties have access to your financial data." class="faq-a">All data lagras i Sverige via Supabase (PostgreSQL), som uppfyller GDPR. Inga tredjeparter har tillgång till er ekonomidata.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Kan vi avsluta när vi vill?</div>
-        <div class="faq-a">Ja, ni binder er inte. Innan ni slutar kan ni exportera varje räkenskapsår som en Excel-fil med alla verifikat, tillsammans med era kvitton och bilagor, samt som PDF-årsrapport.</div>
+        <div data-en="Can we cancel whenever we want?" class="faq-q">Kan vi avsluta när vi vill?</div>
+        <div data-en="Yes, you are not locked in. Before you leave you can export each financial year as an Excel file with all vouchers, together with your receipts and attachments, as well as a PDF annual report." class="faq-a">Ja, ni binder er inte. Innan ni slutar kan ni exportera varje räkenskapsår som en Excel-fil med alla verifikat, tillsammans med era kvitton och bilagor, samt som PDF-årsrapport.</div>
       </div>
     </div>
 
@@ -717,91 +752,91 @@ footer a { color: var(--ink3); text-decoration: underline; }
   <div class="container">
 
     <div class="help-hero">
-      <h2>Kom igång med Föreningsbalans</h2>
-      <p>En guide till appens viktigaste funktioner och hur du börjar.</p>
+      <h2 data-en="Getting started with Föreningsbalans">Kom igång med Föreningsbalans</h2>
+      <p data-en="A guide to the app's most important features and how to begin.">En guide till appens viktigaste funktioner och hur du börjar.</p>
     </div>
 
     <div class="getting-started-box">
-      <h3>Snabbstart — fem minuter till fungerande kassabok</h3>
-      <p>Följ dessa steg i ordning första gången du loggar in.</p>
+      <h3 data-en="Quick start — five minutes to a working cash book">Snabbstart — fem minuter till fungerande kassabok</h3>
+      <p data-en="Follow these steps in order the first time you log in.">Följ dessa steg i ordning första gången du loggar in.</p>
       <div class="gs-steps">
         <div class="gs-step">
           <div class="gs-num">1</div>
-          <p><strong>Logga in</strong> med din e-postadress via Magic Link — inget lösenord krävs.</p>
+          <p data-en="<strong>Log in</strong> with your email address via magic link — no password required."><strong>Logga in</strong> med din e-postadress via Magic Link — inget lösenord krävs.</p>
         </div>
         <div class="gs-step">
           <div class="gs-num">2</div>
-          <p><strong>Skapa förening</strong> — klicka "Ny förening" och ge den ett namn.</p>
+          <p data-en="<strong>Create an association</strong> — click &quot;New association&quot; and give it a name."><strong>Skapa förening</strong> — klicka "Ny förening" och ge den ett namn.</p>
         </div>
         <div class="gs-step">
           <div class="gs-num">3</div>
-          <p><strong>Lägg upp räkenskapsperiod</strong> under Räkenskapsperioder (t.ex. 2025-01-01 – 2025-12-31).</p>
+          <p data-en="<strong>Add a financial year</strong> under Financial years (e.g. 2025-01-01 – 2025-12-31)."><strong>Lägg upp räkenskapsperiod</strong> under Räkenskapsperioder (t.ex. 2025-01-01 – 2025-12-31).</p>
         </div>
         <div class="gs-step">
           <div class="gs-num">4</div>
-          <p><strong>Skapa kategorier</strong> under Kategorier — minst en inkomstkategori och en utgiftskategori.</p>
+          <p data-en="<strong>Create categories</strong> under Categories — at least one income category and one expense category."><strong>Skapa kategorier</strong> under Kategorier — minst en inkomstkategori och en utgiftskategori.</p>
         </div>
         <div class="gs-step">
           <div class="gs-num">5</div>
-          <p><strong>Börja mata in verifikat</strong> i Kassabok-fliken. Du är klar!</p>
+          <p data-en="<strong>Start entering vouchers</strong> in the Cash book tab. You're done!"><strong>Börja mata in verifikat</strong> i Kassabok-fliken. Du är klar!</p>
         </div>
       </div>
     </div>
 
     <div class="help-toc">
-      <a class="toc-chip" href="#sec-kassabok">Kassabok</a>
-      <a class="toc-chip" href="#sec-kategorier">Kategorier</a>
-      <a class="toc-chip" href="#sec-perioder">Räkenskapsperioder</a>
+      <a data-en="Cash book" class="toc-chip" href="#sec-kassabok">Kassabok</a>
+      <a data-en="Categories" class="toc-chip" href="#sec-kategorier">Kategorier</a>
+      <a data-en="Financial years" class="toc-chip" href="#sec-perioder">Räkenskapsperioder</a>
       <a class="toc-chip" href="#sec-budget">Budget</a>
-      <a class="toc-chip" href="#sec-arsrapport">Årsrapport</a>
-      <a class="toc-chip" href="#sec-medlemmar">Medlemmar</a>
+      <a data-en="Annual report" class="toc-chip" href="#sec-arsrapport">Årsrapport</a>
+      <a data-en="Members" class="toc-chip" href="#sec-medlemmar">Medlemmar</a>
     </div>
 
     <div class="help-section" id="sec-kassabok">
       <div class="help-section-header">
         <div class="help-icon">📒</div>
-        <h3>Kassabok — löpande bokföring</h3>
+        <h3 data-en="Cash book — day-to-day bookkeeping">Kassabok — löpande bokföring</h3>
       </div>
-      <p>Kassaboken är appens hjärta. Här registrerar du alla in- och utbetalningar som verifikat.</p>
+      <p data-en="The cash book is the heart of the app. This is where you record all payments in and out as vouchers.">Kassaboken är appens hjärta. Här registrerar du alla in- och utbetalningar som verifikat.</p>
       <ul class="help-steps">
-        <li><div class="step-dot">1</div><span>Välj aktiv <strong>räkenskapsperiod</strong> med periodomslagaren längst upp.</span></li>
-        <li><div class="step-dot">2</div><span>Klicka <strong>Nytt verifikat</strong>, fyll i datum (YYYY-MM-DD), beskrivning, kategori och belopp.</span></li>
-        <li><div class="step-dot">3</div><span>Bifoga ett kvitto (PDF eller bild) som bilaga om ni vill.</span></li>
-        <li><div class="step-dot">4</div><span>Klicka <strong>Spara</strong>. Verifikatet visas i listan och saldot uppdateras direkt.</span></li>
-        <li><div class="step-dot">5</div><span>Klicka på ett befintligt verifikat för att redigera eller radera det.</span></li>
+        <li><div class="step-dot">1</div><span data-en="Choose the active <strong>financial year</strong> with the period switcher at the top.">Välj aktiv <strong>räkenskapsperiod</strong> med periodomslagaren längst upp.</span></li>
+        <li><div class="step-dot">2</div><span data-en="Click <strong>New voucher</strong>, enter the date (YYYY-MM-DD), description, category and amount.">Klicka <strong>Nytt verifikat</strong>, fyll i datum (YYYY-MM-DD), beskrivning, kategori och belopp.</span></li>
+        <li><div class="step-dot">3</div><span data-en="Attach a receipt (PDF or image) if you like.">Bifoga ett kvitto (PDF eller bild) som bilaga om ni vill.</span></li>
+        <li><div class="step-dot">4</div><span data-en="Click <strong>Save</strong>. The voucher appears in the list and the balance updates immediately.">Klicka <strong>Spara</strong>. Verifikatet visas i listan och saldot uppdateras direkt.</span></li>
+        <li><div class="step-dot">5</div><span data-en="Click an existing voucher to edit or delete it.">Klicka på ett befintligt verifikat för att redigera eller radera det.</span></li>
       </ul>
-      <div class="help-tip">Tips: Kategorier märkta med 🔒 tillhör en låst period och kan inte väljas för nya verifikat.</div>
+      <div data-en="Tip: Categories marked with 🔒 belong to a locked period and cannot be chosen for new vouchers." class="help-tip">Tips: Kategorier märkta med 🔒 tillhör en låst period och kan inte väljas för nya verifikat.</div>
     </div>
 
     <div class="help-section" id="sec-kategorier">
       <div class="help-section-header">
         <div class="help-icon">🏷️</div>
-        <h3>Kategorier — er kontoplan</h3>
+        <h3 data-en="Categories — your chart of accounts">Kategorier — er kontoplan</h3>
       </div>
-      <p>Kategorier motsvrar kontonummer i en traditionell bokföring. Varje kategori är antingen <strong>inkomst</strong> eller <strong>utgift</strong>.</p>
+      <p data-en="Categories correspond to account numbers in traditional bookkeeping. Each category is either <strong>income</strong> or <strong>expense</strong>.">Kategorier motsvrar kontonummer i en traditionell bokföring. Varje kategori är antingen <strong>inkomst</strong> eller <strong>utgift</strong>.</p>
       <ul class="help-steps">
-        <li><div class="step-dot">1</div><span>Gå till fliken <strong>Kategorier</strong>.</span></li>
-        <li><div class="step-dot">2</div><span>Ange ett kort ID (t.ex. <code>I01</code> för inkomst, <code>U01</code> för utgift) och ett namn.</span></li>
-        <li><div class="step-dot">3</div><span>Välj typ — Inkomst eller Utgift — och klicka <strong>Spara</strong>.</span></li>
-        <li><div class="step-dot">4</div><span>Kategorier kopplade till en låst period visas med 🔒 och kan inte tas bort, men kan <em>döljas</em> med ögonikonen.</span></li>
+        <li><div class="step-dot">1</div><span data-en="Go to the <strong>Categories</strong> tab.">Gå till fliken <strong>Kategorier</strong>.</span></li>
+        <li><div class="step-dot">2</div><span data-en="Enter a short ID (e.g. <code>I01</code> for income, <code>E01</code> for expense) and a name.">Ange ett kort ID (t.ex. <code>I01</code> för inkomst, <code>U01</code> för utgift) och ett namn.</span></li>
+        <li><div class="step-dot">3</div><span data-en="Choose a type — Income or Expense — and click <strong>Save</strong>.">Välj typ — Inkomst eller Utgift — och klicka <strong>Spara</strong>.</span></li>
+        <li><div class="step-dot">4</div><span data-en="Categories linked to a locked period are shown with 🔒 and cannot be deleted, but can be <em>hidden</em> with the eye icon.">Kategorier kopplade till en låst period visas med 🔒 och kan inte tas bort, men kan <em>döljas</em> med ögonikonen.</span></li>
       </ul>
-      <div class="help-tip">Tips: Välj ID-format som stämmer med er förenings kontoplanskonvention — t.ex. 3000-serien för intäkter.</div>
+      <div data-en="Tip: Pick an ID format that matches your association's chart-of-accounts convention — e.g. the 3000 series for income." class="help-tip">Tips: Välj ID-format som stämmer med er förenings kontoplanskonvention — t.ex. 3000-serien för intäkter.</div>
     </div>
 
     <div class="help-section" id="sec-perioder">
       <div class="help-section-header">
         <div class="help-icon">🗓️</div>
-        <h3>Räkenskapsperioder</h3>
+        <h3 data-en="Financial years">Räkenskapsperioder</h3>
       </div>
-      <p>En räkenskapsperiod är ett tidsintervall (t.ex. ett verksamhetsår). Alla verifikat hör till en period.</p>
+      <p data-en="A financial year is a span of time (e.g. an operating year). Every voucher belongs to a period.">En räkenskapsperiod är ett tidsintervall (t.ex. ett verksamhetsår). Alla verifikat hör till en period.</p>
       <ul class="help-steps">
-        <li><div class="step-dot">1</div><span>Gå till <strong>Räkenskapsperioder</strong>.</span></li>
-        <li><div class="step-dot">2</div><span>Klicka <strong>Ny period</strong>, ange namn, startdatum (YYYY-MM-DD), slutdatum och ingående saldo.</span></li>
-        <li><div class="step-dot">3</div><span>Klicka på en period i listan för att redigera den.</span></li>
-        <li><div class="step-dot">4</div><span>Klicka på <strong>Lås</strong> för att frysa en avslutad period mot ändringar.</span></li>
-        <li><div class="step-dot">5</div><span>Klicka på <strong>Excel</strong> för att exportera perioden som en Excel-fil med alla verifikat. Kvitton och bilagor följer med i samma ZIP-fil.</span></li>
+        <li><div class="step-dot">1</div><span data-en="Go to <strong>Financial years</strong>.">Gå till <strong>Räkenskapsperioder</strong>.</span></li>
+        <li><div class="step-dot">2</div><span data-en="Click <strong>New period</strong>, enter a name, start date (YYYY-MM-DD), end date and opening balance.">Klicka <strong>Ny period</strong>, ange namn, startdatum (YYYY-MM-DD), slutdatum och ingående saldo.</span></li>
+        <li><div class="step-dot">3</div><span data-en="Click a period in the list to edit it.">Klicka på en period i listan för att redigera den.</span></li>
+        <li><div class="step-dot">4</div><span data-en="Click <strong>Lock</strong> to freeze a finished period against changes.">Klicka på <strong>Lås</strong> för att frysa en avslutad period mot ändringar.</span></li>
+        <li><div class="step-dot">5</div><span data-en="Click <strong>Excel</strong> to export the period as an Excel file with all vouchers. Receipts and attachments come along in the same ZIP file.">Klicka på <strong>Excel</strong> för att exportera perioden som en Excel-fil med alla verifikat. Kvitton och bilagor följer med i samma ZIP-fil.</span></li>
       </ul>
-      <div class="help-tip">Ingående saldo är det kontosaldo ni hade vid periodens start — det används i kassarapporten i PDF:en.</div>
+      <div data-en="The opening balance is the account balance you had at the start of the period — it is used in the cash report in the PDF." class="help-tip">Ingående saldo är det kontosaldo ni hade vid periodens start — det används i kassarapporten i PDF:en.</div>
     </div>
 
     <div class="help-section" id="sec-budget">
@@ -809,43 +844,43 @@ footer a { color: var(--ink3); text-decoration: underline; }
         <div class="help-icon">📊</div>
         <h3>Budget</h3>
       </div>
-      <p>Sätt ett budgeterat belopp per kategori och se utfall mot budget i realtid.</p>
+      <p data-en="Set a budgeted amount per category and see actuals against budget in real time.">Sätt ett budgeterat belopp per kategori och se utfall mot budget i realtid.</p>
       <ul class="help-steps">
-        <li><div class="step-dot">1</div><span>Gå till fliken <strong>Budget</strong>.</span></li>
-        <li><div class="step-dot">2</div><span>Välj räkenskapsperiod i rullmenyn.</span></li>
-        <li><div class="step-dot">3</div><span>Ange belopp per kategori i respektive fält och klicka <strong>Spara</strong>.</span></li>
-        <li><div class="step-dot">4</div><span>Avvikelse (utfall minus budget) visas grön om ni är under budget (för utgifter) och röd om ni överskridit.</span></li>
+        <li><div class="step-dot">1</div><span data-en="Go to the <strong>Budget</strong> tab.">Gå till fliken <strong>Budget</strong>.</span></li>
+        <li><div class="step-dot">2</div><span data-en="Choose a financial year in the dropdown.">Välj räkenskapsperiod i rullmenyn.</span></li>
+        <li><div class="step-dot">3</div><span data-en="Enter an amount per category in its field and click <strong>Save</strong>.">Ange belopp per kategori i respektive fält och klicka <strong>Spara</strong>.</span></li>
+        <li><div class="step-dot">4</div><span data-en="The variance (actual minus budget) is shown in green if you are under budget (for expenses) and in red if you have exceeded it.">Avvikelse (utfall minus budget) visas grön om ni är under budget (för utgifter) och röd om ni överskridit.</span></li>
       </ul>
     </div>
 
     <div class="help-section" id="sec-arsrapport">
       <div class="help-section-header">
         <div class="help-icon">📄</div>
-        <h3>Årsrapport — PDF-export</h3>
+        <h3 data-en="Annual report — PDF export">Årsrapport — PDF-export</h3>
       </div>
-      <p>Generera en komplett årsrapport i PDF-format, redo att bifogas årsredovisningen eller presenteras på årsmötet.</p>
+      <p data-en="Generate a complete annual report as a PDF, ready to attach to the annual accounts or present at the annual general meeting.">Generera en komplett årsrapport i PDF-format, redo att bifogas årsredovisningen eller presenteras på årsmötet.</p>
       <ul class="help-steps">
-        <li><div class="step-dot">1</div><span>Gå till fliken <strong>Årsrapport</strong>.</span></li>
-        <li><div class="step-dot">2</div><span>Välj räkenskapsperiod i rullmenyn.</span></li>
-        <li><div class="step-dot">3</div><span>Klicka <strong>Ladda ner årsrapport (PDF)</strong>. Filen innehåller resultaträkning, verifikatlista och kassarapport.</span></li>
-        <li><div class="step-dot">4</div><span>Klicka <strong>Ladda ner budget (PDF)</strong> för en budgetsammanställning utan utfall — lämplig inför årsmötet.</span></li>
+        <li><div class="step-dot">1</div><span data-en="Go to the <strong>Annual report</strong> tab.">Gå till fliken <strong>Årsrapport</strong>.</span></li>
+        <li><div class="step-dot">2</div><span data-en="Choose a financial year in the dropdown.">Välj räkenskapsperiod i rullmenyn.</span></li>
+        <li><div class="step-dot">3</div><span data-en="Click <strong>Download annual report (PDF)</strong>. The file contains an income statement, voucher list and cash report.">Klicka <strong>Ladda ner årsrapport (PDF)</strong>. Filen innehåller resultaträkning, verifikatlista och kassarapport.</span></li>
+        <li><div class="step-dot">4</div><span data-en="Click <strong>Download budget (PDF)</strong> for a budget summary without actuals — suitable ahead of the annual general meeting.">Klicka <strong>Ladda ner budget (PDF)</strong> för en budgetsammanställning utan utfall — lämplig inför årsmötet.</span></li>
       </ul>
-      <div class="help-tip">Kassarapporten visar ingående saldo, nettoresultat och utgående saldo — kontrollera att ingående saldo är korrekt inställt på räkenskapsperioden.</div>
+      <div data-en="The cash report shows the opening balance, net result and closing balance — check that the opening balance is set correctly on the financial year." class="help-tip">Kassarapporten visar ingående saldo, nettoresultat och utgående saldo — kontrollera att ingående saldo är korrekt inställt på räkenskapsperioden.</div>
     </div>
 
     <div class="help-section" id="sec-medlemmar">
       <div class="help-section-header">
         <div class="help-icon">👥</div>
-        <h3>Medlemmar — bjud in styrelsemedlemmar</h3>
+        <h3 data-en="Members — invite board members">Medlemmar — bjud in styrelsemedlemmar</h3>
       </div>
-      <p>Upp till 15 användare per förening kan få tillgång till kassaboken — utan extra kostnad.</p>
+      <p data-en="Up to 15 users per association can get access to the cash book — at no extra cost.">Upp till 15 användare per förening kan få tillgång till kassaboken — utan extra kostnad.</p>
       <ul class="help-steps">
-        <li><div class="step-dot">1</div><span>Gå till fliken <strong>Medlemmar</strong>.</span></li>
-        <li><div class="step-dot">2</div><span>Klicka <strong>Skapa inbjudningslänk</strong>.</span></li>
-        <li><div class="step-dot">3</div><span>Kopiera länken och skicka den till kassörens ersättare, ordföranden eller revisorn.</span></li>
-        <li><div class="step-dot">4</div><span>Den som öppnar länken och loggar in får direkt tillgång till föreningens kassabok.</span></li>
+        <li><div class="step-dot">1</div><span data-en="Go to the <strong>Members</strong> tab.">Gå till fliken <strong>Medlemmar</strong>.</span></li>
+        <li><div class="step-dot">2</div><span data-en="Click <strong>Create invite link</strong>.">Klicka <strong>Skapa inbjudningslänk</strong>.</span></li>
+        <li><div class="step-dot">3</div><span data-en="Copy the link and send it to the treasurer's deputy, the chair or the auditor.">Kopiera länken och skicka den till kassörens ersättare, ordföranden eller revisorn.</span></li>
+        <li><div class="step-dot">4</div><span data-en="Whoever opens the link and logs in gets immediate access to the association's cash book.">Den som öppnar länken och loggar in får direkt tillgång till föreningens kassabok.</span></li>
       </ul>
-      <div class="help-tip">Inbjudningslänkar är tidsbegränsade. Generera en ny om den gamla har gått ut.</div>
+      <div data-en="Invite links are time-limited. Generate a new one if the old one has expired." class="help-tip">Inbjudningslänkar är tidsbegränsade. Generera en ny om den gamla har gått ut.</div>
     </div>
 
   </div>
@@ -853,7 +888,7 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
 <footer>
   <div class="container">
-    Föreningsbalans — bokföring för ideella föreningar &nbsp;·&nbsp; Kontakt: <span style="user-select:all">hej@foreningsbalans.se</span>
+    <span data-en="Föreningsbalans — bookkeeping for non-profit associations">Föreningsbalans — bokföring för ideella föreningar</span> &nbsp;·&nbsp; <span data-en="Contact">Kontakt</span>: <span style="user-select:all">hej@foreningsbalans.se</span>
   </div>
 </footer>
 
@@ -871,6 +906,50 @@ function navigate(id, tabEl) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   try { history.replaceState(null, '', '#' + id); } catch(e) {}
 }
+
+const LANG_KEY = 'kb_lang';
+const APP_URL = 'https://app.foreningsbalans.se';
+const META = {
+  sv: {
+    title: 'Föreningsbalans — Enkel bokföring för ideella föreningar',
+    desc: 'Föreningsbalans hjälper er kassör att hålla koll på in- och utbetalningar, generera årsrapporter och hålla ekonomin transparent inför hela styrelsen.'
+  },
+  en: {
+    title: 'Föreningsbalans — Simple bookkeeping for non-profit associations',
+    desc: 'Föreningsbalans helps your treasurer keep track of payments in and out, generate annual reports and keep the finances transparent to the whole board.'
+  }
+};
+
+function detectLang() {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === 'sv' || saved === 'en') return saved;
+  } catch(e) {}
+  return (navigator.language || '').toLowerCase().startsWith('sv') ? 'sv' : 'en';
+}
+
+function applyLang(lang) {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-en]').forEach(el => {
+    if (el.dataset.sv === undefined) el.dataset.sv = el.innerHTML;
+    el.innerHTML = lang === 'en' ? el.dataset.en : el.dataset.sv;
+  });
+  document.querySelectorAll('[data-app]').forEach(a => { a.href = APP_URL + '/?lang=' + lang; });
+  document.querySelectorAll('.lang-switch button').forEach(b => {
+    const on = b.dataset.lang === lang;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  document.title = META[lang].title;
+  document.querySelector('meta[name="description"]').setAttribute('content', META[lang].desc);
+}
+
+function setLang(lang) {
+  try { localStorage.setItem(LANG_KEY, lang); } catch(e) {}
+  applyLang(lang);
+}
+
+applyLang(detectLang());
 
 (function() {
   const h = (location.hash || '#start').slice(1);
