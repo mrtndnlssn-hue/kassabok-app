@@ -1,7 +1,10 @@
 // pdfExport.js – generates annual report and budget PDF using jsPDF + autoTable
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { fmt, sumByCategory } from './store';
+import { fmt as fmtRaw, sumByCategory } from './store';
+
+// jsPDF:s standardfonter saknar Unicode-minus, så negativa belopp skrivs med vanligt bindestreck
+const fmt = v => fmtRaw(v).replace(/−/g, '-');
 
 export function exportBudget({ orgName, period, categories, budget, comments = {} } = {}) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -48,10 +51,11 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   let y = 62;
 
   // ── Summary cards (2 boxes) ───────────────────────────────
-  const cardW = (W - 36 - 4) / 2;
+  const cardW = (W - 36 - 8) / 3;
   const cards = [
     { label: 'Budgeterade intäkter', value: fmt(totalBudgetIncome), color: GREEN },
     { label: 'Budgeterade kostnader', value: fmt(totalBudgetExpense), color: RED },
+    { label: 'Budgeterat netto', value: fmt(netBudget), color: netBudget >= 0 ? GREEN : RED },
   ];
   cards.forEach((card, i) => {
     const x = 18 + i * (cardW + 4);
@@ -84,8 +88,10 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   sectionHeader('Budgetförslag');
 
   const row = c => [`${c.id}  ${c.name}`, fmt(budget[c.id] || 0), comments[c.id] || ''];
-  const incRows = incCats.map(row);
-  const expRows = expCats.map(row);
+  const used = c => (budget[c.id] || 0) !== 0 || !!comments[c.id];
+  const incRows = incCats.filter(used).map(row);
+  const expRows = expCats.filter(used).map(row);
+  const SUM = { fontStyle: 'bold', fillColor: [236, 233, 224] };
 
   autoTable(doc, {
     startY: y,
@@ -93,10 +99,10 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     body: [
       [{ content: 'INTÄKTER', colSpan: 3, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
       ...incRows,
-      [{ content: 'Summa intäkter', styles: { fontStyle: 'bold' } }, fmt(totalBudgetIncome), ''],
+      [{ content: 'Summa intäkter', styles: SUM }, { content: fmt(totalBudgetIncome), styles: SUM }, { content: '', styles: SUM }],
       [{ content: 'KOSTNADER', colSpan: 3, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
       ...expRows,
-      [{ content: 'Summa kostnader', styles: { fontStyle: 'bold' } }, fmt(totalBudgetExpense), ''],
+      [{ content: 'Summa kostnader', styles: SUM }, { content: fmt(totalBudgetExpense), styles: SUM }, { content: '', styles: SUM }],
     ],
     foot: [[
       { content: 'NETTORESULTAT', styles: { fontStyle: 'bold' } },
@@ -105,12 +111,13 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     ]],
     headStyles: { fillColor: DARK, fontSize: 8, fontStyle: 'bold' },
     footStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 9 },
+    showFoot: 'lastPage',
     columnStyles: {
-      0: { cellWidth: 62 },
-      1: { halign: 'right', font: 'courier', cellWidth: 38 },
+      0: { cellWidth: 70 },
+      1: { halign: 'right', font: 'courier', cellWidth: 36 },
       2: { cellWidth: 'auto', fontSize: 7.5 },
     },
-    styles: { fontSize: 8.5, cellPadding: 3 },
+    styles: { fontSize: 8, cellPadding: 1.8 },
     alternateRowStyles: { fillColor: PAPER },
     margin: { left: 18, right: 18 },
   });
