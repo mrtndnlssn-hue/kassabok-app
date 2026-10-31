@@ -4,7 +4,7 @@ import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { exportAnnualReport, exportBudget } from '../pdfExport';
 import { exportPeriodExcel, exportPeriodVouchers, downloadBlob } from '../excelExport';
 
-export default function Arsrapport({ transactions, categories, budget, orgName, orgId, fiscalPeriods, activePeriod }) {
+export default function Arsrapport({ transactions, categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod }) {
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
   const [loading, setLoading]           = useState(false);
   const [done, setDone]                 = useState(false);
@@ -52,7 +52,7 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
   async function handleBudgetExport() {
     setBudgetLoading(true); setBudgetDone(false);
     await new Promise(r => setTimeout(r, 300));
-    exportBudget({ orgName, period, categories, budget: periodBudget });
+    exportBudget({ orgName, period, categories, budget: periodBudget, comments: budgetComments[period?.id] || {} });
     setBudgetLoading(false); setBudgetDone(true);
     setTimeout(() => setBudgetDone(false), 4000);
   }

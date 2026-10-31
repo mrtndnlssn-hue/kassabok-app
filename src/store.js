@@ -16,9 +16,14 @@ export const store = {
     }
 
     const budgetObj = {}
+    const commentObj = {}
     for (const row of budgetRes.data || []) {
       if (!budgetObj[row.period_id]) budgetObj[row.period_id] = {}
       budgetObj[row.period_id][row.category_id] = Number(row.amount)
+      if (row.comment) {
+        if (!commentObj[row.period_id]) commentObj[row.period_id] = {}
+        commentObj[row.period_id][row.category_id] = row.comment
+      }
     }
 
     return {
@@ -35,6 +40,7 @@ export const store = {
         createdAt:   t.created_at,
       })),
       budget:         budgetObj,
+      budgetComments: commentObj,
       fiscalPeriods:  (periodsRes.data || []).map(p => ({
         id:             p.id,
         label:          p.label,
@@ -76,6 +82,13 @@ export const store = {
   async setBudgetLine(orgId, periodId, catId, amount) {
     const { error } = await supabase.from('budget').upsert({
       org_id: orgId, period_id: periodId, category_id: catId, amount,
+    })
+    if (error) throw error
+  },
+
+  async setBudgetComment(orgId, periodId, catId, comment) {
+    const { error } = await supabase.from('budget').upsert({
+      org_id: orgId, period_id: periodId, category_id: catId, comment,
     })
     if (error) throw error
   },

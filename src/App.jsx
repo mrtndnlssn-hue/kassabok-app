@@ -37,6 +37,7 @@ function MainApp({ orgId, role }) {
   const [transactions, setTxs]        = useState([]);
   const [categories, setCats]         = useState([]);
   const [budget, setBudget]           = useState({});
+  const [budgetComments, setBudgetComments] = useState({});
   const [orgName, setOrgName]         = useState('');
   const [fiscalPeriods, setFiscalPeriods] = useState([]);
   const [activePeriodId, setActivePeriodId] = useState(null);
@@ -49,6 +50,7 @@ function MainApp({ orgId, role }) {
       setTxs(data.transactions || []);
       setCats(data.categories || []);
       setBudget(data.budget || {});
+      setBudgetComments(data.budgetComments || {});
       setOrgName(data.orgName || '');
       setOrgNames(prev => ({ ...prev, [orgId]: data.orgName || '' }));
       setFiscalPeriods(periods);
@@ -93,6 +95,11 @@ function MainApp({ orgId, role }) {
     await store.setBudgetLine(orgId, periodId, catId, amount);
     const data = await store.getAll(orgId);
     setBudget(data.budget || {});
+    setBudgetComments(data.budgetComments || {});
+  }
+  async function handleBudgetCommentChange(periodId, catId, comment) {
+    await store.setBudgetComment(orgId, periodId, catId, comment);
+    setBudgetComments(prev => ({ ...prev, [periodId]: { ...(prev[periodId] || {}), [catId]: comment } }));
   }
   async function handlePeriodChange(id) {
     await store.setActivePeriodId(orgId, id);
@@ -120,9 +127,9 @@ function MainApp({ orgId, role }) {
   const pageMap   = {
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} />,
-    budget:     <BudgetResultat {...pageProps} onBudgetChange={handleBudgetChange} />,
+    budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
-    arsrapport: <Arsrapport {...pageProps} orgId={orgId} />,
+    arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
     medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
     installningar: <Installningar orgId={orgId} orgName={orgName} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,

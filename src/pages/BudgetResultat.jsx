@@ -2,8 +2,15 @@ import { useState, useMemo } from 'react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { useAuth } from '../auth/AuthProvider';
 
-function CatRow({ cat, budgetValue, actual, onBudgetChange, canWrite }) {
+function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite }) {
   const [localVal, setLocalVal] = useState(budgetValue > 0 ? String(budgetValue) : '');
+  const [localComment, setLocalComment] = useState(comment || '');
+
+  function handleCommentBlur() {
+    const text = localComment.trim();
+    setLocalComment(text);
+    if (text !== (comment || '')) onCommentChange(cat.id, text);
+  }
   const act = actual || 0;
   const bud = budgetValue || 0;
   const dev = act - bud;
@@ -45,6 +52,17 @@ function CatRow({ cat, budgetValue, actual, onBudgetChange, canWrite }) {
           </>
         )}
       </td>
+      <td style={{ minWidth:180 }}>
+        <input
+          type="text"
+          value={localComment} placeholder={canWrite ? 'Kommentar…' : ''}
+          onChange={e => canWrite && setLocalComment(e.target.value)}
+          onBlur={canWrite ? handleCommentBlur : undefined}
+          onKeyDown={e => canWrite && e.key==='Enter' && e.target.blur()}
+          readOnly={!canWrite}
+          style={{ width:'100%', fontSize:'0.85rem', background:'var(--paper)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'5px 8px', cursor: canWrite ? 'text' : 'default' }}
+        />
+      </td>
     </tr>
   );
 }
@@ -57,17 +75,18 @@ function SectionTotal({ label, budgetTotal, actualTotal }) {
       <td className="text-right mono">{fmt(budgetTotal)}</td>
       <td className="text-right mono">{fmt(actualTotal)}</td>
       <td className={`text-right mono ${dev>=0?'positive':'negative'}`}>{(dev>0?'+':'')+fmt(dev)}</td>
-      <td/>
+      <td/><td/>
     </tr>
   );
 }
 
-export default function BudgetResultat({ transactions, categories, budget, onBudgetChange, activePeriod }) {
+export default function BudgetResultat({ transactions, categories, budget, budgetComments = {}, onBudgetChange, onCommentChange, activePeriod }) {
   const { role } = useAuth()
   const canWrite = role !== 'viewer'
   const periodTxs    = useMemo(() => txsForPeriod(transactions, activePeriod), [transactions, activePeriod]);
   const actuals      = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
   const periodBudget = budget[activePeriod?.id] || {};
+  const periodComments = budgetComments[activePeriod?.id] || {};
 
   const incCats = categories.filter(c => c.type === 'income' && !c.hidden);
   const expCats = categories.filter(c => c.type === 'expense' && !c.hidden);
@@ -113,27 +132,32 @@ export default function BudgetResultat({ transactions, categories, budget, onBud
               <th className="text-right">Utfall (kr)</th>
               <th className="text-right">Avvikelse (kr)</th>
               <th>Nyttjandegrad</th>
+              <th>Kommentar</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colSpan={6} style={{ background:'var(--accent)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>Intäkter</td></tr>
+            <tr><td colSpan={7} style={{ background:'var(--accent)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>Intäkter</td></tr>
             {incCats.map(cat => (
-              <CatRow key={cat.id} cat={cat}
+              <CatRow key={`${activePeriod.id}-${cat.id}`} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
                 actual={actuals[cat.id]||0}
+                comment={periodComments[cat.id]||''}
                 canWrite={canWrite}
                 onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
+                onCommentChange={(catId, text) => onCommentChange(activePeriod.id, catId, text)}
               />
             ))}
             <SectionTotal label="Summa intäkter" budgetTotal={totalBudgetInc} actualTotal={totalActualInc}/>
 
-            <tr><td colSpan={6} style={{ background:'var(--red)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>Kostnader</td></tr>
+            <tr><td colSpan={7} style={{ background:'var(--red)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>Kostnader</td></tr>
             {expCats.map(cat => (
-              <CatRow key={cat.id} cat={cat}
+              <CatRow key={`${activePeriod.id}-${cat.id}`} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
                 actual={actuals[cat.id]||0}
+                comment={periodComments[cat.id]||''}
                 canWrite={canWrite}
                 onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
+                onCommentChange={(catId, text) => onCommentChange(activePeriod.id, catId, text)}
               />
             ))}
             <SectionTotal label="Summa kostnader" budgetTotal={totalBudgetExp} actualTotal={totalActualExp}/>
@@ -144,7 +168,7 @@ export default function BudgetResultat({ transactions, categories, budget, onBud
               <td className="text-right">{fmt(netBudget)}</td>
               <td className={`text-right ${netActual>=0?'positive':'negative'}`}>{fmt(netActual)}</td>
               <td className={`text-right ${(netActual-netBudget)>=0?'positive':'negative'}`}>{((netActual-netBudget)>0?'+':'')+fmt(netActual-netBudget)}</td>
-              <td/>
+              <td/><td/>
             </tr>
           </tfoot>
         </table>

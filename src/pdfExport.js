@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { fmt, sumByCategory } from './store';
 
-export function exportBudget({ orgName, period, categories, budget } = {}) {
+export function exportBudget({ orgName, period, categories, budget, comments = {} } = {}) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
 
@@ -83,29 +83,32 @@ export function exportBudget({ orgName, period, categories, budget } = {}) {
 
   sectionHeader('Budgetförslag');
 
-  const incRows = incCats.map(c => [`${c.id}  ${c.name}`, fmt(budget[c.id] || 0)]);
-  const expRows = expCats.map(c => [`${c.id}  ${c.name}`, fmt(budget[c.id] || 0)]);
+  const row = c => [`${c.id}  ${c.name}`, fmt(budget[c.id] || 0), comments[c.id] || ''];
+  const incRows = incCats.map(row);
+  const expRows = expCats.map(row);
 
   autoTable(doc, {
     startY: y,
-    head: [['Kategori', 'Budget']],
+    head: [['Kategori', 'Budget', 'Kommentar']],
     body: [
-      [{ content: 'INTÄKTER', colSpan: 2, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
+      [{ content: 'INTÄKTER', colSpan: 3, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
       ...incRows,
-      [{ content: 'Summa intäkter', styles: { fontStyle: 'bold' } }, fmt(totalBudgetIncome)],
-      [{ content: 'KOSTNADER', colSpan: 2, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
+      [{ content: 'Summa intäkter', styles: { fontStyle: 'bold' } }, fmt(totalBudgetIncome), ''],
+      [{ content: 'KOSTNADER', colSpan: 3, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
       ...expRows,
-      [{ content: 'Summa kostnader', styles: { fontStyle: 'bold' } }, fmt(totalBudgetExpense)],
+      [{ content: 'Summa kostnader', styles: { fontStyle: 'bold' } }, fmt(totalBudgetExpense), ''],
     ],
     foot: [[
       { content: 'NETTORESULTAT', styles: { fontStyle: 'bold' } },
       { content: fmt(netBudget), styles: { fontStyle: 'bold', textColor: netBudget >= 0 ? GREEN : RED } },
+      '',
     ]],
     headStyles: { fillColor: DARK, fontSize: 8, fontStyle: 'bold' },
     footStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 9 },
     columnStyles: {
-      0: { cellWidth: 130 },
-      1: { halign: 'right', font: 'courier' },
+      0: { cellWidth: 62 },
+      1: { halign: 'right', font: 'courier', cellWidth: 38 },
+      2: { cellWidth: 'auto', fontSize: 7.5 },
     },
     styles: { fontSize: 8.5, cellPadding: 3 },
     alternateRowStyles: { fillColor: PAPER },
