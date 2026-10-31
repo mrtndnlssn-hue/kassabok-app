@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader } from 'lucide-react';
+import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
 import { getYear, txsForPeriod, attachments } from '../store';
 import { exportAnnualReport } from '../pdfExport';
+import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName } from '../excelExport';
 
 
 function periodsOverlap(a, b) {
@@ -64,7 +65,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
 
       // Mappa txId → verifikatnummer för läsbart mappnamn i ZIP
       const txVerMap = Object.fromEntries(
-        periodTxs.map((t, i) => [t.id, `VER${String(i + 1).padStart(3, '0')}_${(t.description || 'verifikat').replace(/\s+/g, '_').slice(0, 30)}`])
+        sortPeriodTxs(periodTxs).map((t, i) => [t.id, verFolderName(t, i)])
       );
 
       for (let i = 0; i < attachList.length; i++) {
@@ -186,6 +187,21 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   const [newForm, setNewForm]   = useState({ label:'', start:'', end:'', openingBalance:'' });
   const [error, setError]       = useState('');
   const [closeModal, setCloseModal] = useState(null);
+  const [exportingId, setExportingId] = useState(null);
+
+  async function handleExcelExport(p) {
+    setError('');
+    setExportingId(p.id);
+    try {
+      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period: p, transactions, categories, budget });
+      downloadBlob(blob, filename);
+    } catch (e) {
+      console.error('Excel-export error:', e);
+      setError(`Exporten misslyckades: ${e.message || 'okänt fel'}`);
+    } finally {
+      setExportingId(null);
+    }
+  }
 
   function startEdit(idx)  { setEditIdx(idx); setEditForm({ ...periods[idx] }); setError(''); }
   function cancelEdit()    { setEditIdx(null); setError(''); }
@@ -253,7 +269,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   return (
     <div>
       <div className="notice notice-info">
-        Definiera räkenskapsperioder. Använd "Stäng år" för att skapa en ZIP-arkivfil med årsrapport och bilagor, och låsa perioden.
+        Definiera räkenskapsperioder. Använd "Stäng år" för att skapa en ZIP-arkivfil med årsrapport och bilagor, och låsa perioden. Med "Excel" exporterar du en period som en Excel-fil med alla verifikat och bilagor, t.ex. om du vill lämna systemet med din data.
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
       {error && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'#f5c6cb', color:'var(--red)', marginBottom:16 }}>{error}</div>}
@@ -326,8 +343,16 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                       }
                     </td>
                     <td>
+                      <div className="gap-row" style={{gap:4}}>
+                        <button className="btn btn-sm btn-secondary" disabled={exportingId !== null} onClick={() => handleExcelExport(p)}
+                          title="Exportera hela kassaboken för perioden som Excel, med bilagor (ZIP)">
+                          {exportingId === p.id
+                            ? <><Loader size={12} style={{ animation:'spin 1s linear infinite' }}/> Exporterar…</>
+                            : <><FileSpreadsheet size={12}/> Excel</>}
+                        </button>
+                      </div>
                       {canWrite && (
-                        <div className="gap-row" style={{gap:4}}>
+                        <div className="gap-row" style={{gap:4, marginTop:4}}>
                           {!p.locked && <>
                             <button className="btn btn-sm btn-secondary" onClick={() => startEdit(globalIdx)} title="Redigera"><Pencil size={12}/></button>
                             <button className="btn btn-sm btn-primary" onClick={() => setCloseModal(p)} title="Stäng verksamhetsår och skapa ZIP">

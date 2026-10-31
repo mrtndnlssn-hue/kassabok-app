@@ -17,6 +17,8 @@ const ROLE_STYLE = {
   viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)', border: '1px solid var(--border)' },
 }
 
+const MAX_MEMBERS = 5
+
 function RoleBadge({ role }) {
   return (
     <span style={{ display:'inline-block', padding:'2px 8px', borderRadius:999, fontSize:'0.75rem', fontWeight:600, ...ROLE_STYLE[role] }}>
@@ -137,6 +139,10 @@ export default function Medlemmar({ orgId, orgName }) {
 
   async function createInvite() {
     setError('')
+    if (members.length >= MAX_MEMBERS) {
+      setError(`Föreningen har redan max ${MAX_MEMBERS} användare. Ta bort en användare innan du bjuder in fler.`)
+      return
+    }
     const { error } = await supabase
       .from('org_invites')
       .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole })
@@ -189,7 +195,7 @@ export default function Medlemmar({ orgId, orgName }) {
       {/* Members */}
       <section style={{ marginBottom: 32 }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.1rem', marginBottom: 12, color: 'var(--ink)' }}>
-          Medlemmar ({members.length})
+          Medlemmar ({members.length}/{MAX_MEMBERS})
         </h3>
         <table className="data-table" style={{ width: '100%' }}>
           <thead>
@@ -271,7 +277,8 @@ export default function Medlemmar({ orgId, orgName }) {
                 <option value="viewer">Läsare (skrivskyddad)</option>
                 <option value="owner">Ägare</option>
               </select>
-              <button className="btn btn-primary btn-sm" onClick={createInvite}>
+              <button className="btn btn-primary btn-sm" onClick={createInvite} disabled={members.length >= MAX_MEMBERS}
+                title={members.length >= MAX_MEMBERS ? `Max ${MAX_MEMBERS} användare per förening` : undefined}>
                 + Ny inbjudan
               </button>
             </div>
@@ -314,7 +321,7 @@ export default function Medlemmar({ orgId, orgName }) {
             </div>
           )}
           <p style={{ marginTop: 12, fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
-            Länken är giltig i 7 dagar.
+            Länken är giltig i 7 dagar. En förening kan ha max {MAX_MEMBERS} användare.
           </p>
         </section>
       )}
