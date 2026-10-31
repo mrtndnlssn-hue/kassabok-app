@@ -93,25 +93,11 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   const expRows = expCats.filter(used).map(row);
   const SUM = { fontStyle: 'bold', fillColor: [236, 233, 224] };
 
-  autoTable(doc, {
-    startY: y,
-    head: [['Kategori', 'Budget', 'Kommentar']],
-    body: [
-      [{ content: 'INTÄKTER', colSpan: 3, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
-      ...incRows,
-      [{ content: 'Summa intäkter', styles: SUM }, { content: fmt(totalBudgetIncome), styles: SUM }, { content: '', styles: SUM }],
-      [{ content: 'KOSTNADER', colSpan: 3, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
-      ...expRows,
-      [{ content: 'Summa kostnader', styles: SUM }, { content: fmt(totalBudgetExpense), styles: SUM }, { content: '', styles: SUM }],
-    ],
-    foot: [[
-      { content: 'NETTORESULTAT', styles: { fontStyle: 'bold' } },
-      { content: fmt(netBudget), styles: { fontStyle: 'bold', textColor: netBudget >= 0 ? GREEN : RED } },
-      '',
-    ]],
+  const openingBalance = Number(period?.openingBalance ?? 0);
+  const closingBalance = openingBalance + netBudget;
+
+  const tableBase = {
     headStyles: { fillColor: DARK, fontSize: 8, fontStyle: 'bold' },
-    footStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 9 },
-    showFoot: 'lastPage',
     columnStyles: {
       0: { cellWidth: 70 },
       1: { halign: 'right', font: 'courier', cellWidth: 36 },
@@ -120,7 +106,83 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     styles: { fontSize: 8, cellPadding: 1.8 },
     alternateRowStyles: { fillColor: PAPER },
     margin: { left: 18, right: 18 },
-  });
+  };
+  const sumRow = (label, total) => [{ content: label, styles: SUM }, { content: fmt(total), styles: SUM }, { content: '', styles: SUM }];
+
+  // Ritar tabellerna på d. Vid splitExpenses börjar kostnaderna på en ny sida.
+  function drawTables(d, startY, splitExpenses) {
+    autoTable(d, {
+      ...tableBase,
+      startY,
+      head: [['Kategori', 'Budget', 'Kommentar']],
+      body: [
+        [{ content: 'INTÄKTER', colSpan: 3, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
+        ...incRows,
+        sumRow('Summa intäkter', totalBudgetIncome),
+      ],
+    });
+
+    let y2;
+    if (splitExpenses) { d.addPage(); y2 = 18; }
+    else y2 = d.lastAutoTable.finalY + 3;
+
+    autoTable(d, {
+      ...tableBase,
+      startY: y2,
+      head: splitExpenses ? [['Kategori', 'Budget', 'Kommentar']] : [],
+      body: [
+        [{ content: 'KOSTNADER', colSpan: 3, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
+        ...expRows,
+        sumRow('Summa kostnader', totalBudgetExpense),
+      ],
+      foot: [[
+        { content: 'NETTORESULTAT', styles: { fontStyle: 'bold' } },
+        { content: fmt(netBudget), styles: { fontStyle: 'bold', textColor: netBudget >= 0 ? GREEN : RED } },
+        '',
+      ]],
+      footStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 9 },
+      showFoot: 'lastPage',
+    });
+
+    let y3 = d.lastAutoTable.finalY + 10;
+    if (y3 > 245) { d.addPage(); y3 = 18; }
+    return y3;
+  }
+
+  function drawBalance(d, y3) {
+    d.setFillColor(...DARK);
+    d.rect(18, y3, W - 36, 8, 'F');
+    d.setFont('times', 'bolditalic');
+    d.setFontSize(10);
+    d.setTextColor(255, 255, 255);
+    d.text('Kassabudget', 22, y3 + 5.5);
+
+    autoTable(d, {
+      startY: y3 + 8,
+      body: [
+        ['Ingående saldo', fmt(openingBalance)],
+        [{ content: '+ Budgeterade intakter', styles: { textColor: GREEN } }, { content: fmt(totalBudgetIncome), styles: { halign: 'right', font: 'courier', textColor: GREEN } }],
+        [{ content: '- Budgeterade kostnader', styles: { textColor: RED } }, { content: fmt(totalBudgetExpense), styles: { halign: 'right', font: 'courier', textColor: RED } }],
+      ],
+      foot: [[
+        { content: 'Beräknad utgående saldo', styles: { fontStyle: 'bold', fontSize: 9 } },
+        { content: fmt(closingBalance), styles: { halign: 'right', font: 'courier', fontStyle: 'bold', fontSize: 9, textColor: closingBalance >= 0 ? GREEN : RED } },
+      ]],
+      columnStyles: { 0: { cellWidth: 106 }, 1: { halign: 'right', font: 'courier' } },
+      footStyles: { fillColor: [207, 226, 243], textColor: DARK },
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      alternateRowStyles: { fillColor: PAPER },
+      margin: { left: 18, right: 18 },
+    });
+  }
+
+  // Provkör på ett tillfälligt dokument: får allt plats på en sida läggs det samman,
+  // annars flyttas kostnaderna till sida 2 så att tabellerna inte bryts mitt i.
+  const probe = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  drawBalance(probe, drawTables(probe, y, false));
+  const split = probe.internal.getNumberOfPages() > 1;
+
+  drawBalance(doc, drawTables(doc, y, split));
 
   // ── Footer on each page ───────────────────────────────────
   const pageCount = doc.internal.getNumberOfPages();
