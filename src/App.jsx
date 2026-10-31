@@ -44,8 +44,28 @@ const NO_PERIOD_PAGES = ['komigang', 'kategorier', 'perioder', 'medlemmar', 'ins
 function MainApp({ orgId, role }) {
   const { orgs, setOrgId: switchOrg, session } = useAuth()
   const canWrite = role !== 'viewer'
-  const [page, setPage]               = useState('dashboard');
+  const isOwnerRole = role === 'main_owner' || role === 'owner';
+  // Sidan ligger i adressen (#kassabok) så att webbläsarens bakåt- och framåtknappar fungerar
+  const pageFromUrl = () => {
+    const id = window.location.hash.replace('#', '');
+    const nav = NAV.find(n => n.id === id);
+    return nav && (!nav.ownerOnly || isOwnerRole) && (!nav.hideForViewer || canWrite) ? id : null;
+  };
+  const [page, setPage]               = useState(() => pageFromUrl() || 'dashboard');
   const routed = useRef(false);
+
+  function navigate(id) {
+    if (id === page) return;
+    window.history.pushState({ page: id }, '', `#${id}`);
+    setPage(id);
+  }
+
+  useEffect(() => {
+    if (!window.location.hash) window.history.replaceState({ page }, '', `#${page}`);
+    const onPop = () => setPage(pageFromUrl() || 'dashboard');
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [orgNames, setOrgNames]       = useState({});
   const [loading, setLoading]         = useState(true);
   const [transactions, setTxs]        = useState([]);
@@ -79,7 +99,10 @@ function MainApp({ orgId, role }) {
       // Nya föreningar utan verifikat hamnar på Kom igång första gången
       if (!routed.current) {
         routed.current = true;
-        if (canWrite && !(data.transactions || []).length) setPage('komigang');
+        if (canWrite && !(data.transactions || []).length && !pageFromUrl()) {
+          window.history.replaceState({ page: 'komigang' }, '', '#komigang');
+          setPage('komigang');
+        }
       }
     } finally {
       setLoading(false);
@@ -161,7 +184,7 @@ function MainApp({ orgId, role }) {
 
   const pageProps = { transactions, categories, budget, orgName, activePeriod, fiscalPeriods };
   const pageMap   = {
-    komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={setPage} />,
+    komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
@@ -237,7 +260,7 @@ function MainApp({ orgId, role }) {
                 {items.map(n => {
                   const Icon = n.icon;
                   return (
-                    <button key={n.id} className={`nav-btn${page === n.id ? ' active' : ''}`} onClick={() => setPage(n.id)}>
+                    <button key={n.id} className={`nav-btn${page === n.id ? ' active' : ''}`} onClick={() => navigate(n.id)}>
                       <Icon size={16}/> {n.label}
                     </button>
                   );
@@ -254,7 +277,7 @@ function MainApp({ orgId, role }) {
               <div style={{ position:'relative' }}>
                 <select
                   value={orgId}
-                  onChange={e => { switchOrg(e.target.value); setPage('dashboard'); }}
+                  onChange={e => { switchOrg(e.target.value); navigate('dashboard'); }}
                   style={{ width:'100%', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:4, color:'#fff', fontSize:'0.8rem', padding:'4px 24px 4px 8px', cursor:'pointer', appearance:'none' }}
                 >
                   {orgs.map(o => (
