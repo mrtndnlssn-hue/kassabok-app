@@ -2,7 +2,7 @@
 
 Webb-app för bokföring i ideella föreningar. Körs i webbläsaren och sparar data i molnet via Supabase.
 
-**Live:** https://kassabok-app-tau.vercel.app
+**Live:** https://app.foreningsbalans.se
 
 ---
 
