@@ -46,7 +46,7 @@ export default function LoginPage() {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontFamily:'var(--font-body)', background:'var(--paper)' }}>
       <div style={{ width:380, background:'var(--paper-2)', borderRadius:'var(--r-lg)', border:'1px solid var(--border)', padding:32, boxShadow:'0 4px 24px rgba(0,0,0,0.08)' }}>
-        <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'1.8rem', marginBottom:4, color:'var(--ink)' }}>Kassabok</h1>
+        <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'1.8rem', marginBottom:4, color:'var(--ink)' }}>Föreningsbalans</h1>
         <p style={{ color:'var(--ink-muted)', fontSize:'0.85rem', marginBottom: inviteOrg ? 16 : 24 }}>Bokföring för ideell förening</p>
 
         {inviteOrg && (

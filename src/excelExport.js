@@ -31,7 +31,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
 
   const { default: ExcelJS } = await import('exceljs')
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'Kassabok'
+  wb.creator = 'Föreningsbalans'
   wb.created = new Date()
 
   // ── Kassabok ──────────────────────────────────────────────
@@ -162,7 +162,7 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, ca
   onProgress('Packar ihop ZIP…')
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
   const zip = new JSZip()
-  zip.file(`kassabok_${safePeriod}.xlsx`, xlsx)
+  zip.file(`foreningsbalans_${safePeriod}.xlsx`, xlsx)
 
   const folderByTx = Object.fromEntries(periodTxs.map((t, i) => [t.id, verFolderName(t, i)]))
   for (const { txId, filename, blob } of attachList) {
@@ -170,7 +170,7 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, ca
   }
 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
-  return { blob, filename: `kassabok_export_${safePeriod}.zip` }
+  return { blob, filename: `foreningsbalans_export_${safePeriod}.zip` }
 }
 
 export async function exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget }) {
@@ -181,7 +181,7 @@ export async function exportPeriodExcel({ orgId, orgName, period, transactions, 
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
   return {
     blob: new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-    filename: `kassabok_${safePeriod}.xlsx`,
+    filename: `foreningsbalans_${safePeriod}.xlsx`,
   }
 }
 

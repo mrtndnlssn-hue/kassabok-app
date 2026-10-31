@@ -154,7 +154,7 @@ function MainApp({ orgId, role }) {
   if (loading) return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', gap:16, color:'var(--ink-muted)', fontFamily:'var(--font-body)' }}>
       <Loader size={32} style={{ animation:'spin 1s linear infinite' }}/>
-      <p>Laddar kassabok…</p>
+      <p>Laddar Föreningsbalans…</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -273,6 +273,7 @@ function MainApp({ orgId, role }) {
           >
             <LogOut size={12}/> Logga ut
           </button>
+          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.35)' }}>Martin Danielsson</div>
         </div>
       </aside>
 

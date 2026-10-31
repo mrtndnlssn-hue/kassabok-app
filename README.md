@@ -1,4 +1,4 @@
-# Kassabok – för ideell förening
+# Föreningsbalans – bokföring för ideell förening
 
 Webb-app för bokföring i ideella föreningar. Körs i webbläsaren och sparar data i molnet via Supabase.
 

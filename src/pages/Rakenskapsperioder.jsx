@@ -69,7 +69,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       const attachmentsByTx = {};
       for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename);
       const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget: periodBudget, attachmentsByTx });
-      zip.file(`kassabok_${safePeriod}.xlsx`, await wb.xlsx.writeBuffer());
+      zip.file(`foreningsbalans_${safePeriod}.xlsx`, await wb.xlsx.writeBuffer());
 
       // Mappa txId → verifikatnummer för läsbart mappnamn i ZIP
       const txVerMap = Object.fromEntries(
@@ -89,7 +89,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       const url     = URL.createObjectURL(zipBlob);
       const a       = document.createElement('a');
       a.href        = url;
-      a.download    = `kassabok_${safePeriod}.zip`;
+      a.download    = `foreningsbalans_${safePeriod}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -135,7 +135,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
             <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:20, lineHeight:1.7 }}>
               ZIP-filen innehåller:<br/>
               📄 <strong>arsrapport_{period.label}.pdf</strong> – resultaträkning och kassarapport<br/>
-              📊 <strong>kassabok_{period.label}.xlsx</strong> – alla verifikat, budget och kategorier i Excel<br/>
+              📊 <strong>foreningsbalans_{period.label}.xlsx</strong> – alla verifikat, budget och kategorier i Excel<br/>
               📁 <strong>bilagor/</strong> – alla uppladdade kvitton och fakturor
             </p>
             <div className="btn-row" style={{ justifyContent:'flex-end' }}>

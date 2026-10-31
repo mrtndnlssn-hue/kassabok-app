@@ -45,7 +45,7 @@ export default function OrgPicker({ onCreateNew, onPick }) {
       <div style={{ width:'100%', maxWidth:440 }}>
         {/* Header */}
         <div style={{ marginBottom:32, textAlign:'center' }}>
-          <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'2rem', color:'var(--ink)', marginBottom:4 }}>Kassabok</h1>
+          <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'2rem', color:'var(--ink)', marginBottom:4 }}>Föreningsbalans</h1>
           <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>Välj en förening eller skapa ny</p>
         </div>
 

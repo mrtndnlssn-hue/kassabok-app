@@ -1,7 +1,7 @@
 {
   "name": "kassabok",
   "version": "1.0.0",
-  "description": "Kassabok för ideell förening",
+  "description": "Föreningsbalans – bokföring för ideell förening",
   "private": true,
   "type": "module",
   "scripts": {
