@@ -122,7 +122,7 @@ function MainApp({ orgId, role }) {
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} />,
     budget:     <BudgetResultat {...pageProps} onBudgetChange={handleBudgetChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
-    arsrapport: <Arsrapport {...pageProps} />,
+    arsrapport: <Arsrapport {...pageProps} orgId={orgId} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
     medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
     installningar: <Installningar orgId={orgId} orgName={orgName} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,

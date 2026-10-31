@@ -162,6 +162,15 @@ export const attachments = {
     if (error) throw error
   },
 
+  async namesByTx(orgId, txIds) {
+    const result = {}
+    for (const txId of txIds) {
+      const { data: files } = await supabase.storage.from('attachments').list(`${orgId}/${txId}`)
+      if (files?.length) result[txId] = files.map(f => f.name)
+    }
+    return result
+  },
+
   async listForPeriod(orgId, txIds) {
     const results = []
     for (const txId of txIds) {

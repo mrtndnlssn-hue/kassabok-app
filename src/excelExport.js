@@ -173,6 +173,35 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, ca
   return { blob, filename: `kassabok_export_${safePeriod}.zip` }
 }
 
+export async function exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget }) {
+  const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
+  const attachmentsByTx = await attachments.namesByTx(orgId, periodTxs.map(t => t.id))
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx })
+  const buf = await wb.xlsx.writeBuffer()
+  const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
+  return {
+    blob: new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    filename: `kassabok_${safePeriod}.xlsx`,
+  }
+}
+
+export async function exportPeriodVouchers({ orgId, period, transactions, onProgress = () => {} }) {
+  const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
+  onProgress('Hämtar bilagor…')
+  const attachList = await attachments.listForPeriod(orgId, periodTxs.map(t => t.id))
+  if (!attachList.length) return null
+
+  const folderByTx = Object.fromEntries(periodTxs.map((t, i) => [t.id, verFolderName(t, i)]))
+  const zip = new JSZip()
+  for (const { txId, filename, blob } of attachList) {
+    zip.file(`${folderByTx[txId] || txId}/${filename}`, blob)
+  }
+  onProgress('Packar ihop ZIP…')
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+  const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
+  return { blob, filename: `verifikat_${safePeriod}.zip` }
+}
+
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
 import { getYear, txsForPeriod, attachments } from '../store';
 import { exportAnnualReport } from '../pdfExport';
-import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName } from '../excelExport';
+import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, buildPeriodWorkbook } from '../excelExport';
 
 
 function periodsOverlap(a, b) {
@@ -63,6 +63,13 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       const safePeriod = period.label.replace(/[^a-zA-Z0-9_\-]/g, '_');
       zip.file(`arsrapport_${safePeriod}.pdf`, pdfBlob);
 
+      // Excel-fil med bilagenamn per verifikat
+      setProgress('Skapar Excel-fil…');
+      const attachmentsByTx = {};
+      for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename);
+      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget: periodBudget, attachmentsByTx });
+      zip.file(`kassabok_${safePeriod}.xlsx`, await wb.xlsx.writeBuffer());
+
       // Mappa txId → verifikatnummer för läsbart mappnamn i ZIP
       const txVerMap = Object.fromEntries(
         sortPeriodTxs(periodTxs).map((t, i) => [t.id, verFolderName(t, i)])
@@ -109,7 +116,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
         {step === 'confirm' && (
           <>
             <div className="notice notice-info" style={{ marginBottom:20 }}>
-              Skapar en ZIP-fil med årsrapporten (PDF) och alla bilagor för perioden <strong>{period.label}</strong> ({period.start} – {period.end}). Perioden låses sedan mot redigering.
+              Skapar en ZIP-fil med årsrapporten (PDF), Excel-filen och alla bilagor för perioden <strong>{period.label}</strong> ({period.start} – {period.end}). Perioden låses sedan mot redigering.
             </div>
             <div style={{ background:'var(--paper-2)', borderRadius:'var(--r)', border:'1px solid var(--border)', padding:'14px 16px', marginBottom:20 }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
@@ -126,7 +133,8 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
             </div>
             <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:20, lineHeight:1.7 }}>
               ZIP-filen innehåller:<br/>
-              📄 <strong>arsrapport_{period.label}.pdf</strong> – resultaträkning och verifikatlista<br/>
+              📄 <strong>arsrapport_{period.label}.pdf</strong> – resultaträkning och kassarapport<br/>
+              📊 <strong>kassabok_{period.label}.xlsx</strong> – alla verifikat, budget och kategorier i Excel<br/>
               📁 <strong>bilagor/</strong> – alla uppladdade kvitton och fakturor
             </p>
             <div className="btn-row" style={{ justifyContent:'flex-end' }}>

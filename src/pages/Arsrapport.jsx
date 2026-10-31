@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { FileDown, Loader } from 'lucide-react';
+import { FileDown, FileSpreadsheet, Archive, Loader } from 'lucide-react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { exportAnnualReport, exportBudget } from '../pdfExport';
+import { exportPeriodExcel, exportPeriodVouchers, downloadBlob } from '../excelExport';
 
-export default function Arsrapport({ transactions, categories, budget, orgName, fiscalPeriods, activePeriod }) {
+export default function Arsrapport({ transactions, categories, budget, orgName, orgId, fiscalPeriods, activePeriod }) {
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
   const [loading, setLoading]           = useState(false);
   const [done, setDone]                 = useState(false);
+  const [busy, setBusy]                 = useState('');
+  const [msg, setMsg]                   = useState(null);
   const [budgetLoading, setBudgetLoading] = useState(false);
   const [budgetDone, setBudgetDone]       = useState(false);
 
@@ -30,6 +33,22 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
     setTimeout(() => setDone(false), 4000);
   }
 
+  async function runDownload(kind, fn) {
+    setBusy(kind); setMsg(null);
+    try {
+      const result = await fn();
+      if (!result) setMsg({ type: 'warn', text: 'Inga bilagor finns uppladdade för den här perioden.' });
+      else downloadBlob(result.blob, result.filename);
+    } catch (e) {
+      setMsg({ type: 'error', text: e.message || 'Något gick fel.' });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget: periodBudget }));
+  const handleVouchers = () => runDownload('vouchers', () => exportPeriodVouchers({ orgId, period, transactions }));
+
   async function handleBudgetExport() {
     setBudgetLoading(true); setBudgetDone(false);
     await new Promise(r => setTimeout(r, 300));
@@ -43,7 +62,7 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
   return (
     <div>
       <div className="notice notice-info">
-        Generera en komplett PDF-årsrapport med resultaträkning och verifikatlista.
+        Skapa årsrapporten (resultaträkning och kassarapport), ladda ner perioden som Excel eller hämta alla verifikat med bilagor som ZIP.
       </div>
 
       <div className="card" style={{ marginBottom:24 }}>
@@ -131,11 +150,28 @@ export default function Arsrapport({ transactions, categories, budget, orgName, 
         </div>
 
         {done && <div className="notice notice-success">PDF genererad och nedladdad!</div>}
-        <button className="btn btn-primary" onClick={handleExport} disabled={loading} style={{ fontSize:'1rem', padding:'10px 24px' }}>
-          {loading
-            ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Genererar PDF…</>
-            : <><FileDown size={16}/> Ladda ner årsrapport för {period?.label} (PDF)</>}
-        </button>
+        {msg && (
+          <div className="notice" style={msg.type === 'error' ? { background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)' } : undefined}>
+            {msg.text}
+          </div>
+        )}
+        <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+          <button className="btn btn-primary" onClick={handleExport} disabled={loading || !!busy}>
+            {loading
+              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Skapar…</>
+              : <><FileDown size={16}/> Skapa årsrapport (PDF)</>}
+          </button>
+          <button className="btn btn-secondary" onClick={handleExcel} disabled={loading || !!busy}>
+            {busy === 'excel'
+              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Skapar…</>
+              : <><FileSpreadsheet size={16}/> Ladda ner Excel</>}
+          </button>
+          <button className="btn btn-secondary" onClick={handleVouchers} disabled={loading || !!busy}>
+            {busy === 'vouchers'
+              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Hämtar bilagor…</>
+              : <><Archive size={16}/> Ladda ner alla verifikat</>}
+          </button>
+        </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 

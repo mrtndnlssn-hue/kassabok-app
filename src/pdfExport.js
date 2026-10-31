@@ -282,53 +282,7 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
 
   y = doc.lastAutoTable.finalY + 12;
 
-  // ── Verifikatlista ────────────────────────────────────────
-  if (y > 220) { doc.addPage(); y = 18; }
-
-  sectionHeader('Verifikatlista');
-
-  const catMap = Object.fromEntries(categories.map(c => [c.id, c]));
-  const sorted = [...yearTxs].sort((a, b) => a.date.localeCompare(b.date));
-  const fmtNum = v => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v ?? 0);
-
-  autoTable(doc, {
-    startY: y,
-    head: [['Ver.nr', 'Datum', 'Beskrivning', 'Kategori', 'Inkomst (kr)', 'Utgift (kr)']],
-    body: sorted.map((tx, i) => {
-      const cat = catMap[tx.categoryId];
-      const isInc = cat?.type === 'income';
-      return [
-        String(i + 1).padStart(3, '0'),
-        tx.date,
-        tx.description || '',
-        cat ? `${cat.id} ${cat.name}` : tx.categoryId,
-        isInc ? fmtNum(tx.amount) : '',
-        !isInc ? fmtNum(tx.amount) : '',
-      ];
-    }),
-    foot: [[
-      '', '', '', 'TOTALT',
-      fmtNum(totalIncome),
-      fmtNum(totalExpense),
-    ]],
-    headStyles: { fillColor: DARK, fontSize: 7.5 },
-    footStyles: { fillColor: [207, 226, 243], fontStyle: 'bold', fontSize: 8 },
-    showFoot: 'lastPage',
-    columnStyles: {
-      0: { cellWidth: 12, halign: 'center' },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 56 },
-      3: { cellWidth: 42 },
-      4: { halign: 'right', font: 'courier', textColor: GREEN, cellWidth: 22 },
-      5: { halign: 'right', font: 'courier', textColor: RED,   cellWidth: 22 },
-    },
-    styles: { fontSize: 7.5, cellPadding: 1.5, overflow: 'ellipsize' },
-    alternateRowStyles: { fillColor: PAPER },
-    margin: { left: 18, right: 18 },
-  });
-
   // ── Kassarapport (saldo) ──────────────────────────────────
-  y = doc.lastAutoTable.finalY + 12;
   if (y > 240) { doc.addPage(); y = 18; }
 
   sectionHeader('Kassarapport');
