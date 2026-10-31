@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
 import { store, attachments, getYear, getOrBuildPeriods } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
@@ -15,23 +15,36 @@ import Arsrapport from './pages/Arsrapport';
 import Rakenskapsperioder from './pages/Rakenskapsperioder';
 import Medlemmar from './pages/Medlemmar';
 import Installningar from './pages/Installningar';
+import Komigang from './pages/Komigang';
 import './index.css';
 
-const NAV = [
-  { id: 'dashboard',  label: 'Översikt',          icon: LayoutDashboard },
-  { id: 'kassabok',   label: 'Kassabok',           icon: BookOpen },
-  { id: 'budget',     label: 'Budget & Resultat',  icon: PieChart },
-  { id: 'kategorier', label: 'Kategorier',         icon: Tags },
-  { id: 'arsrapport', label: 'Årsrapport (PDF)',   icon: FileText },
-  { id: 'perioder',   label: 'Räkenskapsperioder', icon: CalendarDays },
-  { id: 'medlemmar',    label: 'Medlemmar',    icon: Users,    ownerOnly: true },
-  { id: 'installningar', label: 'Inställningar', icon: Settings, ownerOnly: true },
+const NAV_GROUPS = [
+  { items: [
+    { id: 'komigang',  label: 'Kom igång',          icon: Rocket, hideForViewer: true },
+    { id: 'dashboard', label: 'Översikt',           icon: LayoutDashboard },
+  ] },
+  { title: 'Bokföring', items: [
+    { id: 'kassabok',  label: 'Kassabok',           icon: BookOpen },
+    { id: 'budget',    label: 'Budget & utfall',    icon: PieChart },
+  ] },
+  { title: 'Rapporter', items: [
+    { id: 'arsrapport', label: 'Rapporter & export', icon: FileText },
+  ] },
+  { title: 'Förening', items: [
+    { id: 'kategorier',    label: 'Kategorier',         icon: Tags },
+    { id: 'perioder',      label: 'Räkenskapsperioder', icon: CalendarDays },
+    { id: 'medlemmar',     label: 'Medlemmar',          icon: Users,    ownerOnly: true },
+    { id: 'installningar', label: 'Inställningar',      icon: Settings, ownerOnly: true },
+  ] },
 ];
+const NAV = NAV_GROUPS.flatMap(g => g.items);
+const NO_PERIOD_PAGES = ['komigang', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
 
 function MainApp({ orgId, role }) {
   const { orgs, setOrgId: switchOrg } = useAuth()
   const canWrite = role !== 'viewer'
   const [page, setPage]               = useState('dashboard');
+  const routed = useRef(false);
   const [orgNames, setOrgNames]       = useState({});
   const [loading, setLoading]         = useState(true);
   const [transactions, setTxs]        = useState([]);
@@ -61,6 +74,12 @@ function MainApp({ orgId, role }) {
         periods.find(p => today >= p.start && today <= p.end) ||
         [...periods].sort((a, b) => b.start.localeCompare(a.start))[0];
       setActivePeriodId(active?.id || null);
+
+      // Nya föreningar utan verifikat hamnar på Kom igång första gången
+      if (!routed.current) {
+        routed.current = true;
+        if (canWrite && !(data.transactions || []).length) setPage('komigang');
+      }
     } finally {
       setLoading(false);
     }
@@ -136,6 +155,7 @@ function MainApp({ orgId, role }) {
 
   const pageProps = { transactions, categories, budget, orgName, activePeriod, fiscalPeriods };
   const pageMap   = {
+    komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={setPage} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
@@ -147,11 +167,12 @@ function MainApp({ orgId, role }) {
   };
 
   const subtitles = {
+    komigang:   'Gör föreningen redo steg för steg',
     dashboard:  `Ekonomisk översikt – ${activePeriod?.label || '–'}`,
     kassabok:   `Verifikat – ${activePeriod?.label || '–'}`,
     budget:     `Budget vs utfall – ${activePeriod?.label || '–'}`,
     kategorier: 'Definiera intäkts- och kostnadskategorier',
-    arsrapport: 'Exportera PDF-årsrapport',
+    arsrapport: 'Årsrapport, Excel, verifikat och budget som filer',
     perioder:   'Hantera räkenskapsperioder och verksamhetsår',
     medlemmar:     'Bjud in och hantera föreningens användare',
     installningar: 'Föreningsnamn och borttagning',
@@ -194,15 +215,23 @@ function MainApp({ orgId, role }) {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.filter(n => !n.ownerOnly || role === 'main_owner' || role === 'owner').map(n => {
-            const Icon  = n.icon;
-            const isSep = n.id === 'perioder';
+          {NAV_GROUPS.map((g, gi) => {
+            const items = g.items.filter(n =>
+              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite));
+            if (!items.length) return null;
             return (
-              <div key={n.id}>
-                {isSep && <div style={{ height:1, background:'rgba(255,255,255,0.1)', margin:'8px 4px' }}/>}
-                <button className={`nav-btn${page === n.id ? ' active' : ''}`} onClick={() => setPage(n.id)}>
-                  <Icon size={16}/> {n.label}
-                </button>
+              <div key={gi}>
+                {g.title && (
+                  <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', margin: gi ? '14px 8px 4px' : '0 8px 4px' }}>{g.title}</div>
+                )}
+                {items.map(n => {
+                  const Icon = n.icon;
+                  return (
+                    <button key={n.id} className={`nav-btn${page === n.id ? ' active' : ''}`} onClick={() => setPage(n.id)}>
+                      <Icon size={16}/> {n.label}
+                    </button>
+                  );
+                })}
               </div>
             );
           })}
@@ -247,7 +276,7 @@ function MainApp({ orgId, role }) {
             <h2>{NAV.find(n => n.id === page)?.label}</h2>
             <div className="page-subtitle">{subtitles[page]}</div>
           </div>
-          {activePeriod && !['kategorier', 'perioder'].includes(page) && (
+          {activePeriod && !NO_PERIOD_PAGES.includes(page) && (
             <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--paper-2)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'6px 12px' }}>
               <span style={{ fontSize:'0.78rem', color:'var(--ink-muted)', letterSpacing:'0.05em', textTransform:'uppercase' }}>Period</span>
               <span style={{ fontFamily:'var(--font-mono)', fontWeight:600, fontSize:'1rem', color:'var(--ink)' }}>{activePeriod.label}</span>
