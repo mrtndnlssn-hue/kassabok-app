@@ -4,3 +4,4 @@ release/
 .env
 .env.local
 *.log
+.claude/settings.local.json
