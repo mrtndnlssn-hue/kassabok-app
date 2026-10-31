@@ -7,9 +7,9 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
 
-  const incCats = categories.filter(c => c.type === 'income');
-  const expCats = categories.filter(c => c.type === 'expense');
-  const totalBudgetIncome  = incCats.reduce((s, c) => s + (budget[c.id] || 0), 0);
+  const incCats = categories.filter(c => c.type === 'income' && !c.hidden);
+  const expCats = categories.filter(c => c.type === 'expense' && !c.hidden);
+  const totalBudgetIncome = incCats.reduce((s, c) => s + (budget[c.id] || 0), 0);
   const totalBudgetExpense = expCats.reduce((s, c) => s + (budget[c.id] || 0), 0);
   const netBudget = totalBudgetIncome - totalBudgetExpense;
 
