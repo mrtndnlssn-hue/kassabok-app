@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, X, Check, Search, Paperclip } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { Plus, Pencil, Trash2, X, Check, Search, Paperclip, Upload, FileText } from 'lucide-react';
 import AttachmentPanel from './AttachmentPanel';
 import { fmt, txsForPeriod } from '../store';
 import { useAuth } from '../auth/AuthProvider';
@@ -23,6 +23,13 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
   const [filterType, setFilterType] = useState('all');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [attachTx, setAttachTx]       = useState(null); // {tx, verNum}
+  const [filterCat, setFilterCat]     = useState('all');
+  const [newFiles, setNewFiles]       = useState([]); // [{file, url}]
+  const [previewIdx, setPreviewIdx]   = useState(0);
+  const [saving, setSaving]           = useState(false);
+  const [saveError, setSaveError]     = useState('');
+  const [dragOver, setDragOver]       = useState(false);
+  const fileRef = useRef();
 
   const yearTxs = useMemo(() => txsForPeriod(transactions, period), [transactions, period]);
   const catMap   = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories]);
@@ -40,8 +47,11 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
     if (filterType !== 'all') {
       txs = txs.filter(t => catMap[t.categoryId]?.type === filterType);
     }
+    if (filterCat !== 'all') {
+      txs = txs.filter(t => t.categoryId === filterCat);
+    }
     return txs;
-  }, [yearTxs, search, filterType, catMap]);
+  }, [yearTxs, search, filterType, filterCat, catMap]);
 
   const totalIncome  = filtered.filter(t => catMap[t.categoryId]?.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
   const totalExpense = filtered.filter(t => catMap[t.categoryId]?.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
@@ -49,20 +59,54 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
   function openAdd() {
     setForm(EMPTY_FORM);
     setEditId(null);
+    setNewFiles([]);
+    setSaveError('');
     setShowModal(true);
   }
   function openEdit(tx) {
     setForm({ date: tx.date, description: tx.description || '', categoryId: tx.categoryId, amount: String(tx.amount), comment: tx.comment || '' });
     setEditId(tx.id);
+    setNewFiles([]);
+    setSaveError('');
     setShowModal(true);
   }
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const payload = { ...form, amount: parseFloat(form.amount) || 0 };
-    if (editId) onUpdate(editId, payload);
-    else onAdd(payload);
+    setSaving(true);
+    setSaveError('');
+    try {
+      if (editId) await onUpdate(editId, payload);
+      else await onAdd(payload, newFiles.map(f => f.file));
+      setShowModal(false);
+    } catch (err) {
+      setSaveError(`Kunde inte spara: ${err.message || 'okänt fel'}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+  function addFiles(fileList) {
+    const added = Array.from(fileList || []).map(file => ({
+      file,
+      url: /^(image\/|application\/pdf$)/.test(file.type) ? URL.createObjectURL(file) : null,
+    }));
+    setNewFiles(prev => [...prev, ...added]);
+    setPreviewIdx(newFiles.length);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+  function removeFile(i) {
+    setNewFiles(prev => {
+      if (prev[i]?.url) URL.revokeObjectURL(prev[i].url);
+      return prev.filter((_, j) => j !== i);
+    });
+    setPreviewIdx(0);
+  }
+  function closeModal() {
+    newFiles.forEach(f => f.url && URL.revokeObjectURL(f.url));
+    setNewFiles([]);
     setShowModal(false);
   }
+  const preview = newFiles[previewIdx] || newFiles[0];
   function handleDelete(id) {
     if (deleteConfirm === id) { onDelete(id); setDeleteConfirm(null); }
     else setDeleteConfirm(id);
@@ -85,10 +129,17 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
             style={{ paddingLeft: 32 }}
           />
         </div>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ width: 'auto' }}>
+        <select value={filterType} onChange={e => { setFilterType(e.target.value); setFilterCat('all'); }} style={{ width: 'auto' }}>
           <option value="all">Alla typer</option>
           <option value="income">Intäkter</option>
           <option value="expense">Kostnader</option>
+        </select>
+        <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ width: 'auto', maxWidth: 220 }}>
+          <option value="all">Alla konton</option>
+          {categories
+            .filter(c => filterType === 'all' || c.type === filterType)
+            .sort((a, b) => String(a.id).localeCompare(String(b.id), 'sv', { numeric: true }))
+            .map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
         </select>
         <div className="ml-auto">
           {canWrite && (
@@ -208,11 +259,11 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="modal">
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+          <div className="modal" style={!editId && preview ? { maxWidth: 640 } : undefined}>
             <div className="modal-header">
               <div className="modal-title">{editId ? 'Redigera verifikat' : 'Nytt verifikat'}</div>
-              <button className="modal-close" onClick={() => setShowModal(false)}><X size={18} /></button>
+              <button className="modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-row form-row-cols">
@@ -254,10 +305,61 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
                     onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} />
                 </div>
               </div>
+              {!editId && (
+                <div className="form-row">
+                  <div>
+                    <label>Bilagor (kvitto/faktura)</label>
+                    <div
+                      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files); }}
+                      onClick={() => fileRef.current?.click()}
+                      style={{
+                        border: `2px dashed ${dragOver ? 'var(--accent-2)' : 'var(--border)'}`,
+                        borderRadius: 'var(--r-lg)', background: dragOver ? 'var(--accent-3)' : 'var(--paper)',
+                        padding: '14px 16px', textAlign: 'center', cursor: 'pointer', color: 'var(--ink-muted)',
+                        fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      }}
+                    >
+                      <Upload size={16} style={{ opacity: 0.6 }} />
+                      Dra och släpp filer här, eller klicka för att välja
+                    </div>
+                    <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={e => addFiles(e.target.files)} />
+                    {newFiles.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                        {newFiles.map((f, i) => (
+                          <div key={i} onClick={() => setPreviewIdx(i)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 'var(--r)', cursor: 'pointer',
+                              background: preview === f ? 'var(--accent-3)' : 'var(--paper-2)', border: '1px solid var(--border)', fontSize: '0.85rem' }}>
+                            <FileText size={14} style={{ flexShrink: 0, color: 'var(--ink-soft)' }} />
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.file.name}</span>
+                            <button type="button" title="Ta bort" onClick={e => { e.stopPropagation(); removeFile(i); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex', padding: 2 }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {preview && (
+                      <div style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 'var(--r)', background: 'var(--paper-2)', height: 320, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {preview.url && preview.file.type === 'application/pdf'
+                          ? <iframe src={preview.url} title="Förhandsvisning" style={{ width: '100%', height: '100%', border: 'none' }} />
+                          : preview.url
+                            ? <img src={preview.url} alt={preview.file.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                            : <span style={{ fontSize: '0.82rem', color: 'var(--ink-muted)' }}>Ingen förhandsvisning för den här filtypen.</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {saveError && (
+                <div className="notice" style={{ background: 'var(--red-soft)', borderColor: 'var(--red)', color: 'var(--red)', marginTop: 12 }}>{saveError}</div>
+              )}
               <div className="btn-row" style={{ marginTop: 20, justifyContent: 'flex-end' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Avbryt</button>
-                <button type="submit" className="btn btn-primary">
-                  <Check size={14} /> {editId ? 'Spara ändringar' : 'Lägg till'}
+                <button type="button" className="btn btn-secondary" onClick={closeModal}>Avbryt</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  <Check size={14} /> {saving ? 'Sparar…' : editId ? 'Spara ändringar' : 'Lägg till'}
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
-import { store, getYear, getOrBuildPeriods } from './store';
+import { store, attachments, getYear, getOrBuildPeriods } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import LoginPage from './auth/LoginPage';
@@ -83,7 +83,14 @@ function MainApp({ orgId, role }) {
   const sortedPeriods = [...fiscalPeriods].sort((a, b) => b.start.localeCompare(a.start));
   const periodIdx     = sortedPeriods.findIndex(p => p.id === activePeriodId);
 
-  async function handleAddTx(tx)         { await store.addTransaction(orgId, tx);          await fetchAll(); }
+  async function handleAddTx(tx, files = []) {
+    const added = await store.addTransaction(orgId, tx);
+    try {
+      if (files.length) await attachments.upload(orgId, added.id, files);
+    } finally {
+      await fetchAll();
+    }
+  }
   async function handleUpdateTx(id, upd) { await store.updateTransaction(orgId, id, upd);  await fetchAll(); }
   async function handleDeleteTx(id)      { await store.deleteTransaction(orgId, id);        await fetchAll(); }
   async function handleSaveCats(cats)    { await store.saveCategories(orgId, cats);         setCats(cats); }

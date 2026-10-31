@@ -17,7 +17,7 @@ const ROLE_STYLE = {
   viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)', border: '1px solid var(--border)' },
 }
 
-const MAX_MEMBERS = 5
+const MAX_MEMBERS = 15
 
 function RoleBadge({ role }) {
   return (
@@ -38,6 +38,7 @@ export default function Medlemmar({ orgId, orgName }) {
   const [copied, setCopied]   = useState(false)
   const [error, setError]     = useState('')
   const [newRole, setNewRole]     = useState('member')
+  const [newNickname, setNewNickname] = useState('')
   const [transferTo, setTransferTo] = useState(null)
   const [newestCode, setNewestCode] = useState(null) // code of most recently created invite
 
@@ -49,7 +50,7 @@ export default function Medlemmar({ orgId, orgName }) {
         supabase.rpc('get_org_members_with_email', { p_org_id: orgId }),
         supabase
           .from('org_invites')
-          .select('code, invited_role, expires_at, created_at')
+          .select('code, invited_role, nickname, expires_at, created_at')
           .eq('org_id', orgId)
           .gt('expires_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
@@ -61,7 +62,8 @@ export default function Medlemmar({ orgId, orgName }) {
         userId: m.user_id,
         role:   m.role,
         email:  m.email,
-        isMe:   m.user_id === session.user.id,
+        nickname: m.nickname || '',
+        isMe:  m.user_id === session.user.id,
       })))
       const fetchedInvites = invitesRes.data || []
       setInvites(fetchedInvites)
@@ -93,6 +95,20 @@ export default function Medlemmar({ orgId, orgName }) {
       .eq('user_id', userId)
     if (error) { setError(error.message); return }
     setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole } : m))
+  }
+
+  async function editNickname(userId) {
+    const current = members.find(m => m.userId === userId)?.nickname || ''
+    const input = window.prompt('Namn i den här föreningen (lämna tomt för att ta bort):', current)
+    if (input === null) return
+    const nickname = input.trim()
+    const { error } = await supabase
+      .from('organization_members')
+      .update({ nickname: nickname || null })
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+    if (error) { setError(error.message); return }
+    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, nickname } : m))
   }
 
   async function transferMainOwner(toUserId) {
@@ -145,8 +161,9 @@ export default function Medlemmar({ orgId, orgName }) {
     }
     const { error } = await supabase
       .from('org_invites')
-      .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole })
+      .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole, nickname: newNickname.trim() || null })
     if (error) { setError(error.message); return }
+    setNewNickname('')
     const fetched = await fetchAll()
     if (fetched?.length) setNewestCode(fetched[0].code) // sorted desc, so [0] is newest
   }
@@ -212,7 +229,14 @@ export default function Medlemmar({ orgId, orgName }) {
             }).map(m => (
               <tr key={m.userId}>
                 <td style={{ fontSize: '0.85rem' }}>
-                  {m.email}
+                  {m.nickname && <strong style={{ marginRight: 6 }}>{m.nickname}</strong>}
+                  <span style={m.nickname ? { color: 'var(--ink-muted)', fontSize: '0.78rem' } : undefined}>{m.email}</span>
+                  {canManage && (
+                    <button onClick={() => editNickname(m.userId)} title="Ändra namn i föreningen"
+                      style={{ marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', fontSize: '0.72rem', textDecoration: 'underline' }}>
+                      {m.nickname ? 'ändra' : 'lägg till namn'}
+                    </button>
+                  )}
                   {m.isMe && <span style={{ marginLeft:6, fontSize:'0.72rem', color:'var(--ink-muted)', background:'var(--paper-2)', padding:'1px 6px', borderRadius:99, border:'1px solid var(--border)' }}>du</span>}
                 </td>
                 <td>
@@ -267,7 +291,13 @@ export default function Medlemmar({ orgId, orgName }) {
             <h3 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--ink)', margin: 0 }}>
               Inbjudningslänkar
             </h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <input
+                type="text" value={newNickname} maxLength={60}
+                onChange={e => setNewNickname(e.target.value)}
+                placeholder="Namn (valfritt)"
+                style={{ fontSize: '0.82rem', padding: '4px 8px', width: 150 }}
+              />
               <select
                 value={newRole}
                 onChange={e => setNewRole(e.target.value)}
@@ -300,7 +330,8 @@ export default function Medlemmar({ orgId, orgName }) {
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {inviteUrl(inv.code)}
                     </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize: '0.72rem', color: 'var(--ink-muted)', flexWrap: 'wrap' }}>
+                      {inv.nickname && <strong style={{ color: 'var(--ink)' }}>{inv.nickname} ·</strong>}
                       {ROLE_LABEL[inv.invited_role] || inv.invited_role}
                       · Skapad {new Date(inv.created_at).toLocaleString('sv-SE', { dateStyle:'short', timeStyle:'short' })}
                       · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
@@ -321,7 +352,7 @@ export default function Medlemmar({ orgId, orgName }) {
             </div>
           )}
           <p style={{ marginTop: 12, fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
-            Länken är giltig i 7 dagar. En förening kan ha max {MAX_MEMBERS} användare.
+            Namnet följer med när personen skapar konto och syns bara för medlemmarna i den här föreningen. Länken är giltig i 7 dagar. En förening kan ha max {MAX_MEMBERS} användare.
           </p>
         </section>
       )}
