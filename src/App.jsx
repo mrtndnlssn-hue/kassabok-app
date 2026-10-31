@@ -188,6 +188,10 @@ function MainApp({ orgId, role }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-logo">
+          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14 }}>
+            <img src="/favicon.svg" alt="" width="26" height="26" />
+            <div style={{ fontSize:'0.85rem', fontWeight:600, color:'rgba(255,255,255,0.75)', letterSpacing:'0.01em' }}>Föreningsbalans</div>
+          </div>
           <h1>{orgName || 'Min Förening'}</h1>
 
           <div style={{ marginTop:10 }}>
