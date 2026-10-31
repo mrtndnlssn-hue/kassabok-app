@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { fmt as fmtRaw, sumByCategory, isoDate } from './store';
+import { translate as t } from './i18n';
 
 // jsPDF:s standardfonter saknar Unicode-minus, så negativa belopp skrivs med vanligt bindestreck
 const fmt = v => fmtRaw(v).replace(/−/g, '-');
@@ -29,7 +30,7 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   doc.setTextColor(255, 255, 255);
   doc.setFont('times', 'bolditalic');
   doc.setFontSize(26);
-  doc.text('Budget', 18, 22);
+  doc.text(t('Budget'), 18, 22);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
@@ -46,16 +47,16 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   doc.setTextColor(120, 120, 160);
   const span = period ? `${period.start} – ${period.end}` : '';
   doc.text(span, W - 18, 36, { align: 'right' });
-  doc.text(`Genererad ${isoDate()}`, W - 18, 46, { align: 'right' });
+  doc.text(t('Genererad {datum}', { datum: isoDate() }), W - 18, 46, { align: 'right' });
 
   let y = 62;
 
   // ── Summary cards (2 boxes) ───────────────────────────────
   const cardW = (W - 36 - 8) / 3;
   const cards = [
-    { label: 'Budgeterade intäkter', value: fmt(totalBudgetIncome), color: GREEN },
-    { label: 'Budgeterade kostnader', value: fmt(totalBudgetExpense), color: RED },
-    { label: 'Budgeterat netto', value: fmt(netBudget), color: netBudget >= 0 ? GREEN : RED },
+    { label: t('Budgeterade intäkter'), value: fmt(totalBudgetIncome), color: GREEN },
+    { label: t('Budgeterade kostnader'), value: fmt(totalBudgetExpense), color: RED },
+    { label: t('Budgeterat netto'), value: fmt(netBudget), color: netBudget >= 0 ? GREEN : RED },
   ];
   cards.forEach((card, i) => {
     const x = 18 + i * (cardW + 4);
@@ -85,7 +86,7 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     y += 8;
   }
 
-  sectionHeader('Budgetförslag');
+  sectionHeader(t('Budgetförslag'));
 
   const row = c => [`${c.id}  ${c.name}`, fmt(budget[c.id] || 0), comments[c.id] || ''];
   const used = c => (budget[c.id] || 0) !== 0 || !!comments[c.id];
@@ -114,11 +115,11 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     autoTable(d, {
       ...tableBase,
       startY,
-      head: [['Kategori', 'Budget', 'Kommentar']],
+      head: [[t('Kategori'), t('Budget'), t('Kommentar')]],
       body: [
-        [{ content: 'INTÄKTER', colSpan: 3, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
+        [{ content: t('INTÄKTER'), colSpan: 3, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
         ...incRows,
-        sumRow('Summa intäkter', totalBudgetIncome),
+        sumRow(t('Summa intäkter'), totalBudgetIncome),
       ],
     });
 
@@ -129,14 +130,14 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     autoTable(d, {
       ...tableBase,
       startY: y2,
-      head: splitExpenses ? [['Kategori', 'Budget', 'Kommentar']] : [],
+      head: splitExpenses ? [[t('Kategori'), t('Budget'), t('Kommentar')]] : [],
       body: [
-        [{ content: 'KOSTNADER', colSpan: 3, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
+        [{ content: t('KOSTNADER'), colSpan: 3, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
         ...expRows,
-        sumRow('Summa kostnader', totalBudgetExpense),
+        sumRow(t('Summa kostnader'), totalBudgetExpense),
       ],
       foot: [[
-        { content: 'NETTORESULTAT', styles: { fontStyle: 'bold' } },
+        { content: t('NETTORESULTAT'), styles: { fontStyle: 'bold' } },
         { content: fmt(netBudget), styles: { fontStyle: 'bold', textColor: netBudget >= 0 ? GREEN : RED } },
         '',
       ]],
@@ -155,17 +156,17 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     d.setFont('times', 'bolditalic');
     d.setFontSize(10);
     d.setTextColor(255, 255, 255);
-    d.text('Kassabudget', 22, y3 + 5.5);
+    d.text(t('Kassabudget'), 22, y3 + 5.5);
 
     autoTable(d, {
       startY: y3 + 8,
       body: [
-        ['Ingående saldo', fmt(openingBalance)],
-        [{ content: '+ Budgeterade intakter', styles: { textColor: GREEN } }, { content: fmt(totalBudgetIncome), styles: { halign: 'right', font: 'courier', textColor: GREEN } }],
-        [{ content: '- Budgeterade kostnader', styles: { textColor: RED } }, { content: fmt(totalBudgetExpense), styles: { halign: 'right', font: 'courier', textColor: RED } }],
+        [t('Ingående saldo'), fmt(openingBalance)],
+        [{ content: t('+ Budgeterade intakter'), styles: { textColor: GREEN } }, { content: fmt(totalBudgetIncome), styles: { halign: 'right', font: 'courier', textColor: GREEN } }],
+        [{ content: t('- Budgeterade kostnader'), styles: { textColor: RED } }, { content: fmt(totalBudgetExpense), styles: { halign: 'right', font: 'courier', textColor: RED } }],
       ],
       foot: [[
-        { content: 'Beräknad utgående saldo', styles: { fontStyle: 'bold', fontSize: 9 } },
+        { content: t('Beräknad utgående saldo'), styles: { fontStyle: 'bold', fontSize: 9 } },
         { content: fmt(closingBalance), styles: { halign: 'right', font: 'courier', fontStyle: 'bold', fontSize: 9, textColor: closingBalance >= 0 ? GREEN : RED } },
       ]],
       columnStyles: { 0: { cellWidth: 106 }, 1: { halign: 'right', font: 'courier' } },
@@ -191,8 +192,8 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(160, 160, 180);
-    doc.text(`${orgName} · Budget ${period?.label || ''}`, 18, 291);
-    doc.text(`Sida ${p} av ${pageCount}`, W - 18, 291, { align: 'right' });
+    doc.text(`${orgName} · ${t('Budget')} ${period?.label || ''}`, 18, 291);
+    doc.text(t('Sida {p} av {n}', { p, n: pageCount }), W - 18, 291, { align: 'right' });
     doc.setDrawColor(...BORDER);
     doc.line(18, 288, W - 18, 288);
   }
@@ -233,7 +234,7 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
   doc.setTextColor(255, 255, 255);
   doc.setFont('times', 'bolditalic');
   doc.setFontSize(26);
-  doc.text('Årsrapport', 18, 22);
+  doc.text(t('Årsrapport'), 18, 22);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
@@ -250,16 +251,16 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
   doc.setTextColor(120, 120, 160);
   const span = period ? `${period.start} – ${period.end}` : '';
   doc.text(span, W - 18, 36, { align: 'right' });
-  doc.text(`Genererad ${isoDate()}`, W - 18, 46, { align: 'right' });
+  doc.text(t('Genererad {datum}', { datum: isoDate() }), W - 18, 46, { align: 'right' });
 
   y = 62;
 
   // ── Summary cards (3 boxes) ───────────────────────────────
   const cardW = (W - 36 - 8) / 3;
   const cards = [
-    { label: 'Totala intäkter', value: fmt(totalIncome), color: GREEN },
-    { label: 'Totala kostnader', value: fmt(totalExpense), color: RED },
-    { label: 'Nettoresultat', value: fmt(netResult), color: netResult >= 0 ? GREEN : RED },
+    { label: t('Totala intäkter'), value: fmt(totalIncome), color: GREEN },
+    { label: t('Totala kostnader'), value: fmt(totalExpense), color: RED },
+    { label: t('Nettoresultat'), value: fmt(netResult), color: netResult >= 0 ? GREEN : RED },
   ];
   cards.forEach((card, i) => {
     const x = 18 + i * (cardW + 4);
@@ -290,7 +291,7 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
   }
 
   // ── Resultaträkning ───────────────────────────────────────
-  sectionHeader('Resultaträkning');
+  sectionHeader(t('Resultaträkning'));
 
   const buildRows = (cats, type) => cats
     .filter(c => (actuals[c.id] || 0) !== 0 || (budget[c.id] || 0) !== 0)
@@ -311,17 +312,17 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
 
   autoTable(doc, {
     startY: y,
-    head: [['Kategori', 'Budget', 'Utfall', 'Avvikelse']],
+    head: [[t('Kategori'), t('Budget'), t('Utfall'), t('Avvikelse')]],
     body: [
-      [{ content: 'INTÄKTER', colSpan: 4, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
+      [{ content: t('INTÄKTER'), colSpan: 4, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
       ...incRows,
-      [{ content: `Summa intäkter`, styles: { fontStyle: 'bold' } }, budgetIncome ? fmt(budgetIncome) : '–', fmt(totalIncome), budgetIncome ? fmt(totalIncome - budgetIncome) : '–'],
-      [{ content: 'KOSTNADER', colSpan: 4, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
+      [{ content: t('Summa intäkter'), styles: { fontStyle: 'bold' } }, budgetIncome ? fmt(budgetIncome) : '–', fmt(totalIncome), budgetIncome ? fmt(totalIncome - budgetIncome) : '–'],
+      [{ content: t('KOSTNADER'), colSpan: 4, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
       ...expRows,
-      [{ content: `Summa kostnader`, styles: { fontStyle: 'bold' } }, budgetExpense ? fmt(budgetExpense) : '–', fmt(totalExpense), budgetExpense ? fmt(totalExpense - budgetExpense) : '–'],
+      [{ content: t('Summa kostnader'), styles: { fontStyle: 'bold' } }, budgetExpense ? fmt(budgetExpense) : '–', fmt(totalExpense), budgetExpense ? fmt(totalExpense - budgetExpense) : '–'],
     ],
     foot: [[
-      { content: 'NETTORESULTAT', styles: { fontStyle: 'bold' } },
+      { content: t('NETTORESULTAT'), styles: { fontStyle: 'bold' } },
       { content: (budgetIncome || budgetExpense) ? fmt(budgetIncome - budgetExpense) : '–', styles: { fontStyle: 'bold' } },
       { content: fmt(netResult), styles: { fontStyle: 'bold', textColor: netResult >= 0 ? GREEN : RED } },
       { content: (budgetIncome || budgetExpense) ? fmt(netResult - (budgetIncome - budgetExpense)) : '–', styles: { fontStyle: 'bold' } },
@@ -357,18 +358,18 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
   // ── Kassarapport (saldo) ──────────────────────────────────
   if (y > 240) { doc.addPage(); y = 18; }
 
-  sectionHeader('Kassarapport');
+  sectionHeader(t('Kassarapport'));
 
   const closingBalance = openingBalance + netResult;
   autoTable(doc, {
     startY: y,
     body: [
-      ['Ingående saldo', fmt(openingBalance)],
-      [{ content: '+ Intakter', styles: { textColor: GREEN } }, { content: fmt(totalIncome), styles: { halign: 'right', font: 'courier', textColor: GREEN } }],
-      [{ content: '- Kostnader', styles: { textColor: RED } }, { content: fmt(totalExpense), styles: { halign: 'right', font: 'courier', textColor: RED } }],
+      [t('Ingående saldo'), fmt(openingBalance)],
+      [{ content: t('+ Intakter'), styles: { textColor: GREEN } }, { content: fmt(totalIncome), styles: { halign: 'right', font: 'courier', textColor: GREEN } }],
+      [{ content: t('- Kostnader'), styles: { textColor: RED } }, { content: fmt(totalExpense), styles: { halign: 'right', font: 'courier', textColor: RED } }],
     ],
     foot: [[
-      { content: 'Utgående saldo (kontosaldo)', styles: { fontStyle: 'bold', fontSize: 9 } },
+      { content: t('Utgående saldo (kontosaldo)'), styles: { fontStyle: 'bold', fontSize: 9 } },
       { content: fmt(closingBalance), styles: { halign: 'right', font: 'courier', fontStyle: 'bold', fontSize: 9, textColor: closingBalance >= 0 ? GREEN : RED } },
     ]],
     columnStyles: {
@@ -389,14 +390,14 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
     doc.setFontSize(7);
     doc.setTextColor(160, 160, 180);
     doc.text(`${orgName} · ${period?.label || ''}`, 18, 291);
-    doc.text(`Sida ${p} av ${pageCount2}`, W - 18, 291, { align: 'right' });
+    doc.text(t('Sida {p} av {n}', { p, n: pageCount2 }), W - 18, 291, { align: 'right' });
     doc.setDrawColor(...BORDER);
     doc.line(18, 288, W - 18, 288);
   }
 
   // Only trigger download if not called from zip export (which uses doc.output)
   if (!existingDoc) {
-    doc.save(`arsrapport_${(period?.label||'').replace(/[^a-zA-Z0-9]/g,'_')}_${orgName.replace(/\s+/g,'_')}.pdf`);
+    doc.save(`${t('arsrapport')}_${(period?.label||'').replace(/[^a-zA-Z0-9]/g,'_')}_${orgName.replace(/\s+/g,'_')}.pdf`);
   }
   return doc;
 }

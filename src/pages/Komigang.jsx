@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabase';
 import { getReceiptUsage } from '../receiptAi';
+import { useI18n } from '../i18n';
 
 const flagKey = orgId => `kb_onboarding_${orgId}`;
 function loadFlags(orgId) {
@@ -9,6 +10,7 @@ function loadFlags(orgId) {
 }
 
 export default function Komigang({ orgId, role, transactions, budget, activePeriod, onSavePeriods, fiscalPeriods, onNavigate }) {
+  const { t } = useI18n();
   const isOwner = role === 'main_owner' || role === 'owner';
   const [flags, setFlags]       = useState(() => loadFlags(orgId));
   const [memberCount, setMemberCount] = useState(null);
@@ -41,7 +43,7 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
       await onSavePeriods(fiscalPeriods.map(p => p.id === activePeriod.id ? { ...p, openingBalance: value } : p));
       setFlag('balance');
     } catch (err) {
-      setError(err.message || 'Kunde inte spara.');
+      setError(err.message || t('Kunde inte spara.'));
     } finally {
       setSaving(false);
     }
@@ -51,63 +53,63 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
   const steps = [
     {
       id: 'balance',
-      title: 'Ange ingående saldo',
-      text: `Hur mycket pengar fanns i kassan när ${activePeriod?.label || 'perioden'} började? Är det en helt ny förening anger du 0.`,
+      title: t('Ange ingående saldo'),
+      text: t('Hur mycket pengar fanns i kassan när {period} började? Är det en helt ny förening anger du 0.', { period: activePeriod?.label || t('perioden') }),
       done: !!flags.balance || Number(activePeriod?.openingBalance) !== 0,
       form: activePeriod && (
         <form onSubmit={saveBalance} style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
           <input type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)}
-            disabled={activePeriod.locked} style={{ width:160, textAlign:'right' }} aria-label="Ingående saldo (kr)" />
-          <span style={{ fontSize:'0.85rem', color:'var(--ink-muted)' }}>kr</span>
-          <button className="btn btn-primary btn-sm" type="submit" disabled={saving || activePeriod.locked}>{saving ? 'Sparar…' : 'Spara'}</button>
+            disabled={activePeriod.locked} style={{ width:160, textAlign:'right' }} aria-label={t('Ingående saldo (kr)')} />
+          <span style={{ fontSize:'0.85rem', color:'var(--ink-muted)' }}>{t('kr')}</span>
+          <button className="btn btn-primary btn-sm" type="submit" disabled={saving || activePeriod.locked}>{saving ? t('Sparar…') : t('Spara')}</button>
         </form>
       ),
     },
     {
       id: 'categories',
-      title: 'Granska kategorierna',
-      text: 'Kategorierna är föreningens intäkts- och kostnadsposter. Byt namn, lägg till egna eller dölj sådant ni inte använder.',
+      title: t('Granska kategorierna'),
+      text: t('Kategorierna är föreningens intäkts- och kostnadsposter. Byt namn, lägg till egna eller dölj sådant ni inte använder.'),
       done: !!flags.categories,
-      action: { label: 'Öppna Kategorier', page: 'kategorier' },
+      action: { label: t('Öppna Kategorier'), page: 'kategorier' },
       manual: true,
     },
     {
       id: 'budget',
-      title: 'Lägg en budget',
-      text: 'Ange vad ni räknar med att ta in och spendera. Utfallet jämförs sedan mot budgeten under året.',
+      title: t('Lägg en budget'),
+      text: t('Ange vad ni räknar med att ta in och spendera. Utfallet jämförs sedan mot budgeten under året.'),
       done: Object.values(periodBudget).some(v => v > 0),
-      action: { label: 'Öppna Budget', page: 'budget' },
+      action: { label: t('Öppna Budget'), page: 'budget' },
     },
     {
       id: 'members',
-      title: 'Bjud in styrelsen',
-      text: 'Skapa inbjudningslänkar. Ge läsare tillgång om de bara ska kunna titta, och medlemmar om de ska bokföra.',
+      title: t('Bjud in styrelsen'),
+      text: t('Skapa inbjudningslänkar. Ge läsare tillgång om de bara ska kunna titta, och medlemmar om de ska bokföra.'),
       done: (memberCount ?? 1) > 1,
-      action: { label: 'Öppna Medlemmar', page: 'medlemmar' },
+      action: { label: t('Öppna Medlemmar'), page: 'medlemmar' },
       ownerOnly: true,
     },
     {
       id: 'tx',
-      title: 'Bokför första verifikatet',
-      text: 'Lägg till ett kvitto eller en faktura. Du kan ladda upp filen direkt i rutan.',
+      title: t('Bokför första verifikatet'),
+      text: t('Lägg till ett kvitto eller en faktura. Du kan ladda upp filen direkt i rutan.'),
       done: transactions.length > 0,
-      action: { label: 'Öppna Kassabok', page: 'kassabok' },
+      action: { label: t('Öppna Kassabok'), page: 'kassabok' },
     },
     {
       id: 'report',
-      title: 'Se vilka rapporter som finns',
-      text: 'Årsrapport som PDF, Excel, alla verifikat som ZIP samt en budgetsammanställning. Bra att veta om inför årsmötet.',
+      title: t('Se vilka rapporter som finns'),
+      text: t('Årsrapport som PDF, Excel, alla verifikat som ZIP samt en budgetsammanställning. Bra att veta om inför årsmötet.'),
       done: !!flags.report,
-      action: { label: 'Öppna Rapporter', page: 'arsrapport' },
+      action: { label: t('Öppna Rapporter'), page: 'arsrapport' },
       manual: true,
     },
     {
       id: 'ai',
-      title: 'Slå på AI-avläsning av kvitton (valfritt)',
-      text: 'AI läser av datum, belopp och kategori från en uppladdad PDF eller bild. Filen skickas till Anthropic för avläsning.',
+      title: t('Slå på AI-avläsning av kvitton (valfritt)'),
+      text: t('AI läser av datum, belopp och kategori från en uppladdad PDF eller bild. Filen skickas till Anthropic för avläsning.'),
       done: !!aiEnabled,
       optional: true,
-      action: { label: 'Öppna Inställningar', page: 'installningar' },
+      action: { label: t('Öppna Inställningar'), page: 'installningar' },
       ownerOnly: true,
     },
   ].filter(s => !s.ownerOnly || isOwner);
@@ -121,13 +123,13 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8 }}>
           <div className="section-title" style={{ margin:0 }}>
-            {doneCount === required.length ? 'Allt är på plats' : 'Några steg för att komma igång'}
+            {doneCount === required.length ? t('Allt är på plats') : t('Några steg för att komma igång')}
           </div>
-          <span style={{ fontSize:'0.85rem', color:'var(--ink-muted)' }}>{doneCount} av {required.length} klara</span>
+          <span style={{ fontSize:'0.85rem', color:'var(--ink-muted)' }}>{t('{done} av {total} klara', { done: doneCount, total: required.length })}</span>
         </div>
         <div className="progress-bar"><div className="progress-fill ok" style={{ width:`${pct}%` }}/></div>
         <p style={{ fontSize:'0.85rem', color:'var(--ink-muted)', margin:'12px 0 0' }}>
-          Ta stegen i den ordning som passar. Sidan finns kvar under <strong>Kom igång</strong> om du vill återvända till den.
+          {t('Ta stegen i den ordning som passar. Sidan finns kvar under')} <strong>{t('Kom igång')}</strong> {t('om du vill återvända till den.')}
         </p>
       </div>
 
@@ -152,7 +154,7 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
                   {s.manual && (
                     <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:'0.8rem', color:'var(--ink-muted)', cursor:'pointer', margin:0 }}>
                       <input type="checkbox" checked={!!flags[s.id]} onChange={e => setFlag(s.id, e.target.checked)} style={{ width:'auto' }}/>
-                      Markera som klar
+                      {t('Markera som klar')}
                     </label>
                   )}
                 </div>

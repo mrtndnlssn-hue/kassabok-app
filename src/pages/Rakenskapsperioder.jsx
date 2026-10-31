@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
-import { getYear, txsForPeriod, attachments, isValidIsoDate } from '../store';
+import { getYear, txsForPeriod, attachments, isValidIsoDate, fmt } from '../store';
+import { useI18n } from '../i18n';
 import DateInput from '../components/DateInput';
 import { exportAnnualReport } from '../pdfExport';
 import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, buildPeriodWorkbook } from '../excelExport';
@@ -29,6 +30,9 @@ function monthsBetween(start, end) {
 
 // ── Stäng verksamhetsår – modal ──────────────────────────────
 function CloseYearModal({ period, transactions, categories, budget, orgName, orgId, onDone, onCancel }) {
+  const { t } = useI18n();
+  const reportName = t('arsrapport');   // filnamn i ZIP-filen
+  const attachDir  = t('bilagor');
   const { orgId: ctxOrgId } = useAuth();
   const resolvedOrgId = orgId || ctxOrgId;
   const [step, setStep]     = useState('confirm');
@@ -42,7 +46,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
     setStep('exporting');
     try {
       // ── Steg 1: Generera PDF ────────────────────────────────
-      setProgress('Genererar PDF…');
+      setProgress(t('Genererar PDF…'));
       const doc = exportAnnualReport({
         orgName, period,
         transactions: periodTxs,
@@ -52,20 +56,20 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       const pdfBlob = doc.output('blob');
 
       // ── Steg 2: Hämta bilagor från Supabase Storage ────────
-      setProgress('Hämtar bilagor…');
+      setProgress(t('Hämtar bilagor…'));
       const txIds     = periodTxs.map(t => t.id);
       const attachList = await attachments.listForPeriod(resolvedOrgId, txIds);
 
       // ── Steg 3: Bygg ZIP i webbläsaren med JSZip ───────────
-      setProgress(`Skapar ZIP (${attachList.length} bilagor)…`);
+      setProgress(t('Skapar ZIP ({n} bilagor)…', { n: attachList.length }));
       const zip = new JSZip();
 
       // Lägg till PDF
       const safePeriod = period.label.replace(/[^a-zA-Z0-9_\-]/g, '_');
-      zip.file(`arsrapport_${safePeriod}.pdf`, pdfBlob);
+      zip.file(`${reportName}_${safePeriod}.pdf`, pdfBlob);
 
       // Excel-fil med bilagenamn per verifikat
-      setProgress('Skapar Excel-fil…');
+      setProgress(t('Skapar Excel-fil…'));
       const attachmentsByTx = {};
       for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename);
       const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget: periodBudget, attachmentsByTx });
@@ -77,14 +81,14 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       );
 
       for (let i = 0; i < attachList.length; i++) {
-        setProgress(`Paketerar bilaga ${i + 1} av ${attachList.length}…`);
+        setProgress(t('Paketerar bilaga {i} av {n}…', { i: i + 1, n: attachList.length }));
         const { txId, filename, blob } = attachList[i];
         const folder = txVerMap[txId] || txId;
-        zip.file(`bilagor/${folder}/${filename}`, blob);
+        zip.file(`${attachDir}/${folder}/${filename}`, blob);
       }
 
       // ── Steg 4: Generera och ladda ner ZIP ─────────────────
-      setProgress('Packar ihop ZIP…');
+      setProgress(t('Packar ihop ZIP…'));
       const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
       const url     = URL.createObjectURL(zipBlob);
       const a       = document.createElement('a');
@@ -98,7 +102,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       setStep('done');
     } catch (e) {
       console.error('ZIP-export error:', e);
-      setErrorMsg(e.message || 'Okänt fel');
+      setErrorMsg(e.message || t('Okänt fel'));
       setStep('error');
     }
   }
@@ -109,7 +113,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
         <div className="modal-header">
           <div className="modal-title" style={{ display:'flex', alignItems:'center', gap:8 }}>
             <Archive size={18} style={{ color:'var(--accent)' }}/>
-            Stäng verksamhetsår – {period.label}
+            {t('Stäng verksamhetsår')} – {period.label}
           </div>
           <button className="modal-close" onClick={onCancel}><X size={18}/></button>
         </div>
@@ -117,13 +121,13 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
         {step === 'confirm' && (
           <>
             <div className="notice notice-info" style={{ marginBottom:20 }}>
-              Skapar en ZIP-fil med årsrapporten (PDF), Excel-filen och alla bilagor för perioden <strong>{period.label}</strong> ({period.start} – {period.end}). Perioden låses sedan mot redigering.
+              {t('Skapar en ZIP-fil med årsrapporten (PDF), Excel-filen och alla bilagor för perioden')} <strong>{period.label}</strong> ({period.start} – {period.end}). {t('Perioden låses sedan mot redigering.')}
             </div>
             <div style={{ background:'var(--paper-2)', borderRadius:'var(--r)', border:'1px solid var(--border)', padding:'14px 16px', marginBottom:20 }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 {[
-                  { label:'Period', val:`${period.start} – ${period.end}` },
-                  { label:'Antal verifikat', val:periodTxs.length },
+                  { label:t('Period'), val:`${period.start} – ${period.end}` },
+                  { label:t('Antal verifikat'), val:periodTxs.length },
                 ].map((r,i) => (
                   <div key={i}>
                     <div style={{ fontSize:'0.72rem', color:'var(--ink-muted)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:3 }}>{r.label}</div>
@@ -133,15 +137,15 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
               </div>
             </div>
             <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:20, lineHeight:1.7 }}>
-              ZIP-filen innehåller:<br/>
-              📄 <strong>arsrapport_{period.label}.pdf</strong> – resultaträkning och kassarapport<br/>
-              📊 <strong>foreningsbalans_{period.label}.xlsx</strong> – alla verifikat, budget och kategorier i Excel<br/>
-              📁 <strong>bilagor/</strong> – alla uppladdade kvitton och fakturor
+              {t('ZIP-filen innehåller:')}<br/>
+              📄 <strong>{reportName}_{period.label}.pdf</strong> – {t('resultaträkning och kassarapport')}<br/>
+              📊 <strong>foreningsbalans_{period.label}.xlsx</strong> – {t('alla verifikat, budget och kategorier i Excel')}<br/>
+              📁 <strong>{attachDir}/</strong> – {t('alla uppladdade kvitton och fakturor')}
             </p>
             <div className="btn-row" style={{ justifyContent:'flex-end' }}>
-              <button className="btn btn-secondary" onClick={onCancel}>Avbryt</button>
+              <button className="btn btn-secondary" onClick={onCancel}>{t('Avbryt')}</button>
               <button className="btn btn-primary" onClick={handleExport}>
-                <Archive size={14}/> Skapa ZIP och lås period
+                <Archive size={14}/> {t('Skapa ZIP och lås period')}
               </button>
             </div>
           </>
@@ -158,13 +162,13 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
         {step === 'done' && (
           <>
             <div className="notice notice-success" style={{ marginBottom:20 }}>
-              ✅ ZIP-filen har laddats ner och perioden är låst.
+              ✅ {t('ZIP-filen har laddats ner och perioden är låst.')}
             </div>
             <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:20 }}>
-              Förvara ZIP-filen på en säker plats. Du kan alltid se data i appen men inga ändringar kan göras i den låsta perioden.
+              {t('Förvara ZIP-filen på en säker plats. Du kan alltid se data i appen men inga ändringar kan göras i den låsta perioden.')}
             </p>
             <div className="btn-row" style={{ justifyContent:'flex-end' }}>
-              <button className="btn btn-primary" onClick={onDone}>Stäng</button>
+              <button className="btn btn-primary" onClick={onDone}>{t('Stäng')}</button>
             </div>
           </>
         )}
@@ -172,11 +176,11 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
         {step === 'error' && (
           <>
             <div className="notice" style={{ background:'var(--red-soft)', borderColor:'#f5c6cb', color:'var(--red)', marginBottom:20 }}>
-              Något gick fel: {errorMsg}
+              {t('Något gick fel:')} {errorMsg}
             </div>
             <div className="btn-row" style={{ justifyContent:'flex-end' }}>
-              <button className="btn btn-secondary" onClick={onCancel}>Avbryt</button>
-              <button className="btn btn-primary" onClick={() => { setStep('confirm'); setErrorMsg(''); }}>Försök igen</button>
+              <button className="btn btn-secondary" onClick={onCancel}>{t('Avbryt')}</button>
+              <button className="btn btn-primary" onClick={() => { setStep('confirm'); setErrorMsg(''); }}>{t('Försök igen')}</button>
             </div>
           </>
         )}
@@ -187,6 +191,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
 
 // ── Huvudkomponent ───────────────────────────────────────────
 export default function Rakenskapsperioder({ fiscalPeriods, transactions, categories, budget, orgName, orgId, onSave }) {
+  const { t } = useI18n()
   const { role } = useAuth()
   const canWrite = role !== 'viewer'
   const [periods, setPeriods]   = useState(fiscalPeriods);
@@ -206,7 +211,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
       downloadBlob(blob, filename);
     } catch (e) {
       console.error('Excel-export error:', e);
-      setError(`Exporten misslyckades: ${e.message || 'okänt fel'}`);
+      setError(t('Exporten misslyckades: {fel}', { fel: e.message || t('okänt fel') }));
     } finally {
       setExportingId(null);
     }
@@ -217,12 +222,12 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
 
   function saveEdit() {
     setError('');
-    if (!editForm.label?.trim())          { setError('Ange ett namn.'); return; }
-    if (!isValidIsoDate(editForm.start) || !isValidIsoDate(editForm.end)) { setError('Ange giltiga start- och slutdatum på formatet YYYY-MM-DD.'); return; }
-    if (editForm.start > editForm.end)    { setError('Startdatum måste vara före slutdatum.'); return; }
+    if (!editForm.label?.trim())          { setError(t('Ange ett namn.')); return; }
+    if (!isValidIsoDate(editForm.start) || !isValidIsoDate(editForm.end)) { setError(t('Ange giltiga start- och slutdatum på formatet YYYY-MM-DD.')); return; }
+    if (editForm.start > editForm.end)    { setError(t('Startdatum måste vara före slutdatum.')); return; }
     const overlapping = findOverlaps(periods, editForm.start, editForm.end, editForm.id);
     if (overlapping.length > 0) {
-      setError(`Perioden överlappar med: ${overlapping.join(', ')}. Justera start- eller slutdatum.`);
+      setError(t('Perioden överlappar med: {perioder}. Justera start- eller slutdatum.', { perioder: overlapping.join(', ') }));
       return;
     }
     setPeriods(prev => prev.map((p, i) => i === editIdx ? { ...editForm, label: editForm.label.trim() } : p));
@@ -232,12 +237,12 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   function addPeriod() {
     setError('');
     const label = newForm.label.trim();
-    if (!label)                          { setError('Ange ett namn.'); return; }
-    if (!isValidIsoDate(newForm.start) || !isValidIsoDate(newForm.end)) { setError('Ange giltiga start- och slutdatum på formatet YYYY-MM-DD.'); return; }
-    if (newForm.start > newForm.end)     { setError('Startdatum måste vara före slutdatum.'); return; }
+    if (!label)                          { setError(t('Ange ett namn.')); return; }
+    if (!isValidIsoDate(newForm.start) || !isValidIsoDate(newForm.end)) { setError(t('Ange giltiga start- och slutdatum på formatet YYYY-MM-DD.')); return; }
+    if (newForm.start > newForm.end)     { setError(t('Startdatum måste vara före slutdatum.')); return; }
     const overlapping = findOverlaps(periods, newForm.start, newForm.end);
     if (overlapping.length > 0) {
-      setError(`Perioden överlappar med: ${overlapping.join(', ')}. Justera start- eller slutdatum.`);
+      setError(t('Perioden överlappar med: {perioder}. Justera start- eller slutdatum.', { perioder: overlapping.join(', ') }));
       return;
     }
     const baseId = label.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,20) || Date.now().toString();
@@ -247,8 +252,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   }
 
   function remove(idx) {
-    if (periods.length <= 1)      { setError('Det måste finnas minst en period.'); return; }
-    if (periods[idx].locked)      { setError('Låsta perioder kan inte tas bort.'); return; }
+    if (periods.length <= 1)      { setError(t('Det måste finnas minst en period.')); return; }
+    if (periods[idx].locked)      { setError(t('Låsta perioder kan inte tas bort.')); return; }
     setPeriods(prev => prev.filter((_,i) => i !== idx)); setDirty(true);
   }
 
@@ -278,7 +283,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   return (
     <div>
       <div className="notice notice-info">
-        Definiera räkenskapsperioder. Använd "Stäng år" för att skapa en ZIP-arkivfil med årsrapport och bilagor, och låsa perioden. Med "Excel" exporterar du en period som en Excel-fil med alla verifikat och bilagor, t.ex. om du vill lämna systemet med din data.
+        {t('Definiera räkenskapsperioder. Använd "Stäng år" för att skapa en ZIP-arkivfil med årsrapport och bilagor, och låsa perioden. Med "Excel" exporterar du en period som en Excel-fil med alla verifikat och bilagor, t.ex. om du vill lämna systemet med din data.')}
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
@@ -286,21 +291,21 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
 
       {dirty && (
         <div className="notice notice-warn" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-          <span><AlertCircle size={14} style={{ display:'inline', marginRight:6 }}/>Osparade ändringar.</span>
-          <button className="btn btn-primary btn-sm" onClick={save}><Check size={13}/> Spara nu</button>
+          <span><AlertCircle size={14} style={{ display:'inline', marginRight:6 }}/>{t('Osparade ändringar.')}</span>
+          <button className="btn btn-primary btn-sm" onClick={save}><Check size={13}/> {t('Spara nu')}</button>
         </div>
       )}
 
       <div className="card" style={{ marginBottom:24 }}>
-        <div className="section-title">Räkenskapsperioder</div>
+        <div className="section-title">{t('Räkenskapsperioder')}</div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Namn</th><th>Startdatum</th><th>Slutdatum</th>
-                <th style={{textAlign:'right'}}>Ing. saldo</th>
-                <th style={{textAlign:'center'}}>Längd</th>
-                <th style={{textAlign:'center'}}>Status</th>
+                <th>{t('Namn')}</th><th>{t('Startdatum')}</th><th>{t('Slutdatum')}</th>
+                <th style={{textAlign:'right'}}>{t('Ing. saldo')}</th>
+                <th style={{textAlign:'center'}}>{t('Längd')}</th>
+                <th style={{textAlign:'center'}}>{t('Status')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -314,7 +319,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                     <td><DateInput value={editForm.start} onChange={start => setEditForm(f=>({...f,start}))} style={{width:'100%'}}/></td>
                     <td><DateInput value={editForm.end}   onChange={end => setEditForm(f=>({...f,end}))}   style={{width:'100%'}}/></td>
                     <td><input type="number" value={editForm.openingBalance ?? ''} onChange={e => setEditForm(f=>({...f,openingBalance:e.target.value}))} style={{width:'100%',textAlign:'right'}} placeholder="0"/></td>
-                    <td style={{textAlign:'center',fontFamily:'var(--font-mono)',fontSize:'0.82rem',color:'var(--ink-muted)'}}>{monthsBetween(editForm.start,editForm.end)} mån</td>
+                    <td style={{textAlign:'center',fontFamily:'var(--font-mono)',fontSize:'0.82rem',color:'var(--ink-muted)'}}>{monthsBetween(editForm.start,editForm.end)} {t('mån')}</td>
                     <td/>
                     <td>
                       <div className="gap-row" style={{gap:4}}>
@@ -332,7 +337,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                     <td className="mono">{p.start}</td>
                     <td className="mono">{p.end}</td>
                     <td className="mono" style={{textAlign:'right',fontSize:'0.82rem'}}>
-                      {p.openingBalance ? p.openingBalance.toLocaleString('sv-SE') + ' kr' : <span style={{color:'var(--ink-muted)'}}>–</span>}
+                      {p.openingBalance ? fmt(p.openingBalance) : <span style={{color:'var(--ink-muted)'}}>–</span>}
                     </td>
                     <td style={{textAlign:'center'}}>
                       <span style={{
@@ -342,36 +347,36 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                         padding:'2px 8px', borderRadius:99, border:'1px solid',
                         borderColor: monthsBetween(p.start,p.end)===12 ? 'var(--accent-2)' : '#fcd34d',
                       }}>
-                        {monthsBetween(p.start,p.end)} mån
+                        {monthsBetween(p.start,p.end)} {t('mån')}
                       </span>
                     </td>
                     <td style={{textAlign:'center'}}>
                       {p.locked
-                        ? <span className="badge" style={{background:'var(--paper-3)',color:'var(--ink-muted)',gap:4}}><Lock size={10}/> Låst</span>
-                        : <span className="badge badge-income">Öppen · {txCount} ver.</span>
+                        ? <span className="badge" style={{background:'var(--paper-3)',color:'var(--ink-muted)',gap:4}}><Lock size={10}/> {t('Låst')}</span>
+                        : <span className="badge badge-income">{t('Öppen')} · {t('{n} ver.', { n: txCount })}</span>
                       }
                     </td>
                     <td>
                       <div className="gap-row" style={{gap:4}}>
                         <button className="btn btn-sm btn-secondary" disabled={exportingId !== null} onClick={() => handleExcelExport(p)}
-                          title="Exportera hela kassaboken för perioden som Excel, med bilagor (ZIP)">
+                          title={t('Exportera hela kassaboken för perioden som Excel, med bilagor (ZIP)')}>
                           {exportingId === p.id
-                            ? <><Loader size={12} style={{ animation:'spin 1s linear infinite' }}/> Exporterar…</>
+                            ? <><Loader size={12} style={{ animation:'spin 1s linear infinite' }}/> {t('Exporterar…')}</>
                             : <><FileSpreadsheet size={12}/> Excel</>}
                         </button>
                       </div>
                       {canWrite && (
                         <div className="gap-row" style={{gap:4, marginTop:4}}>
                           {!p.locked && <>
-                            <button className="btn btn-sm btn-secondary" onClick={() => startEdit(globalIdx)} title="Redigera"><Pencil size={12}/></button>
-                            <button className="btn btn-sm btn-primary" onClick={() => setCloseModal(p)} title="Stäng verksamhetsår och skapa ZIP">
-                              <Archive size={12}/> Stäng år
+                            <button className="btn btn-sm btn-secondary" onClick={() => startEdit(globalIdx)} title={t('Redigera')}><Pencil size={12}/></button>
+                            <button className="btn btn-sm btn-primary" onClick={() => setCloseModal(p)} title={t('Stäng verksamhetsår och skapa ZIP')}>
+                              <Archive size={12}/> {t('Stäng år')}
                             </button>
-                            <button className="btn btn-sm btn-danger" onClick={() => remove(globalIdx)} title="Ta bort"><Trash2 size={12}/></button>
+                            <button className="btn btn-sm btn-danger" onClick={() => remove(globalIdx)} title={t('Ta bort')}><Trash2 size={12}/></button>
                           </>}
                           {p.locked &&
-                            <button className="btn btn-sm btn-secondary" onClick={() => toggleLock(globalIdx)} title="Lås upp">
-                              <Unlock size={12}/> Lås upp
+                            <button className="btn btn-sm btn-secondary" onClick={() => toggleLock(globalIdx)} title={t('Lås upp')}>
+                              <Unlock size={12}/> {t('Lås upp')}
                             </button>
                           }
                         </div>
@@ -386,30 +391,30 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
       </div>
 
       {canWrite && <div className="card" style={{ marginBottom:24 }}>
-        <div className="section-title">Lägg till ny period</div>
+        <div className="section-title">{t('Lägg till ny period')}</div>
         <div className="form-row form-row-cols" style={{ alignItems:'flex-end' }}>
-          <div><label>Namn</label><input value={newForm.label} onChange={e=>setNewForm(f=>({...f,label:e.target.value}))} placeholder="t.ex. 2025"/></div>
-          <div><label>Startdatum</label><DateInput value={newForm.start || ''} onChange={handleNewStart}/></div>
-          <div><label>Slutdatum</label><DateInput value={newForm.end || ''} onChange={end=>setNewForm(f=>({...f,end}))}/></div>
-          <div><label>Ingående saldo (kr)</label><input type="number" value={newForm.openingBalance} onChange={e=>setNewForm(f=>({...f,openingBalance:e.target.value}))} placeholder="0" style={{textAlign:'right'}}/></div>
+          <div><label>{t('Namn')}</label><input value={newForm.label} onChange={e=>setNewForm(f=>({...f,label:e.target.value}))} placeholder={t('t.ex. 2025')}/></div>
+          <div><label>{t('Startdatum')}</label><DateInput value={newForm.start || ''} onChange={handleNewStart}/></div>
+          <div><label>{t('Slutdatum')}</label><DateInput value={newForm.end || ''} onChange={end=>setNewForm(f=>({...f,end}))}/></div>
+          <div><label>{t('Ingående saldo (kr)')}</label><input type="number" value={newForm.openingBalance} onChange={e=>setNewForm(f=>({...f,openingBalance:e.target.value}))} placeholder="0" style={{textAlign:'right'}}/></div>
           <div>
             {newForm.start && newForm.end && (
               <div style={{fontSize:'0.78rem',marginBottom:6,color: findOverlaps(periods, newForm.start, newForm.end).length > 0 ? 'var(--red)' : 'var(--ink-muted)'}}>
                 {findOverlaps(periods, newForm.start, newForm.end).length > 0
-                  ? `⚠ Överlappar ${findOverlaps(periods, newForm.start, newForm.end).join(', ')}`
-                  : `= ${monthsBetween(newForm.start,newForm.end)} månader`
+                  ? `⚠ ${t('Överlappar')} ${findOverlaps(periods, newForm.start, newForm.end).join(', ')}`
+                  : `= ${monthsBetween(newForm.start,newForm.end)} ${t('månader')}`
                 }
               </div>
             )}
-            <button className="btn btn-primary" onClick={addPeriod}><Plus size={14}/> Lägg till</button>
+            <button className="btn btn-primary" onClick={addPeriod}><Plus size={14}/> {t('Lägg till')}</button>
           </div>
         </div>
         <div style={{ marginTop:14, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-          <span style={{fontSize:'0.78rem',color:'var(--ink-muted)'}}>Snabbval:</span>
+          <span style={{fontSize:'0.78rem',color:'var(--ink-muted)'}}>{t('Snabbval:')}</span>
           {[
-            { label:`${getYear()} (kalenderår)`, start:`${getYear()}-01-01`, end:`${getYear()}-12-31`, name:String(getYear()) },
-            { label:`${getYear()}/${getYear()+1} (jul–jun)`, start:`${getYear()}-07-01`, end:`${getYear()+1}-06-30`, name:`${getYear()}/${getYear()+1}` },
-            { label:`${getYear()}/${getYear()+1} (sep–aug)`, start:`${getYear()}-09-01`, end:`${getYear()+1}-08-31`, name:`${getYear()}/${getYear()+1}` },
+            { label:t('{y} (kalenderår)', { y: getYear() }), start:`${getYear()}-01-01`, end:`${getYear()}-12-31`, name:String(getYear()) },
+            { label:t('{y} (jul–jun)', { y: `${getYear()}/${getYear()+1}` }), start:`${getYear()}-07-01`, end:`${getYear()+1}-06-30`, name:`${getYear()}/${getYear()+1}` },
+            { label:t('{y} (sep–aug)', { y: `${getYear()}/${getYear()+1}` }), start:`${getYear()}-09-01`, end:`${getYear()+1}-08-31`, name:`${getYear()}/${getYear()+1}` },
           ].map((preset,i) => (
             <button key={i} className="btn btn-secondary btn-sm" onClick={() => setNewForm({label:preset.name,start:preset.start,end:preset.end})}>
               {preset.label}
@@ -418,7 +423,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
         </div>
       </div>}
 
-      {dirty && canWrite && <div style={{textAlign:'right'}}><button className="btn btn-primary" onClick={save}><Check size={14}/> Spara alla ändringar</button></div>}
+      {dirty && canWrite && <div style={{textAlign:'right'}}><button className="btn btn-primary" onClick={save}><Check size={14}/> {t('Spara alla ändringar')}</button></div>}
 
       {closeModal && (
         <CloseYearModal

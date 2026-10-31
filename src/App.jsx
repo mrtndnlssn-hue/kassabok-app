@@ -17,6 +17,8 @@ import Rakenskapsperioder from './pages/Rakenskapsperioder';
 import Medlemmar from './pages/Medlemmar';
 import Installningar from './pages/Installningar';
 import Komigang from './pages/Komigang';
+import { useI18n } from './i18n';
+import LanguageSwitch from './components/LanguageSwitch';
 import './index.css';
 
 const NAV_GROUPS = [
@@ -42,6 +44,7 @@ const NAV = NAV_GROUPS.flatMap(g => g.items);
 const NO_PERIOD_PAGES = ['komigang', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
 
 function MainApp({ orgId, role }) {
+  const { t } = useI18n();
   const { orgs, setOrgId: switchOrg, session } = useAuth()
   const canWrite = role !== 'viewer'
   const isOwnerRole = role === 'main_owner' || role === 'owner';
@@ -177,7 +180,7 @@ function MainApp({ orgId, role }) {
   if (loading) return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', gap:16, color:'var(--ink-muted)', fontFamily:'var(--font-body)' }}>
       <Loader size={32} style={{ animation:'spin 1s linear infinite' }}/>
-      <p>Laddar Föreningsbalans…</p>
+      <p>{t('Laddar Föreningsbalans…')}</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -196,15 +199,15 @@ function MainApp({ orgId, role }) {
   };
 
   const subtitles = {
-    komigang:   'Gör föreningen redo steg för steg',
-    dashboard:  `Ekonomisk översikt – ${activePeriod?.label || '–'}`,
-    kassabok:   `Verifikat – ${activePeriod?.label || '–'}`,
-    budget:     `Budget vs utfall – ${activePeriod?.label || '–'}`,
-    kategorier: 'Definiera intäkts- och kostnadskategorier',
-    arsrapport: 'Årsrapport, Excel, verifikat och budget som filer',
-    perioder:   'Hantera räkenskapsperioder och verksamhetsår',
-    medlemmar:     'Bjud in och hantera föreningens användare',
-    installningar: 'Föreningsnamn och borttagning',
+    komigang:   t('Gör föreningen redo steg för steg'),
+    dashboard:  t('Ekonomisk översikt – {period}', { period: activePeriod?.label || '–' }),
+    kassabok:   t('Verifikat – {period}', { period: activePeriod?.label || '–' }),
+    budget:     t('Budget vs utfall – {period}', { period: activePeriod?.label || '–' }),
+    kategorier: t('Definiera intäkts- och kostnadskategorier'),
+    arsrapport: t('Årsrapport, Excel, verifikat och budget som filer'),
+    perioder:   t('Hantera räkenskapsperioder och verksamhetsår'),
+    medlemmar:     t('Bjud in och hantera föreningens användare'),
+    installningar: t('Föreningsnamn och borttagning'),
   };
 
   return (
@@ -215,10 +218,10 @@ function MainApp({ orgId, role }) {
             <img src="/favicon.svg" alt="" width="26" height="26" />
             <div style={{ fontSize:'0.85rem', fontWeight:600, color:'rgba(255,255,255,0.75)', letterSpacing:'0.01em' }}>Föreningsbalans</div>
           </div>
-          <h1>{orgName || 'Min Förening'}</h1>
+          <h1>{orgName || t('Min Förening')}</h1>
 
           <div style={{ marginTop:10 }}>
-            <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4 }}>Räkenskapsperiod</div>
+            <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4 }}>{t('Räkenskapsperiod')}</div>
             <div style={{ display:'flex', alignItems:'center', gap:4 }}>
               <button
                 onClick={() => periodIdx < sortedPeriods.length - 1 && handlePeriodChange(sortedPeriods[periodIdx + 1].id)}
@@ -255,13 +258,13 @@ function MainApp({ orgId, role }) {
             return (
               <div key={gi}>
                 {g.title && (
-                  <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', margin: gi ? '14px 8px 4px' : '0 8px 4px' }}>{g.title}</div>
+                  <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', margin: gi ? '14px 8px 4px' : '0 8px 4px' }}>{t(g.title)}</div>
                 )}
                 {items.map(n => {
                   const Icon = n.icon;
                   return (
                     <button key={n.id} className={`nav-btn${page === n.id ? ' active' : ''}`} onClick={() => navigate(n.id)}>
-                      <Icon size={16}/> {n.label}
+                      <Icon size={16}/> {t(n.label)}
                     </button>
                   );
                 })}
@@ -273,7 +276,7 @@ function MainApp({ orgId, role }) {
         <div className="sidebar-footer" style={{ display:'flex', flexDirection:'column', gap:6 }}>
           {orgs.length > 1 && (
             <div>
-              <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4 }}>Förening</div>
+              <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4 }}>{t('Förening')}</div>
               <div style={{ position:'relative' }}>
                 <select
                   value={orgId}
@@ -290,7 +293,7 @@ function MainApp({ orgId, role }) {
               </div>
             </div>
           )}
-          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.25)' }}>☁ Sparas i Supabase</div>
+          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.25)' }}>☁ {t('Sparas i Supabase')}</div>
           <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.18)', fontFamily:'var(--font-mono)' }}>
             {isoDateTime(new Date(__BUILD_TIME__))}
           </div>
@@ -298,8 +301,9 @@ function MainApp({ orgId, role }) {
             onClick={() => supabase.auth.signOut()}
             style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', fontSize:'0.75rem', padding:'4px 0' }}
           >
-            <LogOut size={12}/> Logga ut
+            <LogOut size={12}/> {t('Logga ut')}
           </button>
+          <LanguageSwitch dark style={{ marginLeft:-7 }} />
           <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.35)' }}>Martin Danielsson</div>
         </div>
       </aside>
@@ -307,18 +311,18 @@ function MainApp({ orgId, role }) {
       <main className="main">
         {isDemoSession(session) && (
           <div className="notice notice-info" style={{ margin:'0 0 16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-            <span><strong>Demoläge.</strong> Du kan ändra fritt, men ändringarna sparas inte och försvinner när du laddar om sidan eller loggar ut.</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>Återställ demon</button>
+            <span><strong>{t('Demoläge.')}</strong> {t('Du kan ändra fritt, men ändringarna sparas inte och försvinner när du laddar om sidan eller loggar ut.')}</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>{t('Återställ demon')}</button>
           </div>
         )}
         <header className="page-header">
           <div>
-            <h2>{NAV.find(n => n.id === page)?.label}</h2>
+            <h2>{t(NAV.find(n => n.id === page)?.label || '')}</h2>
             <div className="page-subtitle">{subtitles[page]}</div>
           </div>
           {activePeriod && !NO_PERIOD_PAGES.includes(page) && (
             <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--paper-2)', border:'1px solid var(--border)', borderRadius:'var(--r)', padding:'6px 12px' }}>
-              <span style={{ fontSize:'0.78rem', color:'var(--ink-muted)', letterSpacing:'0.05em', textTransform:'uppercase' }}>Period</span>
+              <span style={{ fontSize:'0.78rem', color:'var(--ink-muted)', letterSpacing:'0.05em', textTransform:'uppercase' }}>{t('Period')}</span>
               <span style={{ fontFamily:'var(--font-mono)', fontWeight:600, fontSize:'1rem', color:'var(--ink)' }}>{activePeriod.label}</span>
               <span style={{ fontSize:'0.72rem', color:'var(--ink-muted)' }}>{activePeriod.start} – {activePeriod.end}</span>
             </div>

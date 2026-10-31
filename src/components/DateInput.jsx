@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { isValidIsoDate } from '../store';
+import { useI18n } from '../i18n';
 
 // Textfält för datum som alltid visas och skrivs som YYYY-MM-DD (webbläsarens egna datumfält följer
 // användarens språkinställning). Kalenderknappen öppnar den inbyggda datumväljaren, vars värde alltid är YYYY-MM-DD.
@@ -12,6 +13,7 @@ function maskDate(raw) {
 }
 
 export default function DateInput({ value, onChange, required, disabled, style, ...rest }) {
+  const { t } = useI18n()
   const pickerRef = useRef()
   const [touched, setTouched] = useState(false)
   const invalid = !!value && (value.length === 10 || touched) && !isValidIsoDate(value)
@@ -27,14 +29,14 @@ export default function DateInput({ value, onChange, required, disabled, style, 
       <input
         type="text" inputMode="numeric" autoComplete="off"
         value={value} placeholder="YYYY-MM-DD" maxLength={10}
-        pattern="\d{4}-\d{2}-\d{2}" title="Datum på formatet YYYY-MM-DD, t.ex. 2026-03-31"
+        pattern="\d{4}-\d{2}-\d{2}" title={t('Datum på formatet YYYY-MM-DD, t.ex. 2026-03-31')}
         required={required} disabled={disabled}
         onChange={e => onChange(maskDate(e.target.value))}
         onBlur={() => setTouched(true)}
         style={{ fontFamily: 'var(--font-mono)', paddingRight: 34, borderColor: invalid ? 'var(--red)' : undefined, ...style }}
         {...rest}
       />
-      <button type="button" onClick={openPicker} disabled={disabled} tabIndex={-1} title="Välj i kalender"
+      <button type="button" onClick={openPicker} disabled={disabled} tabIndex={-1} title={t('Välj i kalender')}
         style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex' }}>
         <CalendarDays size={15} />
       </button>

@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
 import { attachments, txsForPeriod } from './store'
+import { translate as tr } from './i18n'
 
 export function sortPeriodTxs(txs) {
   return [...txs].sort((a, b) =>
@@ -7,8 +8,8 @@ export function sortPeriodTxs(txs) {
 }
 
 export function verFolderName(tx, index) {
-  const desc = (tx.description || 'verifikat').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_').slice(0, 30)
-  return `VER${String(index + 1).padStart(3, '0')}_${desc}`
+  const desc = (tx.description || tr('verifikat')).replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_').slice(0, 30)
+  return `${tr('VER')}${String(index + 1).padStart(3, '0')}_${desc}`
 }
 
 function toDate(s) {
@@ -35,23 +36,23 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   wb.created = new Date()
 
   // ── Kassabok ──────────────────────────────────────────────
-  const ws = wb.addWorksheet('Kassabok', { views: [{ state: 'frozen', ySplit: 1 }] })
+  const ws = wb.addWorksheet(tr('Kassabok'), { views: [{ state: 'frozen', ySplit: 1 }] })
   const maxAtt = Math.max(0, ...txs.map(t => (attachmentsByTx[t.id] || []).length))
   const cols = [
-    { header: 'Ver.nr', key: 'ver', width: 8 },
-    { header: 'Datum', key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
-    { header: 'Beskrivning', key: 'desc', width: 40 },
-    { header: 'Kategori-ID', key: 'catId', width: 12 },
-    { header: 'Kategori', key: 'cat', width: 26 },
-    { header: 'Typ', key: 'type', width: 10 },
-    { header: 'Inkomst (kr)', key: 'inc', width: 15, style: { numFmt: MONEY } },
-    { header: 'Utgift (kr)', key: 'exp', width: 15, style: { numFmt: MONEY } },
-    { header: 'Saldo (kr)', key: 'bal', width: 15, style: { numFmt: MONEY } },
-    { header: 'Kommentar', key: 'comment', width: 36 },
-    { header: 'Registrerad', key: 'created', width: 18, style: { numFmt: 'yyyy-mm-dd hh:mm' } },
-    { header: 'Antal bilagor', key: 'attCount', width: 13 },
+    { header: tr('Ver.nr'), key: 'ver', width: 8 },
+    { header: tr('Datum'), key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
+    { header: tr('Beskrivning'), key: 'desc', width: 40 },
+    { header: tr('Kategori-ID'), key: 'catId', width: 12 },
+    { header: tr('Kategori'), key: 'cat', width: 26 },
+    { header: tr('Typ'), key: 'type', width: 10 },
+    { header: tr('Inkomst (kr)'), key: 'inc', width: 15, style: { numFmt: MONEY } },
+    { header: tr('Utgift (kr)'), key: 'exp', width: 15, style: { numFmt: MONEY } },
+    { header: tr('Saldo (kr)'), key: 'bal', width: 15, style: { numFmt: MONEY } },
+    { header: tr('Kommentar'), key: 'comment', width: 36 },
+    { header: tr('Registrerad'), key: 'created', width: 18, style: { numFmt: 'yyyy-mm-dd hh:mm' } },
+    { header: tr('Antal bilagor'), key: 'attCount', width: 13 },
   ]
-  for (let i = 0; i < maxAtt; i++) cols.push({ header: `Bilaga ${i + 1}`, key: `att${i}`, width: 34 })
+  for (let i = 0; i < maxAtt; i++) cols.push({ header: `${tr('Bilaga')} ${i + 1}`, key: `att${i}`, width: 34 })
   ws.columns = cols
   styleHeader(ws.getRow(1))
 
@@ -60,7 +61,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   let totalExp = 0
 
   if (opening) {
-    ws.addRow({ desc: 'Ingående saldo', bal: opening }).font = { italic: true }
+    ws.addRow({ desc: tr('Ingående saldo'), bal: opening }).font = { italic: true }
   }
 
   txs.forEach((tx, i) => {
@@ -77,7 +78,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
       desc: tx.description || '',
       catId: tx.categoryId,
       cat: cat?.name || '',
-      type: cat ? (isInc ? 'Inkomst' : 'Utgift') : '',
+      type: cat ? (isInc ? tr('Inkomst') : tr('Utgift')) : '',
       inc: isInc ? amount : null,
       exp: !isInc ? amount : null,
       bal: balance,
@@ -88,32 +89,32 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     const folder = verFolderName(tx, i)
     atts.forEach((filename, k) => {
       const cell = row.getCell(`att${k}`)
-      cell.value = { text: filename, hyperlink: encodeURI(`bilagor/${folder}/${filename}`) }
+      cell.value = { text: filename, hyperlink: encodeURI(`${tr('bilagor')}/${folder}/${filename}`) }
       cell.font = { color: { argb: 'FF0563C1' }, underline: true }
     })
   })
 
-  const totalRow = ws.addRow({ catId: '', cat: 'TOTALT', inc: totalInc, exp: totalExp, bal: balance })
+  const totalRow = ws.addRow({ catId: '', cat: tr('TOTALT'), inc: totalInc, exp: totalExp, bal: balance })
   totalRow.font = { bold: true }
   totalRow.eachCell({ includeEmpty: true }, c => { c.border = { top: { style: 'thin' } } })
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } }
 
   // ── Sammanfattning ────────────────────────────────────────
-  const sum = wb.addWorksheet('Sammanfattning')
+  const sum = wb.addWorksheet(tr('Sammanfattning'))
   sum.columns = [{ width: 26 }, { width: 24 }]
   const info = [
-    ['Förening', orgName],
-    ['Räkenskapsperiod', period.label],
-    ['Startdatum', period.start],
-    ['Slutdatum', period.end],
-    ['Status', period.locked ? 'Låst' : 'Öppen'],
-    ['Antal verifikat', txs.length],
+    [tr('Förening'), orgName],
+    [tr('Räkenskapsperiod'), period.label],
+    [tr('Startdatum'), period.start],
+    [tr('Slutdatum'), period.end],
+    [tr('Status'), period.locked ? tr('Låst') : tr('Öppen')],
+    [tr('Antal verifikat'), txs.length],
     [],
-    ['Ingående saldo (kr)', opening],
-    ['Summa inkomster (kr)', totalInc],
-    ['Summa utgifter (kr)', totalExp],
-    ['Nettoresultat (kr)', totalInc - totalExp],
-    ['Utgående saldo (kr)', opening + totalInc - totalExp],
+    [tr('Ingående saldo (kr)'), opening],
+    [tr('Summa inkomster (kr)'), totalInc],
+    [tr('Summa utgifter (kr)'), totalExp],
+    [tr('Nettoresultat (kr)'), totalInc - totalExp],
+    [tr('Utgående saldo (kr)'), opening + totalInc - totalExp],
   ]
   info.forEach(r => sum.addRow(r))
   for (let r = 8; r <= 12; r++) sum.getCell(`B${r}`).numFmt = MONEY
@@ -121,14 +122,14 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   sum.getColumn(2).alignment = { horizontal: 'left' }
 
   // ── Kategorier ────────────────────────────────────────────
-  const cs = wb.addWorksheet('Kategorier', { views: [{ state: 'frozen', ySplit: 1 }] })
+  const cs = wb.addWorksheet(tr('Kategorier'), { views: [{ state: 'frozen', ySplit: 1 }] })
   cs.columns = [
-    { header: 'Kategori-ID', key: 'id', width: 12 },
-    { header: 'Kategori', key: 'name', width: 30 },
-    { header: 'Typ', key: 'type', width: 10 },
-    { header: 'Utfall (kr)', key: 'actual', width: 16, style: { numFmt: MONEY } },
-    { header: 'Budget (kr)', key: 'budget', width: 16, style: { numFmt: MONEY } },
-    { header: 'Avvikelse (kr)', key: 'diff', width: 16, style: { numFmt: MONEY } },
+    { header: tr('Kategori-ID'), key: 'id', width: 12 },
+    { header: tr('Kategori'), key: 'name', width: 30 },
+    { header: tr('Typ'), key: 'type', width: 10 },
+    { header: tr('Utfall (kr)'), key: 'actual', width: 16, style: { numFmt: MONEY } },
+    { header: tr('Budget (kr)'), key: 'budget', width: 16, style: { numFmt: MONEY } },
+    { header: tr('Avvikelse (kr)'), key: 'diff', width: 16, style: { numFmt: MONEY } },
   ]
   styleHeader(cs.getRow(1))
   const periodBudget = budget?.[period.id] || {}
@@ -138,7 +139,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     const actual = actuals[c.id] || 0
     const bud = periodBudget[c.id] || 0
     if (!actual && !bud) continue
-    cs.addRow({ id: c.id, name: c.name, type: c.type === 'income' ? 'Inkomst' : 'Utgift', actual, budget: bud, diff: actual - bud })
+    cs.addRow({ id: c.id, name: c.name, type: c.type === 'income' ? tr('Inkomst') : tr('Utgift'), actual, budget: bud, diff: actual - bud })
   }
 
   return wb
@@ -149,24 +150,24 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
 export async function exportPeriodZip({ orgId, orgName, period, transactions, categories, budget, onProgress = () => {} }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
 
-  onProgress('Hämtar bilagor…')
+  onProgress(tr('Hämtar bilagor…'))
   const attachList = await attachments.listForPeriod(orgId, periodTxs.map(t => t.id))
 
   const attachmentsByTx = {}
   for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename)
 
-  onProgress('Skapar Excel-fil…')
+  onProgress(tr('Skapar Excel-fil…'))
   const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx })
   const xlsx = await wb.xlsx.writeBuffer()
 
-  onProgress('Packar ihop ZIP…')
+  onProgress(tr('Packar ihop ZIP…'))
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
   const zip = new JSZip()
   zip.file(`foreningsbalans_${safePeriod}.xlsx`, xlsx)
 
   const folderByTx = Object.fromEntries(periodTxs.map((t, i) => [t.id, verFolderName(t, i)]))
   for (const { txId, filename, blob } of attachList) {
-    zip.file(`bilagor/${folderByTx[txId] || txId}/${filename}`, blob)
+    zip.file(`${tr('bilagor')}/${folderByTx[txId] || txId}/${filename}`, blob)
   }
 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
@@ -187,7 +188,7 @@ export async function exportPeriodExcel({ orgId, orgName, period, transactions, 
 
 export async function exportPeriodVouchers({ orgId, period, transactions, onProgress = () => {} }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
-  onProgress('Hämtar bilagor…')
+  onProgress(tr('Hämtar bilagor…'))
   const attachList = await attachments.listForPeriod(orgId, periodTxs.map(t => t.id))
   if (!attachList.length) return null
 
@@ -196,10 +197,10 @@ export async function exportPeriodVouchers({ orgId, period, transactions, onProg
   for (const { txId, filename, blob } of attachList) {
     zip.file(`${folderByTx[txId] || txId}/${filename}`, blob)
   }
-  onProgress('Packar ihop ZIP…')
+  onProgress(tr('Packar ihop ZIP…'))
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
-  return { blob, filename: `verifikat_${safePeriod}.zip` }
+  return { blob, filename: `${tr('verifikat')}_${safePeriod}.zip` }
 }
 
 export function downloadBlob(blob, filename) {

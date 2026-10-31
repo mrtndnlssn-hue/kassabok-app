@@ -1,0 +1,30 @@
+// Engelska översättningar: bilagor och budget
+export default {
+  // Bilagor
+  'Uppladdning misslyckades: {fel}': 'Upload failed: {fel}',
+  'PDF, bilder, Word, Excel – max 50 MB per fil': 'PDF, images, Word, Excel – max 50 MB per file',
+  'Laddar upp…': 'Uploading…',
+  'Inga bilagor uppladdade ännu.': 'No attachments uploaded yet.',
+  'Öppna': 'Open',
+  'Klicka igen för att bekräfta': 'Click again to confirm',
+  // Budget
+  'Kommentar…': 'Comment…',
+  'Summa intäkter': 'Total income',
+  'Summa kostnader': 'Total expenses',
+  'Kunde inte ändra låsningen.': 'Could not change the lock.',
+  'Budgeten för': 'The budget for',
+  'är låst och kan inte ändras.': 'is locked and cannot be changed.',
+  'Budget för perioden': 'Budget for the period',
+  'Ange belopp och tryck Tab eller Enter.': 'Enter amounts and press Tab or Enter.',
+  'Lås upp budget': 'Unlock budget',
+  'Lås budget': 'Lock budget',
+  'Budgeterat netto': 'Budgeted net',
+  'Faktiskt netto': 'Actual net',
+  'Avvikelse': 'Deviation',
+  'Kod': 'Code',
+  'Budget {label} (kr)': 'Budget {label} (SEK)',
+  'Utfall (kr)': 'Actual (SEK)',
+  'Avvikelse (kr)': 'Deviation (SEK)',
+  'Nyttjandegrad': 'Usage',
+  'NETTORESULTAT': 'NET RESULT',
+}

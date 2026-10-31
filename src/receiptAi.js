@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { translate as t } from './i18n'
 
 const MAX_BYTES = 5 * 1024 * 1024
 const MAX_SIDE = 1600
@@ -7,7 +8,7 @@ function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result).split(',')[1])
-    reader.onerror = () => reject(new Error('Kunde inte läsa filen.'))
+    reader.onerror = () => reject(new Error(t('Kunde inte läsa filen.')))
     reader.readAsDataURL(blob)
   })
 }
@@ -46,7 +47,7 @@ export async function readReceipt(orgId, file, categories) {
     blob = await downscaleImage(file)
     mediaType = 'image/jpeg'
   }
-  if (blob.size > MAX_BYTES) throw new Error('Filen är för stor för AI-avläsning (max 5 MB).')
+  if (blob.size > MAX_BYTES) throw new Error(t('Filen är för stor för AI-avläsning (max 5 MB).'))
 
   const data = await blobToBase64(blob)
   const { data: result, error } = await supabase.functions.invoke('read-receipt', {
@@ -55,7 +56,7 @@ export async function readReceipt(orgId, file, categories) {
       categories: categories.map(c => ({ id: c.id, name: c.name, type: c.type })),
     },
   })
-  if (error) throw new Error('Tjänsten för AI-avläsning kunde inte nås.')
-  if (result?.error) throw new Error(result.error)
+  if (error) throw new Error(t('Tjänsten för AI-avläsning kunde inte nås.'))
+  if (result?.error) throw new Error(t(result.error))
   return result
 }

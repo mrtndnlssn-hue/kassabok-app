@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from './AuthProvider'
 import { LogOut, Plus, ArrowRight } from 'lucide-react'
+import { useI18n } from '../i18n'
+import LanguageSwitch from '../components/LanguageSwitch'
 
 const ROLE_LABEL = {
   main_owner: 'Huvudägare',
@@ -18,6 +20,7 @@ const ROLE_STYLE = {
 }
 
 export default function OrgPicker({ onCreateNew, onPick }) {
+  const { t } = useI18n()
   const { orgs } = useAuth()
   const [orgNames, setOrgNames] = useState({})
   const [loading, setLoading]   = useState(true)
@@ -36,17 +39,18 @@ export default function OrgPicker({ onCreateNew, onPick }) {
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontFamily:'var(--font-body)', color:'var(--ink-muted)' }}>
-      Laddar…
+      {t('Laddar…')}
     </div>
   )
 
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', fontFamily:'var(--font-body)', background:'var(--paper)', padding:24 }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', fontFamily:'var(--font-body)', background:'var(--paper)', padding:24, position:'relative' }}>
+      <LanguageSwitch style={{ position:'absolute', top:16, right:16 }} />
       <div style={{ width:'100%', maxWidth:440 }}>
         {/* Header */}
         <div style={{ marginBottom:32, textAlign:'center' }}>
           <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'2rem', color:'var(--ink)', marginBottom:4, display:'flex', alignItems:'center', gap:10 }}><img src="/favicon.svg" alt="" width="38" height="38" />Föreningsbalans</h1>
-          <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>Välj en förening eller skapa ny</p>
+          <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>{t('Välj en förening eller skapa ny')}</p>
         </div>
 
         {/* Org list */}
@@ -76,7 +80,7 @@ export default function OrgPicker({ onCreateNew, onPick }) {
                   fontSize:'0.72rem', fontWeight:600,
                   ...ROLE_STYLE[o.role],
                 }}>
-                  {ROLE_LABEL[o.role] || o.role}
+                  {ROLE_LABEL[o.role] ? t(ROLE_LABEL[o.role]) : o.role}
                 </span>
               </div>
               <ArrowRight size={18} style={{ color:'var(--ink-muted)', flexShrink:0 }}/>
@@ -90,7 +94,7 @@ export default function OrgPicker({ onCreateNew, onPick }) {
           className="btn btn-secondary"
           style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', fontSize:'0.9rem' }}
         >
-          <Plus size={16}/> Skapa ny förening
+          <Plus size={16}/> {t('Skapa ny förening')}
         </button>
 
         {/* Sign out */}
@@ -99,7 +103,7 @@ export default function OrgPicker({ onCreateNew, onPick }) {
             onClick={() => supabase.auth.signOut()}
             style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-muted)', fontSize:'0.8rem', display:'inline-flex', alignItems:'center', gap:6 }}
           >
-            <LogOut size={13}/> Logga ut
+            <LogOut size={13}/> {t('Logga ut')}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { locale } from './i18n'
 
 // Kategorier sorteras alltid efter kod, med siffror i talordning (U2 före U10).
 export const compareCategoryIds = (a, b) =>
@@ -327,7 +328,7 @@ export const attachments = withDemo(dbAttachments, demoAttachments)
 
 // ── Formatering ────────────────────────────────────────────────
 export function fmt(amount) {
-  return new Intl.NumberFormat('sv-SE', {
+  return new Intl.NumberFormat(locale(), {
     style: 'currency', currency: 'SEK', minimumFractionDigits: 2,
   }).format(amount ?? 0)
 }

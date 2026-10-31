@@ -4,8 +4,10 @@ import { useAuth } from '../auth/AuthProvider'
 import { Check, Trash2, AlertTriangle, X } from 'lucide-react'
 import { store } from '../store'
 import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
+import { useI18n } from '../i18n'
 
 export default function Installningar({ orgId, orgName, onOrgNameChange }) {
+  const { t } = useI18n()
   const { session, role } = useAuth()
 
   // --- Byta namn ---
@@ -84,19 +86,19 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
 
       {/* Byta namn */}
       <div className="card" style={{ marginBottom: 24 }}>
-        <div className="section-title">Föreningsnamn</div>
+        <div className="section-title">{t('Föreningsnamn')}</div>
         <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 16 }}>
-          Ändra vad föreningen heter i appen.
+          {t('Ändra vad föreningen heter i appen.')}
         </p>
         {nameError && (
           <div className="notice" style={{ background:'var(--red-soft)', borderColor:'#f5c6cb', color:'var(--red)', marginBottom:12 }}>{nameError}</div>
         )}
         {nameDone && (
-          <div className="notice notice-success" style={{ marginBottom:12 }}>Namnet har sparats.</div>
+          <div className="notice notice-success" style={{ marginBottom:12 }}>{t('Namnet har sparats.')}</div>
         )}
         <form onSubmit={handleSaveName} style={{ display:'flex', gap:10, alignItems:'flex-end' }}>
           <div style={{ flex:1 }}>
-            <label>Namn</label>
+            <label>{t('Namn')}</label>
             <input
               type="text"
               value={nameInput}
@@ -110,48 +112,46 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
             disabled={nameSaving || !nameInput.trim() || nameInput.trim() === orgName}
             style={{ marginBottom: 1 }}
           >
-            {nameSaving ? 'Sparar…' : <><Check size={14}/> Spara</>}
+            {nameSaving ? t('Sparar…') : <><Check size={14}/> {t('Spara')}</>}
           </button>
         </form>
       </div>
 
       {/* AI-avläsning */}
       <div className="card" style={{ marginBottom: 24 }}>
-        <div className="section-title">AI-avläsning av kvitton</div>
+        <div className="section-title">{t('AI-avläsning av kvitton')}</div>
         <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-          Vid nytt verifikat kan en uppladdad PDF eller bild läsas av med AI, som föreslår datum, belopp,
-          beskrivning och kategori. Du kontrollerar alltid förslaget innan du sparar. Max {aiUsage?.limit ?? 50} avläsningar per månad.
+          {t('Vid nytt verifikat kan en uppladdad PDF eller bild läsas av med AI, som föreslår datum, belopp, beskrivning och kategori. Du kontrollerar alltid förslaget innan du sparar. Max {max} avläsningar per månad.', { max: aiUsage?.limit ?? 50 })}
         </p>
         <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginBottom: 16, lineHeight: 1.6 }}>
-          När funktionen används skickas den valda filen till Anthropic för avläsning. Filen kan innehålla
-          personuppgifter, så aktivera bara om föreningen är bekväm med det.
+          {t('När funktionen används skickas den valda filen till Anthropic för avläsning. Filen kan innehålla personuppgifter, så aktivera bara om föreningen är bekväm med det.')}
         </p>
         {aiError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{aiError}</div>}
         {aiUsage ? (
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem' }}>
             <input type="checkbox" checked={aiUsage.enabled} disabled={!canManageAi}
               onChange={e => toggleAi(e.target.checked)} style={{ width: 'auto' }} />
-            Aktivera AI-avläsning för {orgName}
-            {aiUsage.enabled && <span style={{ color: 'var(--ink-muted)', fontSize: '0.78rem' }}>({aiUsage.used}/{aiUsage.limit} använda denna månad)</span>}
+            {t('Aktivera AI-avläsning för {namn}', { namn: orgName })}
+            {aiUsage.enabled && <span style={{ color: 'var(--ink-muted)', fontSize: '0.78rem' }}>({t('{used}/{limit} använda denna månad', { used: aiUsage.used, limit: aiUsage.limit })})</span>}
           </label>
-        ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>Laddar…</span>}
-        {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>Bara ägare kan ändra detta.</p>}
+        ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span>}
+        {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
       </div>
 
       {/* Ta bort förening */}
       <div className="card" style={{ border: '1px solid var(--red)' }}>
-        <div className="section-title" style={{ color: 'var(--red)' }}>Farlig zon</div>
+        <div className="section-title" style={{ color: 'var(--red)' }}>{t('Farlig zon')}</div>
 
         {deleteStep === 0 && (
           <>
             <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 16 }}>
-              Att ta bort föreningen raderar permanent all data – verifikat, kategorier, perioder och alla medlemmar.
+              {t('Att ta bort föreningen raderar permanent all data – verifikat, kategorier, perioder och alla medlemmar.')}
             </p>
             <button
               onClick={() => setDeleteStep(1)}
               style={{ display:'inline-flex', alignItems:'center', gap:8, background:'none', border:'1px solid var(--red)', borderRadius:'var(--r)', color:'var(--red)', fontSize:'0.85rem', padding:'8px 16px', cursor:'pointer' }}
             >
-              <Trash2 size={14}/> Ta bort förening…
+              <Trash2 size={14}/> {t('Ta bort förening…')}
             </button>
           </>
         )}
@@ -161,30 +161,30 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
             <div style={{ display:'flex', alignItems:'flex-start', gap:12, marginBottom:16 }}>
               <AlertTriangle size={26} style={{ color:'var(--red)', flexShrink:0, marginTop:2 }}/>
               <div>
-                <div style={{ fontWeight:700, fontSize:'1rem', color:'var(--red)', marginBottom:6 }}>Detta går inte att ångra</div>
+                <div style={{ fontWeight:700, fontSize:'1rem', color:'var(--red)', marginBottom:6 }}>{t('Detta går inte att ångra')}</div>
                 <p style={{ fontSize:'0.85rem', color:'var(--ink)', margin:0, lineHeight:1.6 }}>
-                  Du håller på att permanent radera <strong>{orgName}</strong> och all data:
+                  {t('Du håller på att permanent radera')} <strong>{orgName}</strong> {t('och all data:')}
                 </p>
               </div>
             </div>
             <ul style={{ fontSize:'0.83rem', color:'var(--ink)', margin:'0 0 16px 38px', lineHeight:2 }}>
-              <li>Alla verifikat och transaktioner</li>
-              <li>Alla kategorier och budgetrader</li>
-              <li>Alla räkenskapsperioder</li>
-              <li>Alla medlemmar och inbjudningslänkar</li>
+              <li>{t('Alla verifikat och transaktioner')}</li>
+              <li>{t('Alla kategorier och budgetrader')}</li>
+              <li>{t('Alla räkenskapsperioder')}</li>
+              <li>{t('Alla medlemmar och inbjudningslänkar')}</li>
             </ul>
             <p style={{ fontSize:'0.83rem', color:'var(--ink-muted)', margin:'0 0 16px' }}>
-              Ditt användarkonto raderas <strong>inte</strong> – bara denna förening.
+              {t('Ditt användarkonto raderas')} <strong>{t('inte')}</strong> – {t('bara denna förening.')}
             </p>
             <div style={{ display:'flex', gap:10 }}>
               <button
                 onClick={() => setDeleteStep(2)}
                 style={{ background:'var(--red)', border:'none', borderRadius:'var(--r)', color:'#fff', fontSize:'0.9rem', padding:'10px 20px', cursor:'pointer', fontWeight:600 }}
               >
-                Jag förstår, fortsätt
+                {t('Jag förstår, fortsätt')}
               </button>
               <button onClick={() => setDeleteStep(0)} className="btn btn-secondary">
-                <X size={14}/> Avbryt
+                <X size={14}/> {t('Avbryt')}
               </button>
             </div>
           </div>
@@ -193,7 +193,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
         {deleteStep === 2 && (
           <div>
             <p style={{ fontSize:'0.85rem', color:'var(--ink-muted)', marginBottom:12 }}>
-              Skriv <strong>{orgName}</strong> exakt för att bekräfta.
+              {t('Skriv')} <strong>{orgName}</strong> {t('exakt för att bekräfta.')}
             </p>
             {deleteError && (
               <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{deleteError}</div>
@@ -220,17 +220,17 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
                   fontWeight:600, transition:'background 0.15s',
                 }}
               >
-                <Trash2 size={14}/> Radera {orgName}
+                <Trash2 size={14}/> {t('Radera {namn}', { namn: orgName })}
               </button>
               <button onClick={() => { setDeleteStep(0); setConfirmName('') }} className="btn btn-secondary">
-                Avbryt
+                {t('Avbryt')}
               </button>
             </div>
           </div>
         )}
 
         {deleteStep === 3 && (
-          <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>Raderar förening…</p>
+          <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>{t('Raderar förening…')}</p>
         )}
       </div>
     </div>

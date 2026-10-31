@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Scale, Receipt } from 'lucide-react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
+import { useI18n } from '../i18n';
 
 function MonthChart({ monthly, categories, periodTxs }) {
+  const { t } = useI18n();
   const containerRef = useRef();
   const [width, setWidth] = useState(0);
 
@@ -16,7 +18,7 @@ function MonthChart({ monthly, categories, periodTxs }) {
     return () => ro.disconnect();
   }, []);
 
-  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'].map(m => t(m));
   const maxVal = Math.max(...monthly.map(m => Math.max(m.income, m.expense)), 1);
   const multiYear = monthly.some(m => m.year !== monthly[0]?.year);
   const barW = monthly.length > 0 && width > 0 ? Math.max(14, Math.floor((width - 8) / monthly.length) - 4) : 20;
@@ -30,9 +32,9 @@ function MonthChart({ monthly, categories, periodTxs }) {
               <div key={i} style={{ flex:'0 0 auto', width:barW, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                 <div style={{ width:'100%', display:'flex', alignItems:'flex-end', gap:1, height:100 }}>
                   <div style={{ flex:1, background:'var(--accent-3)', borderRadius:'3px 3px 0 0', height:`${(m.income/maxVal)*100}%`, minHeight:m.income>0?3:0, border:'1px solid var(--accent-2)', transition:'height 0.4s' }}
-                    title={`${MONTH_NAMES[m.month-1]} ${m.year} – Intäkter: ${fmt(m.income)}`}/>
+                    title={`${MONTH_NAMES[m.month-1]} ${m.year} – ${t('Intäkter')}: ${fmt(m.income)}`}/>
                   <div style={{ flex:1, background:'var(--red-soft)', borderRadius:'3px 3px 0 0', height:`${(m.expense/maxVal)*100}%`, minHeight:m.expense>0?3:0, border:'1px solid #f5c6cb', transition:'height 0.4s' }}
-                    title={`${MONTH_NAMES[m.month-1]} ${m.year} – Kostnader: ${fmt(m.expense)}`}/>
+                    title={`${MONTH_NAMES[m.month-1]} ${m.year} – ${t('Kostnader')}: ${fmt(m.expense)}`}/>
                 </div>
                 <div style={{ fontSize:'0.58rem', color:'var(--ink-muted)', letterSpacing:'0.01em', textAlign:'center', lineHeight:1.1, whiteSpace:'nowrap', overflow:'hidden', width:'100%' }}>
                   {barW >= 18 ? MONTH_NAMES[m.month-1] : MONTH_NAMES[m.month-1].slice(0,1)}
@@ -43,10 +45,10 @@ function MonthChart({ monthly, categories, periodTxs }) {
           </div>
           <div style={{ display:'flex', gap:16, marginTop:10, fontSize:'0.75rem', color:'var(--ink-muted)' }}>
             <span style={{ display:'flex', alignItems:'center', gap:5 }}>
-              <span style={{ width:10, height:10, background:'var(--accent-3)', border:'1px solid var(--accent-2)', display:'inline-block', borderRadius:2 }}/>Intäkter
+              <span style={{ width:10, height:10, background:'var(--accent-3)', border:'1px solid var(--accent-2)', display:'inline-block', borderRadius:2 }}/>{t('Intäkter')}
             </span>
             <span style={{ display:'flex', alignItems:'center', gap:5 }}>
-              <span style={{ width:10, height:10, background:'var(--red-soft)', border:'1px solid #f5c6cb', display:'inline-block', borderRadius:2 }}/>Kostnader
+              <span style={{ width:10, height:10, background:'var(--red-soft)', border:'1px solid #f5c6cb', display:'inline-block', borderRadius:2 }}/>{t('Kostnader')}
             </span>
           </div>
         </>
@@ -56,6 +58,7 @@ function MonthChart({ monthly, categories, periodTxs }) {
 }
 
 export default function Dashboard({ transactions, categories, budget, activePeriod }) {
+  const { t } = useI18n();
   const periodTxs = useMemo(() => txsForPeriod(transactions, activePeriod), [transactions, activePeriod]);
   const actuals   = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
 
@@ -97,10 +100,10 @@ export default function Dashboard({ transactions, categories, budget, activePeri
     <div>
       <div className="stat-grid">
         {[
-          { icon:TrendingUp,   cls:'positive',                              label:`Totala intäkter`,  val:fmt(totalIncome) },
-          { icon:TrendingDown, cls:'negative',                              label:`Totala kostnader`, val:fmt(totalExpense) },
-          { icon:Scale,        cls:netResult>=0?'positive':'negative',      label:'Nettoresultat',    val:fmt(netResult) },
-          { icon:Receipt,      cls:'',                                      label:'Antal verifikat',  val:periodTxs.length },
+          { icon:TrendingUp,   cls:'positive',                              label:t('Totala intäkter'),  val:fmt(totalIncome) },
+          { icon:TrendingDown, cls:'negative',                              label:t('Totala kostnader'), val:fmt(totalExpense) },
+          { icon:Scale,        cls:netResult>=0?'positive':'negative',      label:t('Nettoresultat'),    val:fmt(netResult) },
+          { icon:Receipt,      cls:'',                                      label:t('Antal verifikat'),  val:periodTxs.length },
         ].map(({ icon:Icon, cls, label:lbl, val },i) => (
           <div key={i} className="stat-card">
             <div className="stat-label"><Icon size={12} style={{display:'inline',marginRight:4}}/>{lbl}</div>
@@ -110,21 +113,21 @@ export default function Dashboard({ transactions, categories, budget, activePeri
       </div>
 
       <div className="card" style={{ marginBottom:20 }}>
-        <div className="section-title">Månadsöversikt – {label}</div>
+        <div className="section-title">{t('Månadsöversikt – {label}', { label })}</div>
         {monthly.length === 0
-          ? <p style={{ color:'var(--ink-muted)', fontSize:'0.85rem' }}>Ingen period vald.</p>
+          ? <p style={{ color:'var(--ink-muted)', fontSize:'0.85rem' }}>{t('Ingen period vald.')}</p>
           : <MonthChart monthly={monthly} categories={categories} periodTxs={periodTxs}/>
         }
       </div>
 
       <div className="card">
-        <div className="section-title">Senaste verifikat</div>
+        <div className="section-title">{t('Senaste verifikat')}</div>
         {recent.length === 0 ? (
-          <div className="empty-state"><Receipt size={32}/><p>Inga verifikat registrerade ännu.</p></div>
+          <div className="empty-state"><Receipt size={32}/><p>{t('Inga verifikat registrerade ännu.')}</p></div>
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Datum</th><th>Beskrivning</th><th>Kategori</th><th className="text-right">Belopp</th></tr></thead>
+              <thead><tr><th>{t('Datum')}</th><th>{t('Beskrivning')}</th><th>{t('Kategori')}</th><th className="text-right">{t('Belopp')}</th></tr></thead>
               <tbody>
                 {recent.map(tx => {
                   const cat = catMap[tx.categoryId];

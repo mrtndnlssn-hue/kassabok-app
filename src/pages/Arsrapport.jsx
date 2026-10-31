@@ -3,8 +3,10 @@ import { FileDown, FileSpreadsheet, Archive, Loader } from 'lucide-react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { exportAnnualReport, exportBudget } from '../pdfExport';
 import { exportPeriodExcel, exportPeriodVouchers, downloadBlob } from '../excelExport';
+import { useI18n } from '../i18n';
 
 export default function Arsrapport({ transactions, categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod }) {
+  const { t } = useI18n();
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
   const [loading, setLoading]           = useState(false);
   const [done, setDone]                 = useState(false);
@@ -37,10 +39,10 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
     setBusy(kind); setMsg(null);
     try {
       const result = await fn();
-      if (!result) setMsg({ type: 'warn', text: 'Inga bilagor finns uppladdade för den här perioden.' });
+      if (!result) setMsg({ type: 'warn', text: t('Inga bilagor finns uppladdade för den här perioden.') });
       else downloadBlob(result.blob, result.filename);
     } catch (e) {
-      setMsg({ type: 'error', text: e.message || 'Något gick fel.' });
+      setMsg({ type: 'error', text: e.message || t('Något gick fel.') });
     } finally {
       setBusy('');
     }
@@ -57,20 +59,20 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
     setTimeout(() => setBudgetDone(false), 4000);
   }
 
-  if (!period) return <div className="notice notice-warn">Inga räkenskapsperioder definierade.</div>;
+  if (!period) return <div className="notice notice-warn">{t('Inga räkenskapsperioder definierade.')}</div>;
 
   return (
     <div>
       <div className="notice notice-info">
-        Skapa årsrapporten (resultaträkning och kassarapport), ladda ner perioden som Excel eller hämta alla verifikat med bilagor som ZIP.
+        {t('Skapa årsrapporten (resultaträkning och kassarapport), ladda ner perioden som Excel eller hämta alla verifikat med bilagor som ZIP.')}
       </div>
 
       <div className="card" style={{ marginBottom:24 }}>
-        <div className="section-title">Välj period – {orgName}</div>
+        <div className="section-title">{t('Välj period')} – {orgName}</div>
 
         <div style={{ display:'flex', gap:16, alignItems:'flex-end', marginBottom:20, flexWrap:'wrap' }}>
           <div>
-            <label>Räkenskapsperiod</label>
+            <label>{t('Räkenskapsperiod')}</label>
             <select value={selectedId} onChange={e => setSelectedId(e.target.value)} style={{ minWidth:200 }}>
               {[...fiscalPeriods].sort((a,b)=>b.start.localeCompare(a.start)).map(p => (
                 <option key={p.id} value={p.id}>{p.label} ({p.start} – {p.end})</option>
@@ -79,19 +81,19 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
           </div>
           {period && (
             <div style={{ fontSize:'0.82rem', color:'var(--ink-muted)', paddingBottom:6 }}>
-              {periodTxs.length} verifikat · {period.start} till {period.end}
+              {t('{n} verifikat · {start} till {end}', { n: periodTxs.length, start: period.start, end: period.end })}
             </div>
           )}
         </div>
 
         <div className="stat-grid" style={{ marginBottom:20 }}>
           {[
-            { label:'Antal verifikat',   val: periodTxs.length,  cls:'' },
-            { label:'Totala intäkter',   val: fmt(totalInc),     cls:'positive' },
-            { label:'Totala kostnader',  val: fmt(totalExp),     cls:'negative' },
-            { label:'Nettoresultat',     val: fmt(net),          cls: net>=0?'positive':'negative' },
-            { label:'Ingående saldo',    val: fmt(openingBalance), cls:'' },
-            { label:'Utgående saldo',    val: fmt(closingBalance), cls: closingBalance>=0?'positive':'negative' },
+            { label:t('Antal verifikat'),   val: periodTxs.length,  cls:'' },
+            { label:t('Totala intäkter'),   val: fmt(totalInc),     cls:'positive' },
+            { label:t('Totala kostnader'),  val: fmt(totalExp),     cls:'negative' },
+            { label:t('Nettoresultat'),     val: fmt(net),          cls: net>=0?'positive':'negative' },
+            { label:t('Ingående saldo'),    val: fmt(openingBalance), cls:'' },
+            { label:t('Utgående saldo'),    val: fmt(closingBalance), cls: closingBalance>=0?'positive':'negative' },
           ].map((s,i) => (
             <div key={i} className="stat-card">
               <div className="stat-label">{s.label}</div>
@@ -103,9 +105,9 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
         {/* Mini preview table */}
         <div className="table-wrap" style={{ marginBottom:20 }}>
           <table>
-            <thead><tr><th>Kategori</th><th className="text-right">Budget</th><th className="text-right">Utfall</th><th className="text-right">Avvikelse</th></tr></thead>
+            <thead><tr><th>{t('Kategori')}</th><th className="text-right">{t('Budget')}</th><th className="text-right">{t('Utfall')}</th><th className="text-right">{t('Avvikelse')}</th></tr></thead>
             <tbody>
-              <tr><td colSpan={4} style={{ background:'var(--accent-3)', color:'var(--accent)', fontWeight:700, fontSize:'0.78rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>Intäkter</td></tr>
+              <tr><td colSpan={4} style={{ background:'var(--accent-3)', color:'var(--accent)', fontWeight:700, fontSize:'0.78rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>{t('Intäkter')}</td></tr>
               {incCats.filter(c=>(actuals[c.id]||0)!==0||(periodBudget[c.id]||0)!==0).map(c => {
                 const act=actuals[c.id]||0, bud=periodBudget[c.id]||0;
                 return (<tr key={c.id}>
@@ -116,12 +118,12 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
                 </tr>);
               })}
               <tr style={{ background:'var(--paper-2)', fontWeight:600 }}>
-                <td>Summa intäkter</td>
+                <td>{t('Summa intäkter')}</td>
                 <td className="mono text-right">{fmt(incCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0))}</td>
                 <td className="positive text-right">{fmt(totalInc)}</td>
                 <td className={`mono text-right ${totalInc-incCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0)>=0?'positive':'negative'}`}>{fmt(totalInc-incCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0))}</td>
               </tr>
-              <tr><td colSpan={4} style={{ background:'var(--red-soft)', color:'var(--red)', fontWeight:700, fontSize:'0.78rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>Kostnader</td></tr>
+              <tr><td colSpan={4} style={{ background:'var(--red-soft)', color:'var(--red)', fontWeight:700, fontSize:'0.78rem', textTransform:'uppercase', letterSpacing:'0.06em' }}>{t('Kostnader')}</td></tr>
               {expCats.filter(c=>(actuals[c.id]||0)!==0||(periodBudget[c.id]||0)!==0).map(c => {
                 const act=actuals[c.id]||0, bud=periodBudget[c.id]||0;
                 return (<tr key={c.id}>
@@ -132,7 +134,7 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
                 </tr>);
               })}
               <tr style={{ background:'var(--paper-2)', fontWeight:600 }}>
-                <td>Summa kostnader</td>
+                <td>{t('Summa kostnader')}</td>
                 <td className="mono text-right">{fmt(expCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0))}</td>
                 <td className="negative text-right">{fmt(totalExp)}</td>
                 <td className="mono text-right">{fmt(totalExp-expCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0))}</td>
@@ -140,7 +142,7 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
             </tbody>
             <tfoot>
               <tr>
-                <td>NETTORESULTAT</td>
+                <td>{t('NETTORESULTAT')}</td>
                 <td className="text-right">{fmt(incCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0)-expCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0))}</td>
                 <td className={`text-right ${net>=0?'positive':'negative'}`}>{fmt(net)}</td>
                 <td className={`text-right ${net-(incCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0)-expCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0))>=0?'positive':'negative'}`}>{fmt(net-(incCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0)-expCats.reduce((s,c)=>s+(periodBudget[c.id]||0),0)))}</td>
@@ -149,7 +151,7 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
           </table>
         </div>
 
-        {done && <div className="notice notice-success">PDF genererad och nedladdad!</div>}
+        {done && <div className="notice notice-success">{t('PDF genererad och nedladdad!')}</div>}
         {msg && (
           <div className="notice" style={msg.type === 'error' ? { background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)' } : undefined}>
             {msg.text}
@@ -158,31 +160,31 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
         <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
           <button className="btn btn-primary" onClick={handleExport} disabled={loading || !!busy}>
             {loading
-              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Skapar…</>
-              : <><FileDown size={16}/> Skapa årsrapport (PDF)</>}
+              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('Skapar…')}</>
+              : <><FileDown size={16}/> {t('Skapa årsrapport (PDF)')}</>}
           </button>
           <button className="btn btn-secondary" onClick={handleExcel} disabled={loading || !!busy}>
             {busy === 'excel'
-              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Skapar…</>
-              : <><FileSpreadsheet size={16}/> Ladda ner Excel</>}
+              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('Skapar…')}</>
+              : <><FileSpreadsheet size={16}/> {t('Ladda ner Excel')}</>}
           </button>
           <button className="btn btn-secondary" onClick={handleVouchers} disabled={loading || !!busy}>
             {busy === 'vouchers'
-              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Hämtar bilagor…</>
-              : <><Archive size={16}/> Ladda ner alla verifikat</>}
+              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('Hämtar bilagor…')}</>
+              : <><Archive size={16}/> {t('Ladda ner alla verifikat')}</>}
           </button>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
       <div className="card">
-        <div className="section-title">Exportera budget</div>
+        <div className="section-title">{t('Exportera budget')}</div>
         <p style={{ fontSize:'0.85rem', color:'var(--ink-muted)', marginBottom:16 }}>
-          Exportera en ren budgetsammanställning – utan utfall. Lämplig inför t.ex. ett årsmöte.
+          {t('Exportera en ren budgetsammanställning – utan utfall. Lämplig inför t.ex. ett årsmöte.')}
         </p>
         <div style={{ display:'flex', gap:16, alignItems:'flex-end', marginBottom:16, flexWrap:'wrap' }}>
           <div>
-            <label>Räkenskapsperiod</label>
+            <label>{t('Räkenskapsperiod')}</label>
             <select value={selectedId} onChange={e => setSelectedId(e.target.value)} style={{ minWidth:200 }}>
               {[...fiscalPeriods].sort((a,b)=>b.start.localeCompare(a.start)).map(p => (
                 <option key={p.id} value={p.id}>{p.label} ({p.start} – {p.end})</option>
@@ -190,14 +192,14 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
             </select>
           </div>
           <div style={{ fontSize:'0.82rem', color:'var(--ink-muted)', paddingBottom:6 }}>
-            {categories.filter(c => (periodBudget[c.id] || 0) > 0).length} kategorier med budget
+            {t('{n} kategorier med budget', { n: categories.filter(c => (periodBudget[c.id] || 0) > 0).length })}
           </div>
         </div>
-        {budgetDone && <div className="notice notice-success">Budget-PDF genererad och nedladdad!</div>}
+        {budgetDone && <div className="notice notice-success">{t('Budget-PDF genererad och nedladdad!')}</div>}
         <button className="btn btn-secondary" onClick={handleBudgetExport} disabled={budgetLoading} style={{ fontSize:'1rem', padding:'10px 24px' }}>
           {budgetLoading
-            ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Genererar PDF…</>
-            : <><FileDown size={16}/> Ladda ner budget för {period?.label} (PDF)</>}
+            ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('Genererar PDF…')}</>
+            : <><FileDown size={16}/> {t('Ladda ner budget för {label} (PDF)', { label: period?.label })}</>}
         </button>
       </div>
     </div>

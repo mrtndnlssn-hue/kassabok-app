@@ -2,8 +2,10 @@ import { useState, useMemo } from 'react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { useAuth } from '../auth/AuthProvider';
 import { Lock, Unlock } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite }) {
+  const { t } = useI18n();
   const [localVal, setLocalVal] = useState(budgetValue > 0 ? String(budgetValue) : '');
   const [localComment, setLocalComment] = useState(comment || '');
 
@@ -56,7 +58,7 @@ function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentCh
       <td style={{ minWidth:180 }}>
         <input
           type="text"
-          value={localComment} placeholder={canWrite ? 'Kommentar…' : ''}
+          value={localComment} placeholder={canWrite ? t('Kommentar…') : ''}
           onChange={e => canWrite && setLocalComment(e.target.value)}
           onBlur={canWrite ? handleCommentBlur : undefined}
           onKeyDown={e => canWrite && e.key==='Enter' && e.target.blur()}
@@ -69,10 +71,11 @@ function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentCh
 }
 
 function SectionTotal({ label, budgetTotal, actualTotal }) {
+  const { t } = useI18n();
   const dev = actualTotal - budgetTotal;
   return (
     <tr style={{ background:'var(--paper-2)', fontWeight:600 }}>
-      <td colSpan={2} style={{ fontFamily:'var(--font-body)', fontWeight:700, paddingLeft:14 }}>{label}</td>
+      <td colSpan={2} style={{ fontFamily:'var(--font-body)', fontWeight:700, paddingLeft:14 }}>{t(label)}</td>
       <td className="text-right mono">{fmt(budgetTotal)}</td>
       <td className="text-right mono">{fmt(actualTotal)}</td>
       <td className={`text-right mono ${dev>=0?'positive':'negative'}`}>{(dev>0?'+':'')+fmt(dev)}</td>
@@ -82,6 +85,7 @@ function SectionTotal({ label, budgetTotal, actualTotal }) {
 }
 
 export default function BudgetResultat({ transactions, categories, budget, budgetComments = {}, onBudgetChange, onCommentChange, onLockChange, activePeriod }) {
+  const { t } = useI18n();
   const { role } = useAuth()
   const isMember = role !== 'viewer'
   const budgetLocked = !!activePeriod?.budgetLocked
@@ -91,7 +95,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
   async function toggleBudgetLock() {
     setLockError('')
     try { await onLockChange(activePeriod.id, !budgetLocked) }
-    catch (e) { setLockError(e.message || 'Kunde inte ändra låsningen.') }
+    catch (e) { setLockError(e.message || t('Kunde inte ändra låsningen.')) }
   }
   const periodTxs    = useMemo(() => txsForPeriod(transactions, activePeriod), [transactions, activePeriod]);
   const actuals      = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
@@ -110,19 +114,19 @@ export default function BudgetResultat({ transactions, categories, budget, budge
   const label = activePeriod?.label || '–';
   const span  = activePeriod ? `${activePeriod.start} – ${activePeriod.end}` : '';
 
-  if (!activePeriod) return <div className="notice notice-warn">Ingen period vald.</div>;
+  if (!activePeriod) return <div className="notice notice-warn">{t('Ingen period vald.')}</div>;
 
   return (
     <div>
       <div className="notice notice-info" style={{ marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
         <span>
           {budgetLocked
-            ? <><Lock size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }}/>Budgeten för <strong>{label}</strong> ({span}) är låst och kan inte ändras.</>
-            : <>Budget för perioden <strong>{label}</strong> ({span}). Ange belopp och tryck Tab eller Enter.</>}
+            ? <><Lock size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }}/>{t('Budgeten för')} <strong>{label}</strong> ({span}) {t('är låst och kan inte ändras.')}</>
+            : <>{t('Budget för perioden')} <strong>{label}</strong> ({span}). {t('Ange belopp och tryck Tab eller Enter.')}</>}
         </span>
         {isMember && (
           <button className="btn btn-sm btn-secondary" onClick={toggleBudgetLock}>
-            {budgetLocked ? <><Unlock size={12}/> Lås upp budget</> : <><Lock size={12}/> Lås budget</>}
+            {budgetLocked ? <><Unlock size={12}/> {t('Lås upp budget')}</> : <><Lock size={12}/> {t('Lås budget')}</>}
           </button>
         )}
       </div>
@@ -130,9 +134,9 @@ export default function BudgetResultat({ transactions, categories, budget, budge
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
         {[
-          { label:'Budgeterat netto', value:netBudget, muted:true },
-          { label:'Faktiskt netto', value:netActual },
-          { label:'Avvikelse', value:netActual-netBudget },
+          { label:t('Budgeterat netto'), value:netBudget, muted:true },
+          { label:t('Faktiskt netto'), value:netActual },
+          { label:t('Avvikelse'), value:netActual-netBudget },
         ].map((item,i) => (
           <div key={i} className="stat-card">
             <div className="stat-label">{item.label}</div>
@@ -147,16 +151,16 @@ export default function BudgetResultat({ transactions, categories, budget, budge
         <table>
           <thead>
             <tr>
-              <th>Kod</th><th>Kategori</th>
-              <th className="text-right">Budget {label} (kr)</th>
-              <th className="text-right">Utfall (kr)</th>
-              <th className="text-right">Avvikelse (kr)</th>
-              <th>Nyttjandegrad</th>
-              <th>Kommentar</th>
+              <th>{t('Kod')}</th><th>{t('Kategori')}</th>
+              <th className="text-right">{t('Budget {label} (kr)', { label })}</th>
+              <th className="text-right">{t('Utfall (kr)')}</th>
+              <th className="text-right">{t('Avvikelse (kr)')}</th>
+              <th>{t('Nyttjandegrad')}</th>
+              <th>{t('Kommentar')}</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colSpan={7} style={{ background:'var(--accent)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>Intäkter</td></tr>
+            <tr><td colSpan={7} style={{ background:'var(--accent)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>{t('Intäkter')}</td></tr>
             {incCats.map(cat => (
               <CatRow key={`${activePeriod.id}-${cat.id}`} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
@@ -169,7 +173,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
             ))}
             <SectionTotal label="Summa intäkter" budgetTotal={totalBudgetInc} actualTotal={totalActualInc}/>
 
-            <tr><td colSpan={7} style={{ background:'var(--red)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>Kostnader</td></tr>
+            <tr><td colSpan={7} style={{ background:'var(--red)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>{t('Kostnader')}</td></tr>
             {expCats.map(cat => (
               <CatRow key={`${activePeriod.id}-${cat.id}`} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
@@ -184,7 +188,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2} style={{ fontFamily:'var(--font-body)' }}>NETTORESULTAT</td>
+              <td colSpan={2} style={{ fontFamily:'var(--font-body)' }}>{t('NETTORESULTAT')}</td>
               <td className="text-right">{fmt(netBudget)}</td>
               <td className={`text-right ${netActual>=0?'positive':'negative'}`}>{fmt(netActual)}</td>
               <td className={`text-right ${(netActual-netBudget)>=0?'positive':'negative'}`}>{((netActual-netBudget)>0?'+':'')+fmt(netActual-netBudget)}</td>

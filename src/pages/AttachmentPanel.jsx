@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Paperclip, Upload, Trash2, FileText, Image, File, X, ExternalLink, Loader, AlertCircle } from 'lucide-react';
 import { attachments } from '../store';
 import { useAuth } from '../auth/AuthProvider';
+import { useI18n } from '../i18n';
 
 function fileIcon(name) {
   const ext = (name.split('.').pop() || '').toLowerCase();
@@ -16,6 +17,7 @@ function fmtSize(bytes) {
 }
 
 export default function AttachmentPanel({ tx, verNum, onClose }) {
+  const { t } = useI18n();
   const { orgId } = useAuth();
   const [files, setFiles]             = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -41,7 +43,7 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
       await attachments.upload(orgId, tx.id, Array.from(fileList));
       await reload();
     } catch (e) {
-      setUploadError(`Uppladdning misslyckades: ${e.message || 'okänt fel'}`);
+      setUploadError(t('Uppladdning misslyckades: {fel}', { fel: e.message || t('okänt fel') }));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -75,7 +77,7 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
           <div>
             <div className="modal-title" style={{ display:'flex', alignItems:'center', gap:8 }}>
               <Paperclip size={16} style={{ color:'var(--accent)' }}/>
-              Bilagor – {verLabel}
+              {t('Bilagor')} – {verLabel}
             </div>
             <div style={{ fontSize:'0.78rem', color:'var(--ink-muted)', marginTop:3 }}>
               {tx.date} · {tx.description || '–'}
@@ -110,13 +112,13 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
           {uploading ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, color:'var(--accent)' }}>
               <Loader size={24} style={{ animation:'spin 1s linear infinite' }}/>
-              <span style={{ fontSize:'0.85rem' }}>Laddar upp…</span>
+              <span style={{ fontSize:'0.85rem' }}>{t('Laddar upp…')}</span>
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, color:'var(--ink-muted)' }}>
               <Upload size={24} style={{ opacity:0.5 }}/>
-              <span style={{ fontSize:'0.88rem', fontWeight:500 }}>Dra och släpp filer här, eller klicka för att välja</span>
-              <span style={{ fontSize:'0.75rem' }}>PDF, bilder, Word, Excel – max 50 MB per fil</span>
+              <span style={{ fontSize:'0.88rem', fontWeight:500 }}>{t('Dra och släpp filer här, eller klicka för att välja')}</span>
+              <span style={{ fontSize:'0.75rem' }}>{t('PDF, bilder, Word, Excel – max 50 MB per fil')}</span>
             </div>
           )}
         </div>
@@ -127,7 +129,7 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
           </div>
         ) : files.length === 0 ? (
           <div style={{ textAlign:'center', padding:'16px', color:'var(--ink-muted)', fontSize:'0.85rem' }}>
-            Inga bilagor uppladdade ännu.
+            {t('Inga bilagor uppladdade ännu.')}
           </div>
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
@@ -136,12 +138,12 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
                 <span style={{ color:'var(--ink-soft)', flexShrink:0 }}>{fileIcon(f.name)}</span>
                 <span style={{ flex:1, fontSize:'0.85rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.name}</span>
                 <span style={{ fontSize:'0.72rem', color:'var(--ink-muted)', flexShrink:0 }}>{fmtSize(f.size)}</span>
-                <a href={f.url} target="_blank" rel="noreferrer" title="Öppna"
+                <a href={f.url} target="_blank" rel="noreferrer" title={t('Öppna')}
                   style={{ color:'var(--accent)', flexShrink:0, display:'flex' }}>
                   <ExternalLink size={14}/>
                 </a>
                 <button onClick={() => handleDelete(f.name)}
-                  title={deleteConfirm === f.name ? 'Klicka igen för att bekräfta' : 'Ta bort'}
+                  title={deleteConfirm === f.name ? t('Klicka igen för att bekräfta') : t('Ta bort')}
                   style={{ background: deleteConfirm === f.name ? 'var(--red-soft)' : 'none', border:'none', cursor:'pointer', padding:'2px 4px', borderRadius:'var(--r)', color: deleteConfirm === f.name ? 'var(--red)' : 'var(--ink-muted)', flexShrink:0, display:'flex', transition:'all 0.15s' }}>
                   <Trash2 size={13}/>
                 </button>
