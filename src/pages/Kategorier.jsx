@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Plus, Trash2, Check, AlertCircle, X, ArrowRight, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
+import { compareCategoryIds } from '../store';
 
-function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onRemove, onToggleHidden, canWrite, showHidden }) {
+const dbId = c => c.origId ?? c.id   // koden som kategorin har i databasen just nu
+
+function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onUpdateCode, badCodes, onRemove, onToggleHidden, canWrite, showHidden }) {
   const visible = showHidden ? items : items.filter(c => !c.hidden)
   const hiddenCount = items.filter(c => c.hidden).length
 
@@ -18,14 +21,26 @@ function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onRemo
         </thead>
         <tbody>
           {visible.map(cat => {
-            const txCount  = (transactions || []).filter(tx => tx.categoryId === cat.id).length
-            const isLocked = lockedCatIds.has(cat.id)
+            const txCount  = (transactions || []).filter(tx => tx.categoryId === dbId(cat)).length
+            const isLocked = lockedCatIds.has(dbId(cat))
+            const codeEditable = canWrite && !isLocked
+            const codeBad = badCodes.has(cat._k)
             return (
-              <tr key={cat.id} style={{ opacity: cat.hidden ? 0.45 : 1 }}>
+              <tr key={cat._k} style={{ opacity: cat.hidden ? 0.45 : 1 }}>
                 <td>
-                  <span className={`badge ${cat.type === 'income' ? 'badge-income' : 'badge-expense'}`}>
-                    {cat.id}
-                  </span>
+                  {codeEditable ? (
+                    <input
+                      value={cat.id}
+                      onChange={e => onUpdateCode(cat._k, e.target.value.toUpperCase().replace(/\s/g, ''))}
+                      aria-label={`Kod för ${cat.name}`}
+                      title={codeBad ? 'Ogiltig eller dubblerad kod' : 'Ändra koden'}
+                      style={{ width: 84, fontFamily:'var(--font-mono)', fontSize:'0.82rem', padding:'3px 6px', borderColor: codeBad ? 'var(--red)' : undefined }}
+                    />
+                  ) : (
+                    <span className={`badge ${cat.type === 'income' ? 'badge-income' : 'badge-expense'}`}>
+                      {cat.id}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -34,7 +49,7 @@ function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onRemo
                     )}
                     <input
                       value={cat.name}
-                      onChange={e => !isLocked && canWrite && onUpdate(cat.id, e.target.value)}
+                      onChange={e => !isLocked && canWrite && onUpdate(cat._k, e.target.value)}
                       readOnly={!canWrite || isLocked}
                       style={{ border:'1px solid transparent', background:'transparent', padding:'4px 0', flex:1, cursor: (canWrite && !isLocked) ? 'text' : 'default' }}
                       onFocus={e => canWrite && !isLocked && (e.target.style.borderColor = 'var(--border)')}
@@ -52,7 +67,7 @@ function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onRemo
                     {canWrite && isLocked && (
                       <button
                         className="btn btn-sm btn-secondary"
-                        onClick={() => onToggleHidden(cat.id, !cat.hidden)}
+                        onClick={() => onToggleHidden(cat._k, !cat.hidden)}
                         title={cat.hidden ? 'Visa kategori' : 'Dölj kategori'}
                       >
                         {cat.hidden ? <Eye size={12}/> : <EyeOff size={12}/>}
@@ -90,7 +105,7 @@ function DeleteWarningModal({ cat, affectedTxs, allCategories, onConfirm, onCanc
   const [reassign, setReassign] = useState(
     Object.fromEntries(affectedTxs.map(tx => [tx.id, '']))
   )
-  const compatible = allCategories.filter(c => c.id !== cat.id && c.type === cat.type)
+  const compatible = allCategories.filter(c => c._k !== cat._k && c.type === cat.type)
   const allMapped  = affectedTxs.every(tx => reassign[tx.id])
 
   function handleConfirm() {
@@ -113,7 +128,7 @@ function DeleteWarningModal({ cat, affectedTxs, allCategories, onConfirm, onCanc
             <span style={{ fontSize:'0.82rem', color:'var(--ink-soft)', whiteSpace:'nowrap' }}>Flytta alla till:</span>
             <select defaultValue="" onChange={e => { if (!e.target.value) return; setReassign(Object.fromEntries(affectedTxs.map(tx => [tx.id, e.target.value]))) }} style={{ flex:1 }}>
               <option value="">– Välj kategori –</option>
-              {compatible.map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
+              {compatible.map(c => <option key={c._k} value={dbId(c)}>{c.id} – {c.name}</option>)}
             </select>
           </div>
         )}
@@ -129,7 +144,7 @@ function DeleteWarningModal({ cat, affectedTxs, allCategories, onConfirm, onCanc
                   <td>
                     <select value={reassign[tx.id]} onChange={e => setReassign(prev => ({ ...prev, [tx.id]: e.target.value }))} style={{ width:'100%', fontSize:'0.82rem', borderColor: reassign[tx.id] ? 'var(--accent-2)' : '#f5c6cb' }}>
                       <option value="">– Välj –</option>
-                      {compatible.map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
+                      {compatible.map(c => <option key={c._k} value={dbId(c)}>{c.id} – {c.name}</option>)}
                     </select>
                   </td>
                 </tr>
@@ -156,7 +171,8 @@ function DeleteWarningModal({ cat, affectedTxs, allCategories, onConfirm, onCanc
 export default function Kategorier({ categories, transactions, fiscalPeriods, onSave, onReasignAndDelete, orgId }) {
   const { role } = useAuth()
   const canWrite = role !== 'viewer'
-  const [cats, setCats]               = useState(categories)
+  // _k: stabil radnyckel, origId: kod i databasen, _sort: radens plats (uppdateras först vid spar)
+  const [cats, setCats]               = useState(() => categories.map(c => ({ ...c, _k: c.id, origId: c.id, _sort: c.id })))
   const [dirty, setDirty]             = useState(false)
   const [newForm, setNewForm]         = useState({ id: '', name: '', type: 'income' })
   const [error, setError]             = useState('')
@@ -174,15 +190,30 @@ export default function Kategorier({ categories, transactions, fiscalPeriods, on
     return ids
   }, [fiscalPeriods, transactions])
 
-  function update(catId, newName) {
-    setCats(prev => prev.map(c => c.id === catId ? { ...c, name: newName } : c))
+  function update(k, newName) {
+    setCats(prev => prev.map(c => c._k === k ? { ...c, name: newName } : c))
     setDirty(true)
   }
 
-  function toggleHidden(catId, hidden) {
-    setCats(prev => prev.map(c => c.id === catId ? { ...c, hidden } : c))
+  function updateCode(k, newId) {
+    setError('')
+    setCats(prev => prev.map(c => c._k === k ? { ...c, id: newId } : c))
     setDirty(true)
   }
+
+  function toggleHidden(k, hidden) {
+    setCats(prev => prev.map(c => c._k === k ? { ...c, hidden } : c))
+    setDirty(true)
+  }
+
+  // Koden ska börja på I (intäkt) eller U (kostnad) följt av siffror, och vara unik
+  const badCodes = useMemo(() => {
+    const seen = {}
+    cats.forEach(c => { seen[c.id] = (seen[c.id] || 0) + 1 })
+    return new Set(cats
+      .filter(c => !new RegExp(`^${c.type === 'income' ? 'I' : 'U'}\\d+$`).test(c.id) || seen[c.id] > 1)
+      .map(c => c._k))
+  }, [cats])
 
   function addCategory() {
     setError('')
@@ -191,35 +222,50 @@ export default function Kategorier({ categories, transactions, fiscalPeriods, on
     if (!id || !name) { setError('Ange både kod och namn.'); return }
     if (cats.find(c => c.id === id)) { setError(`Koden ${id} finns redan.`); return }
     if (!/^[IU]\d+$/.test(id)) { setError('Koden måste börja med I (intäkt) eller U (kostnad) följt av siffror, t.ex. I08 eller U11.'); return }
-    setCats(prev => [...prev, { id, name, type: newForm.type, hidden: false }])
+    setCats(prev => [...prev, { id, name, type: newForm.type, hidden: false, _k: `new_${id}_${Date.now()}`, _sort: id }])
     setNewForm({ id: '', name: '', type: 'income' })
     setDirty(true)
   }
 
   function requestRemove(cat) {
-    if (lockedCatIds.has(cat.id)) return
-    const affected = (transactions || []).filter(tx => tx.categoryId === cat.id)
+    if (lockedCatIds.has(dbId(cat))) return
+    const affected = cat.origId ? (transactions || []).filter(tx => tx.categoryId === cat.origId) : []
     if (affected.length > 0) setDeleteModal({ cat, affectedTxs: affected })
-    else { setCats(prev => prev.filter(c => c.id !== cat.id)); setDirty(true) }
+    else { setCats(prev => prev.filter(c => c._k !== cat._k)); setDirty(true) }
   }
 
   async function handleModalConfirm(moves) {
-    await onReasignAndDelete(deleteModal.cat.id, moves)
-    setCats(prev => prev.filter(c => c.id !== deleteModal.cat.id))
+    await onReasignAndDelete(dbId(deleteModal.cat), moves)
+    setCats(prev => prev.filter(c => c._k !== deleteModal.cat._k))
     setDeleteModal(null)
     setDirty(true)
   }
 
-  function save() { onSave(cats); setDirty(false) }
+  async function save() {
+    setError('')
+    if (badCodes.size) {
+      setError('Rätta de markerade koderna först. En kod ska börja med I (intäkt) eller U (kostnad) följt av siffror, och varje kod får bara finnas en gång.')
+      return
+    }
+    const renames = cats.filter(c => c.origId && c.origId !== c.id).map(c => ({ from: c.origId, to: c.id }))
+    try {
+      await onSave(cats.map(({ _k, origId, _sort, ...c }) => c), renames)
+      setCats(prev => prev.map(c => ({ ...c, origId: c.id, _sort: c.id })))
+      setDirty(false)
+    } catch (e) {
+      setError(e.message || 'Kunde inte spara kategorierna.')
+    }
+  }
 
-  const incCats = cats.filter(c => c.type === 'income')
-  const expCats = cats.filter(c => c.type === 'expense')
+  const bySort = (a, b) => compareCategoryIds(a._sort, b._sort)
+  const incCats = cats.filter(c => c.type === 'income').sort(bySort)
+  const expCats = cats.filter(c => c.type === 'expense').sort(bySort)
   const hasHidden = cats.some(c => c.hidden)
 
   return (
     <div>
       <div className="notice notice-info">
-        Redigera kategorinamn direkt i tabellen. Kategorier med <Lock size={11} style={{ display:'inline', verticalAlign:'middle' }}/> används i ett låst räkenskapsår och kan inte ändras – men kan döljas.
+        Redigera koder och namn direkt i tabellen. När du byter en kod flyttas de verifikat och budgetrader som använder den automatiskt. Raderna sorteras efter kod när du sparar. Kategorier med <Lock size={11} style={{ display:'inline', verticalAlign:'middle' }}/> används i ett låst räkenskapsår och kan inte ändras – men kan döljas.
       </div>
 
       {dirty && (
@@ -269,11 +315,11 @@ export default function Kategorier({ categories, transactions, fiscalPeriods, on
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
         <div>
           <div className="section-title" style={{ color:'var(--accent)' }}>Intäktskategorier</div>
-          <CatTable items={incCats} allCats={cats} transactions={transactions} lockedCatIds={lockedCatIds} onUpdate={update} onRemove={requestRemove} onToggleHidden={toggleHidden} canWrite={canWrite} showHidden={showHidden} />
+          <CatTable items={incCats} allCats={cats} transactions={transactions} lockedCatIds={lockedCatIds} onUpdate={update} onUpdateCode={updateCode} badCodes={badCodes} onRemove={requestRemove} onToggleHidden={toggleHidden} canWrite={canWrite} showHidden={showHidden} />
         </div>
         <div>
           <div className="section-title" style={{ color:'var(--red)' }}>Kostnadskategorier</div>
-          <CatTable items={expCats} allCats={cats} transactions={transactions} lockedCatIds={lockedCatIds} onUpdate={update} onRemove={requestRemove} onToggleHidden={toggleHidden} canWrite={canWrite} showHidden={showHidden} />
+          <CatTable items={expCats} allCats={cats} transactions={transactions} lockedCatIds={lockedCatIds} onUpdate={update} onUpdateCode={updateCode} badCodes={badCodes} onRemove={requestRemove} onToggleHidden={toggleHidden} canWrite={canWrite} showHidden={showHidden} />
         </div>
       </div>
 

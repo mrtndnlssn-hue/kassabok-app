@@ -1,5 +1,10 @@
 import { supabase } from './supabase'
 
+// Kategorier sorteras alltid efter kod, med siffror i talordning (U2 före U10).
+export const compareCategoryIds = (a, b) =>
+  String(a).localeCompare(String(b), 'sv', { numeric: true, sensitivity: 'base' })
+export const sortCats = cats => [...(cats || [])].sort((a, b) => compareCategoryIds(a.id, b.id))
+
 export const store = {
   async getAll(orgId) {
     const [orgRes, settingsRes, catsRes, txsRes, budgetRes, periodsRes] = await Promise.all([
@@ -29,7 +34,7 @@ export const store = {
     return {
       orgName:        orgRes.data?.name || '',
       activePeriodId: settingsRes.data?.active_period_id || null,
-      categories:     catsRes.data || [],
+      categories:     sortCats(catsRes.data),
       transactions:   (txsRes.data || []).map(t => ({
         id:          t.id,
         date:        t.date,

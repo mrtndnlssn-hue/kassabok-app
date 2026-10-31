@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
-import { store, attachments, getYear, getOrBuildPeriods } from './store';
+import { store, attachments, sortCats, getYear, getOrBuildPeriods } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import LoginPage from './auth/LoginPage';
@@ -112,7 +112,16 @@ function MainApp({ orgId, role }) {
   }
   async function handleUpdateTx(id, upd) { await store.updateTransaction(orgId, id, upd);  await fetchAll(); }
   async function handleDeleteTx(id)      { await store.deleteTransaction(orgId, id);        await fetchAll(); }
-  async function handleSaveCats(cats)    { await store.saveCategories(orgId, cats);         setCats(cats); }
+  async function handleSaveCats(cats, renames = []) {
+    if (renames.length) {
+      const { data, error } = await supabase.rpc('rename_categories', { p_org_id: orgId, p_renames: renames });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    }
+    await store.saveCategories(orgId, cats);
+    if (renames.length) await fetchAll();   // verifikat och budget har fått nya koder
+    else setCats(sortCats(cats));
+  }
   async function handleReasignAndDelete(catId, moves) {
     for (const { txId, newCategoryId } of moves) await store.updateTransaction(orgId, txId, { categoryId: newCategoryId });
     await fetchAll();
