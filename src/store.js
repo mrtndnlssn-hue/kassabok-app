@@ -5,7 +5,7 @@ export const compareCategoryIds = (a, b) =>
   String(a).localeCompare(String(b), 'sv', { numeric: true, sensitivity: 'base' })
 export const sortCats = cats => [...(cats || [])].sort((a, b) => compareCategoryIds(a.id, b.id))
 
-export const store = {
+const dbStore = {
   async getAll(orgId) {
     const [orgRes, settingsRes, catsRes, txsRes, budgetRes, periodsRes] = await Promise.all([
       supabase.from('organizations').select('name').eq('id', orgId).single(),
@@ -78,6 +78,12 @@ export const store = {
       )
       if (error) throw error
     }
+  },
+
+  async renameCategories(orgId, renames) {
+    const { data, error } = await supabase.rpc('rename_categories', { p_org_id: orgId, p_renames: renames })
+    if (error) throw error
+    if (data?.error) throw new Error(data.error)
   },
 
   async toggleCategoryHidden(orgId, catId, hidden) {
@@ -160,7 +166,7 @@ export const store = {
   },
 }
 
-export const attachments = {
+const dbAttachments = {
   async list(orgId, txId) {
     const { data, error } = await supabase.storage.from('attachments').list(`${orgId}/${txId}`)
     if (error) throw error
@@ -211,6 +217,113 @@ export const attachments = {
     return results
   },
 }
+
+// ── Demoläge ───────────────────────────────────────────────────
+// Demokontot läser riktig data men all skrivning sker i minnet och försvinner vid omladdning.
+let demo = null // { data, files: Map<txId, [{name, file}]>, seq }
+export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0 } : null }
+export const isDemoMode = () => !!demo
+
+const clone = v => structuredClone(v)
+const remapKeys = (obj, map) => Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => [map[k] ?? k, v]))
+
+const demoStore = {
+  async getAll(orgId) {
+    if (!demo.data) demo.data = clone(await dbStore.getAll(orgId))
+    return clone(demo.data)
+  },
+  async setOrgName(_o, name)        { demo.data.orgName = name },
+  async setActivePeriodId(_o, id)   { demo.data.activePeriodId = id },
+  async saveCategories(_o, cats) {
+    demo.data.categories = sortCats(cats.map(c => ({ id: c.id, name: c.name, type: c.type, hidden: c.hidden ?? false })))
+  },
+  async renameCategories(_o, renames) {
+    const map = Object.fromEntries(renames.map(r => [r.from, r.to]))
+    const d = demo.data
+    d.categories   = d.categories.map(c => map[c.id] ? { ...c, id: map[c.id] } : c)
+    d.transactions = d.transactions.map(t => map[t.categoryId] ? { ...t, categoryId: map[t.categoryId] } : t)
+    for (const pid of Object.keys(d.budget)) d.budget[pid] = remapKeys(d.budget[pid], map)
+    for (const pid of Object.keys(d.budgetComments)) d.budgetComments[pid] = remapKeys(d.budgetComments[pid], map)
+  },
+  async toggleCategoryHidden(_o, catId, hidden) {
+    demo.data.categories = demo.data.categories.map(c => c.id === catId ? { ...c, hidden } : c)
+  },
+  async setBudgetLine(_o, periodId, catId, amount) {
+    ;(demo.data.budget[periodId] ||= {})[catId] = amount
+  },
+  async setBudgetComment(_o, periodId, catId, comment) {
+    const m = (demo.data.budgetComments[periodId] ||= {})
+    if (comment) m[catId] = comment
+    else delete m[catId]
+  },
+  async setBudgetLocked(_o, periodId, locked) {
+    demo.data.fiscalPeriods = demo.data.fiscalPeriods.map(p => p.id === periodId ? { ...p, budgetLocked: locked } : p)
+  },
+  async saveFiscalPeriods(_o, periods) {
+    demo.data.fiscalPeriods = periods.map(p => ({
+      id: p.id, label: p.label, start: p.start, end: p.end,
+      locked: p.locked ?? false, openingBalance: Number(p.openingBalance ?? 0), budgetLocked: p.budgetLocked ?? false,
+    }))
+  },
+  async addTransaction(_o, tx) {
+    const id = `demo-${++demo.seq}`
+    const createdAt = new Date().toISOString()
+    demo.data.transactions.push({
+      id, date: tx.date, description: tx.description, categoryId: tx.categoryId,
+      amount: Number(tx.amount), comment: tx.comment || '', createdAt,
+    })
+    demo.data.transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    return { ...tx, id, createdAt }
+  },
+  async updateTransaction(_o, id, updates) {
+    demo.data.transactions = demo.data.transactions.map(t => t.id === id ? {
+      ...t,
+      ...Object.fromEntries(['date', 'description', 'categoryId', 'amount', 'comment']
+        .filter(k => updates[k] !== undefined).map(k => [k, updates[k]])),
+    } : t)
+    demo.data.transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  },
+  async deleteTransaction(_o, id) {
+    demo.data.transactions = demo.data.transactions.filter(t => t.id !== id)
+    demo.files.delete(id)
+  },
+}
+
+const demoAttachments = {
+  async list(_o, txId) {
+    return (demo.files.get(txId) || []).map(f => ({ name: f.name, size: f.file.size, url: URL.createObjectURL(f.file) }))
+  },
+  async upload(_o, txId, files) {
+    const arr = demo.files.get(txId) || []
+    for (const file of files) {
+      const name = file.name.replace(/[^\w.\-åäöÅÄÖ]/g, '_')
+      const i = arr.findIndex(f => f.name === name)
+      if (i >= 0) arr[i] = { name, file }
+      else arr.push({ name, file })
+    }
+    demo.files.set(txId, arr)
+  },
+  async delete(_o, txId, filename) {
+    demo.files.set(txId, (demo.files.get(txId) || []).filter(f => f.name !== filename))
+  },
+  async namesByTx(_o, txIds) {
+    const result = {}
+    for (const id of txIds) {
+      const files = demo.files.get(id)
+      if (files?.length) result[id] = files.map(f => f.name)
+    }
+    return result
+  },
+  async listForPeriod(_o, txIds) {
+    return txIds.flatMap(txId => (demo.files.get(txId) || []).map(f => ({ txId, filename: f.name, blob: f.file })))
+  },
+}
+
+const withDemo = (real, fake) => new Proxy(real, {
+  get: (target, key, receiver) => (demo && key in fake ? fake[key] : Reflect.get(target, key, receiver)),
+})
+export const store = withDemo(dbStore, demoStore)
+export const attachments = withDemo(dbAttachments, demoAttachments)
 
 // ── Formatering ────────────────────────────────────────────────
 export function fmt(amount) {

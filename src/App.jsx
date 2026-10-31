@@ -3,6 +3,7 @@ import { Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLef
 import { store, attachments, sortCats, getYear, getOrBuildPeriods } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
+import { isDemoSession } from './demo';
 import LoginPage from './auth/LoginPage';
 import OrgSetup from './auth/OrgSetup';
 import OrgPicker from './auth/OrgPicker';
@@ -41,7 +42,7 @@ const NAV = NAV_GROUPS.flatMap(g => g.items);
 const NO_PERIOD_PAGES = ['komigang', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
 
 function MainApp({ orgId, role }) {
-  const { orgs, setOrgId: switchOrg } = useAuth()
+  const { orgs, setOrgId: switchOrg, session } = useAuth()
   const canWrite = role !== 'viewer'
   const [page, setPage]               = useState('dashboard');
   const routed = useRef(false);
@@ -113,11 +114,7 @@ function MainApp({ orgId, role }) {
   async function handleUpdateTx(id, upd) { await store.updateTransaction(orgId, id, upd);  await fetchAll(); }
   async function handleDeleteTx(id)      { await store.deleteTransaction(orgId, id);        await fetchAll(); }
   async function handleSaveCats(cats, renames = []) {
-    if (renames.length) {
-      const { data, error } = await supabase.rpc('rename_categories', { p_org_id: orgId, p_renames: renames });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    }
+    if (renames.length) await store.renameCategories(orgId, renames);
     await store.saveCategories(orgId, cats);
     if (renames.length) await fetchAll();   // verifikat och budget har fått nya koder
     else setCats(sortCats(cats));
@@ -280,6 +277,12 @@ function MainApp({ orgId, role }) {
       </aside>
 
       <main className="main">
+        {isDemoSession(session) && (
+          <div className="notice notice-info" style={{ margin:'0 0 16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+            <span><strong>Demoläge.</strong> Du kan ändra fritt, men ändringarna sparas inte och försvinner när du laddar om sidan eller loggar ut.</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => window.location.reload()}>Återställ demon</button>
+          </div>
+        )}
         <header className="page-header">
           <div>
             <h2>{NAV.find(n => n.id === page)?.label}</h2>
@@ -337,7 +340,7 @@ export default function App() {
   if (showCreate) return <OrgSetup />;
 
   // Visa väljare efter inloggning om användaren har föreningar och inte redan valt
-  if (orgs.length > 0 && !pickerDone) {
+  if (orgs.length > 0 && !pickerDone && !isDemoSession(session)) {
     return <OrgPicker onCreateNew={() => setShowCreate(true)} onPick={pickOrg} />;
   }
 

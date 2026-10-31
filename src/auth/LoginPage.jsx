@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { demoCredentials } from '../demo'
 
 export default function LoginPage() {
   const [mode, setMode]         = useState('login') // 'login' | 'register' | 'reset'
@@ -26,7 +27,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     if (mode === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword(demoCredentials(email, password) || { email, password })
       if (error) setError(error.message)
     } else if (mode === 'register') {
       const { error } = await supabase.auth.signUp({ email, password })
@@ -85,20 +86,32 @@ export default function LoginPage() {
             <div className="form-row">
               <div>
                 <label>E-postadress</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus placeholder="din@epost.se" />
+                <input type="text" inputMode="email" autoComplete="username" autoCapitalize="none" value={email} onChange={e => setEmail(e.target.value)} required autoFocus placeholder="din@epost.se" />
               </div>
             </div>
             {mode !== 'reset' && (
               <div className="form-row">
                 <div>
                   <label>Lösenord</label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Minst 6 tecken" />
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'register' ? 6 : undefined} placeholder={mode === 'register' ? 'Minst 6 tecken' : 'Lösenord'} />
                 </div>
               </div>
             )}
             <button className="btn btn-primary" type="submit" disabled={loading} style={{ width:'100%', marginTop:8 }}>
               {loading ? 'Väntar…' : mode === 'login' ? 'Logga in' : mode === 'register' ? 'Skapa konto' : 'Skicka återställningslänk'}
             </button>
+            {mode === 'login' && (
+              <div style={{ marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)', textAlign:'center' }}>
+                <div style={{ fontSize:'0.8rem', color:'var(--ink-muted)', marginBottom:8 }}>
+                  Vill du bara titta runt? Användarnamn <strong>demo</strong>, lösenord <strong>demo</strong>.
+                </div>
+                <button type="button" className="btn btn-secondary btn-sm" disabled={loading}
+                  onClick={() => { setEmail('demo'); setPassword('demo'); setError(''); setLoading(true);
+                    supabase.auth.signInWithPassword(demoCredentials('demo', 'demo')).then(({ error }) => { if (error) setError(error.message); setLoading(false) }) }}>
+                  Prova demon
+                </button>
+              </div>
+            )}
             {mode === 'login' && (
               <div style={{ textAlign:'center', marginTop:12 }}>
                 <button type="button" onClick={() => switchMode('reset')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-muted)', fontSize:'0.8rem', textDecoration:'underline' }}>

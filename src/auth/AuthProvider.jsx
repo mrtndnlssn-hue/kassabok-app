@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { isDemoSession } from '../demo'
+import { setDemoMode, isDemoMode } from '../store'
 
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -24,13 +26,14 @@ export default function AuthProvider({ children }) {
     if (session?.user?.id) saveOrgId(session.user.id, id)
   }
 
-  async function loadOrgs(userId) {
+  async function loadOrgs(userId, demo = false) {
     const { data } = await supabase
       .from('organization_members')
       .select('org_id, role')
       .eq('user_id', userId)
 
-    const list = (data || []).map(r => ({ orgId: r.org_id, role: r.role }))
+    // Demokontot är läsare i databasen men får skriva i minnet (se store.js)
+    const list = (data || []).map(r => ({ orgId: r.org_id, role: demo ? 'member' : r.role }))
     setOrgs(list)
 
     if (list.length === 0) {
@@ -60,9 +63,16 @@ export default function AuthProvider({ children }) {
   const [recoveryMode, setRecoveryMode] = useState(false)
 
   useEffect(() => {
+    // Slå på/av demoläget först när det ändras (inte vid förnyade tokens, som skulle nollställa demodatan)
+    const syncDemo = session => {
+      const demo = isDemoSession(session)
+      if (demo !== isDemoMode()) setDemoMode(demo)
+      return demo
+    }
     supabase.auth.getSession().then(({ data: { session } }) => {
+      const demo = syncDemo(session)
       setSession(session)
-      if (session) loadOrgs(session.user.id)
+      if (session) loadOrgs(session.user.id, demo)
       else setSession(null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -71,8 +81,9 @@ export default function AuthProvider({ children }) {
         setRecoveryMode(true)
         return
       }
+      const demo = syncDemo(session)
       setSession(session)
-      if (session) loadOrgs(session.user.id)
+      if (session) loadOrgs(session.user.id, demo)
       else {
         setSession(null); setOrgs([]); setOrgIdState(null); setRole(null)
         try { sessionStorage.removeItem('orgPicked') } catch {}
