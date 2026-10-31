@@ -98,6 +98,16 @@ body {
   padding: 14px 0;
   margin-right: auto;
   letter-spacing: -.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.nav-logo img { width: 28px; height: 28px; display: block; }
+.nav-tab { white-space: nowrap; }
+@media (max-width: 520px) {
+  .nav-tab { padding-left: 9px; padding-right: 9px; }
+  .nav-logo { font-size: .95rem; gap: 7px; }
+  .nav-logo img { width: 24px; height: 24px; }
 }
 .nav-logo span { color: var(--ink); font-weight: 400; }
 .nav-tab {
@@ -516,7 +526,7 @@ footer a { color: var(--ink3); text-decoration: underline; }
 <!-- NAV -->
 <nav class="site-nav">
   <div class="nav-inner">
-    <a class="nav-logo" href="#start" onclick="navigate('start',this)">Förenings<span>balans</span></a>
+    <a class="nav-logo" href="#start" onclick="navigate('start',this)"><img src="/favicon.svg" alt="" width="28" height="28"><strong style="font-weight:inherit">Förenings<span>balans</span></strong></a>
     <button class="nav-tab active" id="tab-start"   onclick="navigate('start',  this)">Start</button>
     <button class="nav-tab"        id="tab-priser"  onclick="navigate('priser', this)">Priser</button>
     <button class="nav-tab"        id="tab-hjalp"   onclick="navigate('hjalp',  this)">Hjälp</button>
@@ -667,7 +677,7 @@ footer a { color: var(--ink3); text-decoration: underline; }
           <li><span class="check">✓</span> <span>Bifoga kvitton (bilagor)</span></li>
           <li><span class="check">✓</span> <span>Prioriterad support</span></li>
         </ul>
-        <a class="btn btn-primary plan-btn" href="mailto:hej@kassabok.app">Kontakta oss →</a>
+        <a class="btn btn-primary plan-btn" href="mailto:hej@foreningsbalans.se">Kontakta oss →</a>
       </div>
     </div>
 
@@ -840,7 +850,7 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
 <footer>
   <div class="container">
-    Föreningsbalans — bokföring för ideella föreningar &nbsp;·&nbsp; Kontakt: <span style="user-select:all">hej@kassabok.app</span>
+    Föreningsbalans — bokföring för ideella föreningar &nbsp;·&nbsp; Kontakt: <span style="user-select:all">hej@foreningsbalans.se</span>
   </div>
 </footer>
 
