@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
-import { getYear, txsForPeriod, attachments } from '../store';
+import { getYear, txsForPeriod, attachments, isValidIsoDate } from '../store';
+import DateInput from '../components/DateInput';
 import { exportAnnualReport } from '../pdfExport';
 import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, buildPeriodWorkbook } from '../excelExport';
 
@@ -21,7 +22,7 @@ function findOverlaps(periods, candidateStart, candidateEnd, excludeId = null) {
     .map(p => p.label);
 }
 function monthsBetween(start, end) {
-  if (!start || !end) return '?';
+  if (!isValidIsoDate(start) || !isValidIsoDate(end)) return '?';
   const s = new Date(start), e = new Date(end);
   return (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + 1;
 }
@@ -217,7 +218,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   function saveEdit() {
     setError('');
     if (!editForm.label?.trim())          { setError('Ange ett namn.'); return; }
-    if (!editForm.start || !editForm.end) { setError('Ange start- och slutdatum.'); return; }
+    if (!isValidIsoDate(editForm.start) || !isValidIsoDate(editForm.end)) { setError('Ange giltiga start- och slutdatum på formatet YYYY-MM-DD.'); return; }
     if (editForm.start > editForm.end)    { setError('Startdatum måste vara före slutdatum.'); return; }
     const overlapping = findOverlaps(periods, editForm.start, editForm.end, editForm.id);
     if (overlapping.length > 0) {
@@ -232,7 +233,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
     setError('');
     const label = newForm.label.trim();
     if (!label)                          { setError('Ange ett namn.'); return; }
-    if (!newForm.start || !newForm.end)  { setError('Ange start- och slutdatum.'); return; }
+    if (!isValidIsoDate(newForm.start) || !isValidIsoDate(newForm.end)) { setError('Ange giltiga start- och slutdatum på formatet YYYY-MM-DD.'); return; }
     if (newForm.start > newForm.end)     { setError('Startdatum måste vara före slutdatum.'); return; }
     const overlapping = findOverlaps(periods, newForm.start, newForm.end);
     if (overlapping.length > 0) {
@@ -269,7 +270,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   function save() { onSave(periods); setDirty(false); }
 
   function handleNewStart(val) {
-    setNewForm(f => ({ ...f, start:val, label: f.label || val.slice(0,4), end: f.end || `${val.slice(0,4)}-12-31` }));
+    setNewForm(f => ({ ...f, start:val, ...(isValidIsoDate(val) ? { label: f.label || val.slice(0,4), end: f.end || `${val.slice(0,4)}-12-31` } : {}) }));
   }
 
   const sorted = [...periods].sort((a,b) => a.start.localeCompare(b.start));
@@ -310,8 +311,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                 return editIdx === globalIdx ? (
                   <tr key={p.id} style={{ background:'var(--amber-soft)' }}>
                     <td><input value={editForm.label} onChange={e => setEditForm(f=>({...f,label:e.target.value}))} style={{width:'100%'}} autoFocus/></td>
-                    <td><input type="text" value={editForm.start} onChange={e => setEditForm(f=>({...f,start:e.target.value}))} style={{width:'100%',fontFamily:'var(--font-mono)'}} placeholder="YYYY-MM-DD"/></td>
-                    <td><input type="text" value={editForm.end}   onChange={e => setEditForm(f=>({...f,end:e.target.value}))}   style={{width:'100%',fontFamily:'var(--font-mono)'}} placeholder="YYYY-MM-DD"/></td>
+                    <td><DateInput value={editForm.start} onChange={start => setEditForm(f=>({...f,start}))} style={{width:'100%'}}/></td>
+                    <td><DateInput value={editForm.end}   onChange={end => setEditForm(f=>({...f,end}))}   style={{width:'100%'}}/></td>
                     <td><input type="number" value={editForm.openingBalance ?? ''} onChange={e => setEditForm(f=>({...f,openingBalance:e.target.value}))} style={{width:'100%',textAlign:'right'}} placeholder="0"/></td>
                     <td style={{textAlign:'center',fontFamily:'var(--font-mono)',fontSize:'0.82rem',color:'var(--ink-muted)'}}>{monthsBetween(editForm.start,editForm.end)} mån</td>
                     <td/>
@@ -388,8 +389,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
         <div className="section-title">Lägg till ny period</div>
         <div className="form-row form-row-cols" style={{ alignItems:'flex-end' }}>
           <div><label>Namn</label><input value={newForm.label} onChange={e=>setNewForm(f=>({...f,label:e.target.value}))} placeholder="t.ex. 2025"/></div>
-          <div><label>Startdatum</label><input type="text" value={newForm.start} onChange={e=>handleNewStart(e.target.value)} placeholder="YYYY-MM-DD" style={{fontFamily:'var(--font-mono)'}}/></div>
-          <div><label>Slutdatum</label><input type="text" value={newForm.end} onChange={e=>setNewForm(f=>({...f,end:e.target.value}))} placeholder="YYYY-MM-DD" style={{fontFamily:'var(--font-mono)'}}/></div>
+          <div><label>Startdatum</label><DateInput value={newForm.start || ''} onChange={handleNewStart}/></div>
+          <div><label>Slutdatum</label><DateInput value={newForm.end || ''} onChange={end=>setNewForm(f=>({...f,end}))}/></div>
           <div><label>Ingående saldo (kr)</label><input type="number" value={newForm.openingBalance} onChange={e=>setNewForm(f=>({...f,openingBalance:e.target.value}))} placeholder="0" style={{textAlign:'right'}}/></div>
           <div>
             {newForm.start && newForm.end && (

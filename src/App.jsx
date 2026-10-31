@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
-import { store, attachments, sortCats, getYear, getOrBuildPeriods } from './store';
+import { store, attachments, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import { isDemoSession } from './demo';
@@ -69,7 +69,7 @@ function MainApp({ orgId, role }) {
       setOrgNames(prev => ({ ...prev, [orgId]: data.orgName || '' }));
       setFiscalPeriods(periods);
 
-      const today  = new Date().toISOString().slice(0, 10);
+      const today  = todayStr();
       const active =
         periods.find(p => p.id === data.activePeriodId) ||
         periods.find(p => today >= p.start && today <= p.end) ||
@@ -265,7 +265,7 @@ function MainApp({ orgId, role }) {
           )}
           <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.25)' }}>☁ Sparas i Supabase</div>
           <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.18)', fontFamily:'var(--font-mono)' }}>
-            {new Date(__BUILD_TIME__).toLocaleString('sv-SE', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}
+            {isoDateTime(new Date(__BUILD_TIME__))}
           </div>
           <button
             onClick={() => supabase.auth.signOut()}

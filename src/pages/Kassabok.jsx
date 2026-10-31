@@ -2,22 +2,23 @@ import { useState, useMemo, useRef } from 'react';
 import { Plus, Pencil, Trash2, X, Check, Search, Paperclip, Upload, FileText, Sparkles } from 'lucide-react';
 import { getReceiptUsage, readReceipt, canReadWithAi } from '../receiptAi';
 import AttachmentPanel from './AttachmentPanel';
-import { fmt, txsForPeriod } from '../store';
+import { fmt, txsForPeriod, todayStr, isValidIsoDate } from '../store';
+import DateInput from '../components/DateInput';
 import { useAuth } from '../auth/AuthProvider';
 
-const EMPTY_FORM = {
-  date: new Date().toISOString().slice(0, 10),
+const emptyForm = () => ({
+  date: todayStr(),
   description: '',
   categoryId: '',
   amount: '',
   comment: '',
-};
+});
 
 export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, activePeriod }) {
   const { role } = useAuth()
   const canWrite = role !== 'viewer'
   const period = activePeriod;
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
@@ -61,7 +62,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const totalExpense = filtered.filter(t => catMap[t.categoryId]?.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
 
   function openAdd() {
-    setForm(EMPTY_FORM);
+    setForm(emptyForm());
     setEditId(null);
     setNewFiles([]);
     setSaveError('');
@@ -100,6 +101,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   }
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!isValidIsoDate(form.date)) { setSaveError('Ange ett giltigt datum på formatet YYYY-MM-DD.'); return; }
     const payload = { ...form, amount: parseFloat(form.amount) || 0 };
     setSaving(true);
     setSaveError('');
@@ -297,7 +299,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
               <div className="form-row form-row-cols">
                 <div>
                   <label>Datum *</label>
-                  <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
+                  <DateInput value={form.date} onChange={date => setForm(f => ({ ...f, date }))} required />
                 </div>
                 <div>
                   <label>Belopp (kr) *</label>

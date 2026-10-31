@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
+import { fmtDate, isoDateTime } from '../store'
 import { Copy, Check, Trash2, ArrowRightLeft } from 'lucide-react'
 
 const ROLE_LABEL = {
@@ -333,8 +334,8 @@ export default function Medlemmar({ orgId, orgName }) {
                     <div style={{ display:'flex', alignItems:'center', gap:6, fontSize: '0.72rem', color: 'var(--ink-muted)', flexWrap: 'wrap' }}>
                       {inv.nickname && <strong style={{ color: 'var(--ink)' }}>{inv.nickname} ·</strong>}
                       {ROLE_LABEL[inv.invited_role] || inv.invited_role}
-                      · Skapad {new Date(inv.created_at).toLocaleString('sv-SE', { dateStyle:'short', timeStyle:'short' })}
-                      · Går ut {new Date(inv.expires_at).toLocaleDateString('sv-SE')}
+                      · Skapad {isoDateTime(new Date(inv.created_at))}
+                      · Går ut {fmtDate(inv.expires_at)}
                       {inv.code === newestCode && (
                         <span style={{ background:'#16a34a', color:'#fff', fontSize:'0.65rem', fontWeight:700, padding:'2px 7px', borderRadius:99, letterSpacing:'0.03em' }}>NY</span>
                       )}

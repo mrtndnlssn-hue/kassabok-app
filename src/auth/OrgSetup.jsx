@@ -2,26 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from './AuthProvider'
 
-const DEFAULT_CATEGORIES = [
-  { id:'I01', name:'Medlemsavgifter',           type:'income' },
-  { id:'I02', name:'Bidrag och gåvor',           type:'income' },
-  { id:'I03', name:'Aktivitetsintäkter',         type:'income' },
-  { id:'I04', name:'Försäljningsintäkter',       type:'income' },
-  { id:'I05', name:'Sponsring',                  type:'income' },
-  { id:'I06', name:'Ränteintäkter',              type:'income' },
-  { id:'I07', name:'Övriga intäkter',            type:'income' },
-  { id:'U01', name:'Lokalkostnader',             type:'expense' },
-  { id:'U02', name:'Aktivitetskostnader',        type:'expense' },
-  { id:'U03', name:'Administration',             type:'expense' },
-  { id:'U04', name:'Marknadsföring',             type:'expense' },
-  { id:'U05', name:'Utrustning och inventarier', type:'expense' },
-  { id:'U06', name:'Löner och arvoden',          type:'expense' },
-  { id:'U07', name:'Resor och transporter',      type:'expense' },
-  { id:'U08', name:'Förbrukningsvaror',          type:'expense' },
-  { id:'U09', name:'IT och kommunikation',       type:'expense' },
-  { id:'U10', name:'Övriga kostnader',           type:'expense' },
-]
-
 export default function OrgSetup() {
   const { session, setOrgId, addOrg } = useAuth()
   const [name, setName]       = useState('')
@@ -66,41 +46,9 @@ export default function OrgSetup() {
     setLoading(true)
     setError('')
     try {
-      // Generate ID client-side so we don't need to SELECT back the inserted row
-      // (SELECT would fail RLS since the user isn't a member yet)
-      const orgId = crypto.randomUUID()
-
-      const { error: orgErr } = await supabase
-        .from('organizations')
-        .insert({ id: orgId, name: name.trim() })
-      if (orgErr) throw orgErr
-
-      const { error: memberErr } = await supabase.from('organization_members').insert({
-        user_id: session.user.id,
-        org_id:  orgId,
-        role:    'main_owner',
-      })
-      if (memberErr) throw memberErr
-
-      const year = new Date().getFullYear()
-
-      await supabase.from('org_settings').insert({
-        org_id:           orgId,
-        active_period_id: String(year),
-      })
-
-      await supabase.from('categories').insert(
-        DEFAULT_CATEGORIES.map(c => ({ ...c, org_id: orgId }))
-      )
-
-      await supabase.from('fiscal_periods').insert({
-        id:         String(year),
-        org_id:     orgId,
-        label:      String(year),
-        start_date: `${year}-01-01`,
-        end_date:   `${year}-12-31`,
-        locked:     false,
-      })
+      // Allt skapas atomärt i databasen: förening, huvudägare, standardkategorier och innevarande år
+      const { data: orgId, error: createErr } = await supabase.rpc('create_organization', { p_name: name.trim() })
+      if (createErr) throw createErr
 
       addOrg(orgId, 'main_owner')
     } catch (e) {

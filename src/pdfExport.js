@@ -1,7 +1,7 @@
 // pdfExport.js – generates annual report and budget PDF using jsPDF + autoTable
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { fmt as fmtRaw, sumByCategory } from './store';
+import { fmt as fmtRaw, sumByCategory, isoDate } from './store';
 
 // jsPDF:s standardfonter saknar Unicode-minus, så negativa belopp skrivs med vanligt bindestreck
 const fmt = v => fmtRaw(v).replace(/−/g, '-');
@@ -46,7 +46,7 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   doc.setTextColor(120, 120, 160);
   const span = period ? `${period.start} – ${period.end}` : '';
   doc.text(span, W - 18, 36, { align: 'right' });
-  doc.text(`Genererad ${new Date().toLocaleDateString('sv-SE')}`, W - 18, 46, { align: 'right' });
+  doc.text(`Genererad ${isoDate()}`, W - 18, 46, { align: 'right' });
 
   let y = 62;
 
@@ -250,7 +250,7 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
   doc.setTextColor(120, 120, 160);
   const span = period ? `${period.start} – ${period.end}` : '';
   doc.text(span, W - 18, 36, { align: 'right' });
-  doc.text(`Genererad ${new Date().toLocaleDateString('sv-SE')}`, W - 18, 46, { align: 'right' });
+  doc.text(`Genererad ${isoDate()}`, W - 18, 46, { align: 'right' });
 
   y = 62;
 

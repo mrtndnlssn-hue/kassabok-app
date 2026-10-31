@@ -331,9 +331,26 @@ export function fmt(amount) {
     style: 'currency', currency: 'SEK', minimumFractionDigits: 2,
   }).format(amount ?? 0)
 }
-export function fmtDate(dateStr) {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('sv-SE')
+// Datum visas och matas alltid in som ÅÅÅÅ-MM-DD, oberoende av webbläsarens språkinställning.
+const pad2 = n => String(n).padStart(2, '0')
+export function isoDate(d = new Date()) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`   // lokal tid, inte UTC
+}
+export function isoDateTime(d = new Date()) {
+  return `${isoDate(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+export const todayStr = () => isoDate()
+export function isValidIsoDate(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return false
+  const [y, m, d] = s.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+}
+export function fmtDate(value) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const d = new Date(value)
+  return isNaN(d) ? '' : isoDate(d)
 }
 export function getYear() { return new Date().getFullYear() }
 
