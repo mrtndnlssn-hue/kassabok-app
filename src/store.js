@@ -48,6 +48,7 @@ export const store = {
         end:            p.end_date,
         locked:         p.locked,
         openingBalance: Number(p.opening_balance ?? 0),
+        budgetLocked:   p.budget_locked ?? false,
       })),
     }
   },
@@ -93,6 +94,12 @@ export const store = {
     if (error) throw error
   },
 
+  async setBudgetLocked(orgId, periodId, locked) {
+    const { error } = await supabase.from('fiscal_periods')
+      .update({ budget_locked: locked }).eq('org_id', orgId).eq('id', periodId)
+    if (error) throw error
+  },
+
   async saveFiscalPeriods(orgId, periods) {
     const { error: delErr } = await supabase.from('fiscal_periods').delete().eq('org_id', orgId)
     if (delErr) throw delErr
@@ -106,6 +113,7 @@ export const store = {
           end_date:        p.end,
           locked:          p.locked ?? false,
           opening_balance: p.openingBalance ?? 0,
+          budget_locked:   p.budgetLocked ?? false,
         }))
       )
       if (error) throw error

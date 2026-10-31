@@ -101,6 +101,10 @@ function MainApp({ orgId, role }) {
     await store.setBudgetComment(orgId, periodId, catId, comment);
     setBudgetComments(prev => ({ ...prev, [periodId]: { ...(prev[periodId] || {}), [catId]: comment } }));
   }
+  async function handleBudgetLockChange(periodId, locked) {
+    await store.setBudgetLocked(orgId, periodId, locked);
+    setFiscalPeriods(prev => prev.map(p => p.id === periodId ? { ...p, budgetLocked: locked } : p));
+  }
   async function handlePeriodChange(id) {
     await store.setActivePeriodId(orgId, id);
     setActivePeriodId(id);
@@ -127,7 +131,7 @@ function MainApp({ orgId, role }) {
   const pageMap   = {
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} />,
-    budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} />,
+    budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,

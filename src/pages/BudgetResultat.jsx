@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { useAuth } from '../auth/AuthProvider';
+import { Lock, Unlock } from 'lucide-react';
 
 function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite }) {
   const [localVal, setLocalVal] = useState(budgetValue > 0 ? String(budgetValue) : '');
@@ -80,9 +81,18 @@ function SectionTotal({ label, budgetTotal, actualTotal }) {
   );
 }
 
-export default function BudgetResultat({ transactions, categories, budget, budgetComments = {}, onBudgetChange, onCommentChange, activePeriod }) {
+export default function BudgetResultat({ transactions, categories, budget, budgetComments = {}, onBudgetChange, onCommentChange, onLockChange, activePeriod }) {
   const { role } = useAuth()
-  const canWrite = role !== 'viewer'
+  const isMember = role !== 'viewer'
+  const budgetLocked = !!activePeriod?.budgetLocked
+  const canWrite = isMember && !budgetLocked
+  const [lockError, setLockError] = useState('')
+
+  async function toggleBudgetLock() {
+    setLockError('')
+    try { await onLockChange(activePeriod.id, !budgetLocked) }
+    catch (e) { setLockError(e.message || 'Kunde inte ändra låsningen.') }
+  }
   const periodTxs    = useMemo(() => txsForPeriod(transactions, activePeriod), [transactions, activePeriod]);
   const actuals      = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
   const periodBudget = budget[activePeriod?.id] || {};
@@ -104,9 +114,19 @@ export default function BudgetResultat({ transactions, categories, budget, budge
 
   return (
     <div>
-      <div className="notice notice-info" style={{ marginBottom:20 }}>
-        Budget för perioden <strong>{label}</strong> ({span}). Ange belopp och tryck Tab eller Enter.
+      <div className="notice notice-info" style={{ marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+        <span>
+          {budgetLocked
+            ? <><Lock size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }}/>Budgeten för <strong>{label}</strong> ({span}) är låst och kan inte ändras.</>
+            : <>Budget för perioden <strong>{label}</strong> ({span}). Ange belopp och tryck Tab eller Enter.</>}
+        </span>
+        {isMember && (
+          <button className="btn btn-sm btn-secondary" onClick={toggleBudgetLock}>
+            {budgetLocked ? <><Unlock size={12}/> Lås upp budget</> : <><Lock size={12}/> Lås budget</>}
+          </button>
+        )}
       </div>
+      {lockError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:16 }}>{lockError}</div>}
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
         {[
