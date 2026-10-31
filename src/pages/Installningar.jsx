@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { Check, Trash2, AlertTriangle, X } from 'lucide-react'
 import { store } from '../store'
+import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
 
 export default function Installningar({ orgId, orgName, onOrgNameChange }) {
-  const { session } = useAuth()
+  const { session, role } = useAuth()
 
   // --- Byta namn ---
   const [nameInput, setNameInput]   = useState(orgName)
@@ -26,6 +27,24 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
       setNameError(err.message)
     } finally {
       setNameSaving(false)
+    }
+  }
+
+  // --- AI-avläsning ---
+  const canManageAi = role === 'main_owner' || role === 'owner'
+  const [aiUsage, setAiUsage] = useState(null)
+  const [aiError, setAiError] = useState('')
+  useEffect(() => {
+    getReceiptUsage(orgId).then(setAiUsage).catch(e => setAiError(e.message))
+  }, [orgId])
+
+  async function toggleAi(enabled) {
+    setAiError('')
+    try {
+      await setReceiptAiEnabled(orgId, enabled)
+      setAiUsage(u => ({ ...u, enabled }))
+    } catch (e) {
+      setAiError(e.message)
     }
   }
 
@@ -94,6 +113,29 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
             {nameSaving ? 'Sparar…' : <><Check size={14}/> Spara</>}
           </button>
         </form>
+      </div>
+
+      {/* AI-avläsning */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="section-title">AI-avläsning av kvitton</div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+          Vid nytt verifikat kan en uppladdad PDF eller bild läsas av med AI, som föreslår datum, belopp,
+          beskrivning och kategori. Du kontrollerar alltid förslaget innan du sparar. Max {aiUsage?.limit ?? 50} avläsningar per månad.
+        </p>
+        <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginBottom: 16, lineHeight: 1.6 }}>
+          När funktionen används skickas den valda filen till Anthropic för avläsning. Filen kan innehålla
+          personuppgifter, så aktivera bara om föreningen är bekväm med det.
+        </p>
+        {aiError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{aiError}</div>}
+        {aiUsage ? (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem' }}>
+            <input type="checkbox" checked={aiUsage.enabled} disabled={!canManageAi}
+              onChange={e => toggleAi(e.target.checked)} style={{ width: 'auto' }} />
+            Aktivera AI-avläsning för {orgName}
+            {aiUsage.enabled && <span style={{ color: 'var(--ink-muted)', fontSize: '0.78rem' }}>({aiUsage.used}/{aiUsage.limit} använda denna månad)</span>}
+          </label>
+        ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>Laddar…</span>}
+        {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>Bara ägare kan ändra detta.</p>}
       </div>
 
       {/* Ta bort förening */}

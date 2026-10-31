@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Check, Search, Paperclip, Upload, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Search, Paperclip, Upload, FileText, Sparkles } from 'lucide-react';
+import { getReceiptUsage, readReceipt, canReadWithAi } from '../receiptAi';
 import AttachmentPanel from './AttachmentPanel';
 import { fmt, txsForPeriod } from '../store';
 import { useAuth } from '../auth/AuthProvider';
@@ -12,7 +13,7 @@ const EMPTY_FORM = {
   comment: '',
 };
 
-export default function Kassabok({ transactions, categories, onAdd, onUpdate, onDelete, activePeriod }) {
+export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, activePeriod }) {
   const { role } = useAuth()
   const canWrite = role !== 'viewer'
   const period = activePeriod;
@@ -29,6 +30,9 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
   const [saving, setSaving]           = useState(false);
   const [saveError, setSaveError]     = useState('');
   const [dragOver, setDragOver]       = useState(false);
+  const [aiUsage, setAiUsage]       = useState(null); // {enabled, used, limit}
+  const [aiBusy, setAiBusy]         = useState(false);
+  const [aiMsg, setAiMsg]           = useState(null); // {type: 'ok'|'error', text}
   const fileRef = useRef();
 
   const yearTxs = useMemo(() => txsForPeriod(transactions, period), [transactions, period]);
@@ -61,7 +65,31 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
     setEditId(null);
     setNewFiles([]);
     setSaveError('');
+    setAiMsg(null);
+    getReceiptUsage(orgId).then(setAiUsage).catch(() => setAiUsage(null));
     setShowModal(true);
+  }
+  async function handleAiRead() {
+    if (!preview) return;
+    setAiBusy(true); setAiMsg(null);
+    try {
+      const r = await readReceipt(orgId, preview.file, categories.filter(c => !c.hidden));
+      setForm(f => ({
+        ...f,
+        date:        r.date || f.date,
+        amount:      r.amount != null ? String(r.amount) : f.amount,
+        description: r.description || f.description,
+        categoryId:  r.category_id || f.categoryId,
+      }));
+      setAiUsage(u => u && { ...u, used: r.used, limit: r.limit });
+      setAiMsg({ type: 'ok', text: r.confidence === 'high'
+        ? 'Förslag ifyllt. Kontrollera uppgifterna innan du sparar.'
+        : 'Förslag ifyllt, men avläsningen är osäker. Kontrollera datum och belopp noga.' });
+    } catch (e) {
+      setAiMsg({ type: 'error', text: e.message });
+    } finally {
+      setAiBusy(false);
+    }
   }
   function openEdit(tx) {
     setForm({ date: tx.date, description: tx.description || '', categoryId: tx.categoryId, amount: String(tx.amount), comment: tx.comment || '' });
@@ -348,6 +376,22 @@ export default function Kassabok({ transactions, categories, onAdd, onUpdate, on
                           : preview.url
                             ? <img src={preview.url} alt={preview.file.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                             : <span style={{ fontSize: '0.82rem', color: 'var(--ink-muted)' }}>Ingen förhandsvisning för den här filtypen.</span>}
+                      </div>
+                    )}
+                    {preview && aiUsage?.enabled && canReadWithAi(preview.file) && (
+                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={handleAiRead}
+                          disabled={aiBusy || aiUsage.used >= aiUsage.limit}>
+                          <Sparkles size={13} /> {aiBusy ? 'Läser av…' : 'Fyll i med AI'}
+                        </button>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>
+                          {aiUsage.used}/{aiUsage.limit} avläsningar använda denna månad
+                        </span>
+                      </div>
+                    )}
+                    {aiMsg && (
+                      <div className="notice" style={{ marginTop: 8, fontSize: '0.82rem', ...(aiMsg.type === 'error' ? { background: 'var(--red-soft)', borderColor: 'var(--red)', color: 'var(--red)' } : {}) }}>
+                        {aiMsg.text}
                       </div>
                     )}
                   </div>
