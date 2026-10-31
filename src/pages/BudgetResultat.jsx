@@ -69,8 +69,8 @@ export default function BudgetResultat({ transactions, categories, budget, onBud
   const actuals      = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
   const periodBudget = budget[activePeriod?.id] || {};
 
-  const incCats = categories.filter(c => c.type === 'income');
-  const expCats = categories.filter(c => c.type === 'expense');
+  const incCats = categories.filter(c => c.type === 'income' && !c.hidden);
+  const expCats = categories.filter(c => c.type === 'expense' && !c.hidden);
   const totalBudgetInc = incCats.reduce((s,c) => s+(periodBudget[c.id]||0), 0);
   const totalBudgetExp = expCats.reduce((s,c) => s+(periodBudget[c.id]||0), 0);
   const totalActualInc = incCats.reduce((s,c) => s+(actuals[c.id]||0), 0);
