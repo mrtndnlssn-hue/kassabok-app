@@ -32,6 +32,12 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
     }
   }
 
+  // --- Plan och förbrukning ---
+  const [plan, setPlan] = useState(null)
+  useEffect(() => {
+    supabase.rpc('get_org_plan', { p_org: orgId }).then(({ data }) => setPlan(data))
+  }, [orgId])
+
   // --- AI-avläsning ---
   const canManageAi = role === 'main_owner' || role === 'owner'
   const [aiUsage, setAiUsage] = useState(null)
@@ -73,6 +79,28 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
 
   return (
     <div style={{ maxWidth: 560 }}>
+
+      {/* Plan */}
+      {plan && (
+        <div className="card" style={{ marginBottom: 24 }}>
+          <div className="section-title">{t('Plan')}</div>
+          <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:10 }}>
+            <strong style={{ fontSize:'1.1rem' }}>{plan.plan_name}</strong>
+            {plan.plan_code !== 'gratis' && plan.valid_until && (
+              <span style={{ fontSize:'0.8rem', color:'var(--ink-muted)' }}>{t('Giltig till {date}', { date: plan.valid_until })}</span>
+            )}
+          </div>
+          <div style={{ fontSize:'0.85rem', color:'var(--ink-soft)', display:'grid', gap:4 }}>
+            <div>{t('Verifikat i nuvarande räkenskapsår:')} <strong style={{ fontFamily:'var(--font-mono)' }}>{plan.vouchers_used} / {plan.voucher_limit}</strong></div>
+            <div>{t('AI-avläsningar per månad:')} <strong style={{ fontFamily:'var(--font-mono)' }}>{plan.ai_limit}</strong></div>
+          </div>
+          {plan.plan_code === 'gratis' && (
+            <p style={{ fontSize:'0.82rem', color:'var(--ink-muted)', marginTop:12 }}>
+              {t('Behöver ni fler verifikat? Se planerna och beställ på')} <a href="https://foreningsbalans.se/#priser">foreningsbalans.se</a>.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Byta namn */}
       <div className="card" style={{ marginBottom: 24 }}>

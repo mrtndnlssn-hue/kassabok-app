@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
 import { store, attachments, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
@@ -19,6 +19,7 @@ import Installningar from './pages/Installningar';
 import Komigang from './pages/Komigang';
 import { useI18n } from './i18n';
 import LanguageSwitch from './components/LanguageSwitch';
+const AdminPortal = lazy(() => import('./admin/AdminPortal'));
 import './index.css';
 
 const NAV_GROUPS = [
@@ -69,6 +70,11 @@ function MainApp({ orgId, role }) {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  useEffect(() => {
+    if (isDemoSession(session)) return;
+    supabase.rpc('is_platform_admin').then(({ data }) => setIsPlatformAdmin(!!data));
+  }, [session]);
   const [orgNames, setOrgNames]       = useState({});
   const [loading, setLoading]         = useState(true);
   const [transactions, setTxs]        = useState([]);
@@ -294,6 +300,11 @@ function MainApp({ orgId, role }) {
               </div>
             </div>
           )}
+          {isPlatformAdmin && (
+            <a href="#admin" style={{ display:'flex', alignItems:'center', gap:6, color:'rgba(255,255,255,0.7)', fontSize:'0.78rem', textDecoration:'none', padding:'4px 0' }}>
+              <Shield size={12}/> Adminportal
+            </a>
+          )}
           <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.25)' }}>☁ {t('Sparas i Supabase')}</div>
           <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.18)', fontFamily:'var(--font-mono)' }}>
             {isoDateTime(new Date(__BUILD_TIME__))}
@@ -340,6 +351,12 @@ function sessionPickedKey(userId) { return `orgPicked_${userId}` }
 export default function App() {
   const { session, orgs, orgId, role, loading, setOrgId, recoveryMode } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
+  const [adminRoute, setAdminRoute] = useState(() => window.location.hash.startsWith('#admin'));
+  useEffect(() => {
+    const onHash = () => setAdminRoute(window.location.hash.startsWith('#admin'));
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const [pickerDone, setPickerDone] = useState(() => {
     try { return !!sessionStorage.getItem('orgPicked') } catch { return false }
   });
@@ -365,6 +382,10 @@ export default function App() {
   if (recoveryMode) return <SetNewPassword />;
 
   if (!session) return <LoginPage />;
+
+  if (adminRoute && !isDemoSession(session)) {
+    return <Suspense fallback={null}><AdminPortal /></Suspense>;
+  }
 
   // Inbjudningslänk – visa OrgSetup oavsett om användaren redan har en förening
   if (new URLSearchParams(window.location.search).has('invite')) return <OrgSetup />;

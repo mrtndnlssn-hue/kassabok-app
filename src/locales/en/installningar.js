@@ -65,4 +65,10 @@ export default {
   'Välj i kalender': 'Pick from calendar',
   'Datum på formatet YYYY-MM-DD, t.ex. 2026-03-31': 'Date in the format YYYY-MM-DD, e.g. 2026-03-31',
   'Bara huvudägaren kan ta bort föreningen.': 'Only the main owner can delete the association.',
+  // Plan
+  'Plan': 'Plan',
+  'Giltig till {date}': 'Valid until {date}',
+  'Verifikat i nuvarande räkenskapsår:': 'Vouchers in the current financial year:',
+  'AI-avläsningar per månad:': 'AI readings per month:',
+  'Behöver ni fler verifikat? Se planerna och beställ på': 'Need more vouchers? See the plans and order at',
 }

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
@@ -9,551 +9,284 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#2563eb">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&display=swap">
-
+<meta name="theme-color" content="#faf9f6">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-/* ── Tokens ─────────────────────────────────────────────────────── */
 :root {
-  --bg:        #f7f8fa;
-  --bg2:       #ffffff;
-  --ink:       #1a1d23;
-  --ink2:      #4a5060;
-  --ink3:      #8891a0;
-  --accent:    #2563eb;
-  --accent2:   #dbeafe;
-  --green:     #16a34a;
-  --green2:    #dcfce7;
-  --border:    #e2e5eb;
-  --r:         10px;
-  --shadow:    0 1px 3px rgba(30,40,60,.08), 0 4px 12px rgba(30,40,60,.06);
+  --paper:   #faf9f6;
+  --paper2:  #f3f1ec;
+  --sheet:   #fffdf8;
+  --ink:     #1a1a2e;
+  --ink2:    #4a4a6a;
+  --ink3:    #6b6b88;
+  --rule:    #d5d0c5;
+  --blue:    #1d4e89;
+  --blue-bg: #e3ecf7;
+  --green:   #2d6a4f;
+  --red:     #b4232f;
+  --amber:   #9a5b00;
+  --amber-bg:#fff3cd;
+  --max:     1080px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg:      #0f1117;
-    --bg2:     #1a1e28;
-    --ink:     #e8eaf0;
-    --ink2:    #9aa0b0;
-    --ink3:    #5a6070;
-    --accent:  #3b82f6;
-    --accent2: #1e2d4a;
-    --green:   #4ade80;
-    --green2:  #0f2a1a;
-    --border:  #2a2f3c;
-    --shadow:  0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+    --paper:#14141f; --paper2:#1c1c2a; --sheet:#1a1a28; --ink:#ece9e1; --ink2:#b4b2c4; --ink3:#8d8ba3;
+    --rule:#33334a; --blue:#8db4ea; --blue-bg:#1f2c44; --green:#7fd1a6; --red:#ff8a93; --amber:#f2c36b; --amber-bg:#3a2f12;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg:      #0f1117;
-  --bg2:     #1a1e28;
-  --ink:     #e8eaf0;
-  --ink2:    #9aa0b0;
-  --ink3:    #5a6070;
-  --accent:  #3b82f6;
-  --accent2: #1e2d4a;
-  --green:   #4ade80;
-  --green2:  #0f2a1a;
-  --border:  #2a2f3c;
-  --shadow:  0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+  --paper:#14141f; --paper2:#1c1c2a; --sheet:#1a1a28; --ink:#ece9e1; --ink2:#b4b2c4; --ink3:#8d8ba3;
+  --rule:#33334a; --blue:#8db4ea; --blue-bg:#1f2c44; --green:#7fd1a6; --red:#ff8a93; --amber:#f2c36b; --amber-bg:#3a2f12;
   color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--paper);
   color: var(--ink);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Instrument Sans', system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.6;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0;
+  -webkit-font-smoothing: antialiased;
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
 }
+h1, h2, h3, h4 { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; line-height: 1.12; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+a { color: var(--blue); }
+.mono { font-family: 'DM Mono', ui-monospace, monospace; }
+.container { max-width: var(--max); margin: 0 auto; }
+.kicker { font-family: 'DM Mono', monospace; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); }
 
-/* ── Nav ─────────────────────────────────────────────────────────── */
-.site-nav {
-  position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 20;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 6px rgba(30,40,60,.06);
-}
-.nav-inner {
-  max-width: 960px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding-block: 0;
-}
-.nav-logo {
-  font-family: 'Sora', sans-serif;
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--accent);
-  text-decoration: none;
-  padding: 14px 0;
-  margin-right: auto;
-  letter-spacing: -.02em;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-}
+/* ── Nav ─────────────────────────────────────────── */
+.site-nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--paper); border-bottom: 1px solid var(--rule); margin: 0 calc(-1 * max(18px, env(safe-area-inset-left, 0px)));  padding: 0 max(18px, env(safe-area-inset-left, 0px)); }
+.nav-inner { max-width: var(--max); margin: 0 auto; display: flex; align-items: center; }
+.nav-logo { display: inline-flex; align-items: center; gap: 9px; padding: 13px 0; margin-right: auto; text-decoration: none; color: var(--ink); font-family: 'DM Serif Display', serif; font-size: 1.28rem; letter-spacing: -.005em; }
 .nav-logo img { width: 28px; height: 28px; display: block; }
-.nav-tab { white-space: nowrap; }
+.nav-logo span { color: var(--blue); }
+.nav-tab { display: block; white-space: nowrap; padding: 17px 15px 15px; font: 500 .9rem 'Instrument Sans', sans-serif; color: var(--ink2); text-decoration: none; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.nav-tab:hover { color: var(--ink); }
+.nav-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+.nav-login { color: var(--blue); }
+.lang-switch { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; font: 500 .75rem 'DM Mono', monospace; color: var(--ink3); white-space: nowrap; }
+.lang-switch button { background: none; border: none; padding: 6px 4px; font: inherit; color: var(--ink3); cursor: pointer; }
+.lang-switch button:hover { color: var(--ink); }
+.lang-switch button.active { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+@media (max-width: 760px) { .nav-order { display: none; } }
+@media (max-width: 640px) { .nav-logo strong { display: none; } }
 @media (max-width: 520px) {
-  .nav-logo { font-size: .95rem; gap: 7px; }
+  .nav-tab { padding-left: 9px; padding-right: 9px; }
+  .nav-logo { font-size: 1.1rem; gap: 7px; }
   .nav-logo img { width: 26px; height: 26px; }
+  .lang-switch { margin-left: 2px; }
+  .lang-switch button { padding-left: 3px; padding-right: 3px; }
 }
 @media (max-width: 460px) {
   .nav-logo strong { display: none; }
+  .nav-tab { padding-left: 6px; padding-right: 6px; font-size: .8125rem; }
   .nav-logo img { width: 24px; height: 24px; }
   .lang-switch { margin-left: 0; font-size: .6875rem; }
   .lang-switch button { padding-left: 2px; padding-right: 2px; }
 }
-.nav-logo span { color: var(--ink); font-weight: 400; }
-.lang-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: 6px;
-  font-size: .75rem;
-  font-weight: 600;
-  color: var(--ink3);
-  white-space: nowrap;
-}
-.lang-switch button {
-  background: none;
-  border: none;
-  padding: 6px 4px;
-  font: inherit;
-  color: var(--ink3);
-  cursor: pointer;
-}
-.lang-switch button:hover { color: var(--ink); }
-.lang-switch button.active { color: var(--accent); }
-@media (max-width: 520px) {
-  .lang-switch { margin-left: 2px; }
-  .lang-switch button { padding-left: 3px; padding-right: 3px; }
-}
-.nav-tab {
-  display: block;
-  padding: 16px 18px 14px;
-  font-size: .875rem;
-  font-weight: 500;
-  color: var(--ink2);
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  transition: color .15s, border-color .15s;
-  cursor: pointer;
-  background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-  font-family: inherit;
-}
-.nav-tab:hover { color: var(--ink); }
-.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-@media (max-width: 520px) {
-  .nav-tab { padding-left: 9px; padding-right: 9px; }
-}
-@media (max-width: 460px) {
-  .nav-tab { padding-left: 6px; padding-right: 6px; font-size: .8125rem; }
-}
 
-/* ── Shared ──────────────────────────────────────────────────────── */
 .view { display: none; }
 .view.active { display: block; }
-.container { max-width: 960px; margin: 0 auto; }
 
-h1,h2,h3,h4 { font-family: 'Sora', sans-serif; text-wrap: balance; line-height: 1.25; margin: 0; }
-p { margin: 0; }
+/* ── Knappar ─────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 4px; border: 1.5px solid var(--ink); background: var(--ink); color: var(--paper); font: 600 .95rem 'Instrument Sans', sans-serif; text-decoration: none; cursor: pointer; transition: transform .1s, background .15s; }
+.btn:hover { background: var(--ink2); border-color: var(--ink2); }
+.btn:active { transform: translateY(1px); }
+.btn-line { background: transparent; color: var(--ink); }
+.btn-line:hover { background: var(--paper2); border-color: var(--ink); }
+.btn-wide { width: 100%; justify-content: center; }
+.btn[disabled] { opacity: .55; cursor: default; }
+.textlink { color: var(--ink); font-weight: 600; text-underline-offset: 4px; }
 
-.badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 100px;
-  font-size: .75rem;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
-.badge-blue { background: var(--accent2); color: var(--accent); }
-.badge-green { background: var(--green2); color: var(--green); }
+/* ── Start ───────────────────────────────────────── */
+.hero { padding-block: 64px 72px; display: grid; grid-template-columns: 1.02fr 1fr; gap: 56px; align-items: center; }
+.hero > div { min-width: 0; }
+.hero h1 { font-size: clamp(2.5rem, 5.4vw, 4.1rem); letter-spacing: -.012em; margin-bottom: 22px; }
+.hero h1 em { color: var(--blue); }
+.hero-sub { font-size: 1.12rem; color: var(--ink2); max-width: 30em; margin-bottom: 30px; }
+.cta-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.hero-note { margin-top: 16px; font-size: .85rem; color: var(--ink3); }
+@media (max-width: 880px) { .hero { grid-template-columns: 1fr; gap: 40px; padding-block: 40px 48px; } }
 
-/* ── Landing ─────────────────────────────────────────────────────── */
-.hero {
-  padding-block: 72px 56px;
-}
-.hero-eyebrow {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-.hero h1 {
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  font-weight: 700;
-  letter-spacing: -.03em;
-  margin-bottom: 20px;
-  color: var(--ink);
-}
-.hero h1 em { font-style: normal; color: var(--accent); }
-.hero-sub {
-  font-size: 1.125rem;
-  color: var(--ink2);
-  max-width: 560px;
-  margin-bottom: 36px;
-  line-height: 1.7;
-}
-.cta-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 11px 22px;
-  border-radius: var(--r);
-  font-size: .9375rem;
-  font-weight: 600;
-  text-decoration: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  transition: opacity .15s, transform .1s;
-}
-.btn:hover { opacity: .88; }
-.btn:active { transform: scale(.97); }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-outline { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.sheet { overflow-x: auto; background: var(--sheet); border: 1px solid var(--ink); box-shadow: 6px 6px 0 var(--rule); }
+.sheet-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--ink); }
+.sheet-head strong { font: 400 1.05rem 'DM Serif Display', serif; }
+.sheet table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.sheet th { text-align: left; font: 500 .66rem 'DM Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); padding: 9px 8px; border-bottom: 1px solid var(--rule); }
+.sheet td { padding: 9px 8px; border-bottom: 1px solid var(--rule); }
+.sheet tr:last-child td { border-bottom: none; }
+.sheet td.mono { white-space: nowrap; }
+.sheet .n { font-family: 'DM Mono', monospace; text-align: right; white-space: nowrap; }
+.sheet th.n { text-align: right; }
+.sheet .pos { color: var(--green); }
+.sheet .neg { color: var(--ink); }
+.sheet th:first-child, .sheet td:first-child { padding-left: 16px; }
+.sheet th:last-child, .sheet td:last-child { padding-right: 16px; }
+.sheet .open td { color: var(--ink3); font-style: italic; }
+@media (max-width: 520px) { .sheet .hide-sm { display: none; } .sheet table { font-size: .72rem; } .sheet th, .sheet td { padding-left: 5px; padding-right: 5px; } .sheet th:first-child, .sheet td:first-child { padding-left: 12px; } .sheet th:last-child, .sheet td:last-child { padding-right: 12px; } }
 
-/* features grid */
-.features {
-  padding-block: 56px;
-  border-top: 1px solid var(--border);
-}
-.section-header { margin-bottom: 40px; }
-.section-header h2 { font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -.02em; margin-bottom: 8px; }
-.section-header p { color: var(--ink2); font-size: 1.0625rem; }
+.receipt { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; margin-top: 22px; padding: 14px 16px; border: 1px dashed var(--ink3); background: var(--sheet); font-size: .84rem; }
+.receipt-ico { width: 38px; height: 46px; border: 1px solid var(--ink); background: var(--paper); position: relative; }
+.receipt-ico::before, .receipt-ico::after { content: ""; position: absolute; left: 6px; right: 6px; height: 2px; background: var(--rule); }
+.receipt-ico::before { top: 10px; box-shadow: 0 6px 0 var(--rule), 0 12px 0 var(--rule), 0 18px 0 var(--rule); }
+.receipt b { font-weight: 600; }
+.receipt .mono { color: var(--blue); }
 
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-}
-.feature-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 24px;
-  box-shadow: var(--shadow);
-}
-.feature-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: var(--accent2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 14px;
-  font-size: 1.3rem;
-}
-.feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 6px; }
-.feature-card p { font-size: .875rem; color: var(--ink2); line-height: 1.6; }
+.band { border-top: 1px solid var(--ink); padding-block: 64px; }
+.band-head { display: grid; grid-template-columns: 220px 1fr; gap: 32px; margin-bottom: 36px; }
+.band-head h2 { font-size: clamp(1.8rem, 3.6vw, 2.6rem); letter-spacing: -.01em; max-width: 20em; }
+@media (max-width: 760px) { .band-head { grid-template-columns: 1fr; gap: 10px; } .band { padding-block: 48px; } }
 
-/* How it works */
-.howto {
-  padding-block: 56px;
-  border-top: 1px solid var(--border);
-}
-.steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-top: 40px;
-}
-.step {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.step-num {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-family: 'Sora', sans-serif;
-  font-weight: 700;
-  font-size: .875rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.step h3 { font-size: .9375rem; font-weight: 600; }
-.step p { font-size: .85rem; color: var(--ink2); }
+.list { margin-left: 252px; }
+@media (max-width: 760px) { .list { margin-left: 0; } }
+.list-row { display: grid; grid-template-columns: 190px 1fr; gap: 24px; padding: 18px 0; border-top: 1px solid var(--rule); }
+.list-row:last-child { border-bottom: 1px solid var(--rule); }
+.list-row h3 { font-size: 1.2rem; }
+.list-row p { color: var(--ink2); max-width: 36em; }
+@media (max-width: 760px) { .list-row { grid-template-columns: 1fr; gap: 4px; } }
 
-/* Who it's for */
-.who {
-  padding-block: 56px;
-  border-top: 1px solid var(--border);
-  background: var(--bg2);
-  border-radius: var(--r);
-  margin-bottom: 56px;
-  padding-left: 36px;
-  padding-right: 36px;
-}
-@media (max-width: 480px) {
-  .who { padding-left: 20px; padding-right: 20px; }
-}
-.who-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
-.who-chip {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 100px;
-  padding: 6px 16px;
-  font-size: .875rem;
-  color: var(--ink2);
-}
+.steps { margin-left: 252px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+@media (max-width: 760px) { .steps { margin-left: 0; grid-template-columns: 1fr; gap: 20px; } }
+.step { border-top: 3px solid var(--ink); padding-top: 14px; }
+.step .mono { font-size: .8rem; color: var(--ink3); }
+.step h3 { font-size: 1.25rem; margin: 4px 0 6px; }
+.step p { color: var(--ink2); font-size: .95rem; }
 
-/* ── Pricing ────────────────────────────────────────────────────── */
-.pricing-hero {
-  text-align: center;
-  padding-block: 56px 48px;
-}
-.pricing-hero h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); letter-spacing: -.025em; margin-bottom: 10px; }
-.pricing-hero p { color: var(--ink2); font-size: 1.0625rem; max-width: 500px; margin: 0 auto; }
+.for { margin-left: 252px; font-size: 1.15rem; color: var(--ink2); max-width: 34em; }
+.for b { color: var(--ink); font-weight: 600; }
+@media (max-width: 760px) { .for { margin-left: 0; } }
 
-.plan-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  max-width: 700px;
-  margin: 0 auto 56px;
-}
-.plan-card {
-  background: var(--bg2);
-  border: 1.5px solid var(--border);
-  border-radius: 14px;
-  padding: 28px 28px 32px;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.plan-card.featured {
-  border-color: var(--accent);
-  box-shadow: var(--shadow), 0 0 0 4px var(--accent2);
-}
-.plan-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 10px; }
-.plan-card.featured .plan-label { color: var(--accent); }
-.plan-price {
-  font-family: 'Sora', sans-serif;
-  font-weight: 700;
-  font-size: 2.6rem;
-  letter-spacing: -.04em;
-  color: var(--ink);
-  margin-bottom: 2px;
-}
-.plan-price sup { font-size: 1rem; font-weight: 600; vertical-align: super; }
-.plan-price small { font-size: 1rem; font-weight: 400; color: var(--ink3); }
-.plan-desc { font-size: .875rem; color: var(--ink2); margin-bottom: 24px; line-height: 1.5; }
-.plan-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 20px; }
-.plan-features { list-style: none; padding: 0; margin: 0 0 28px; display: flex; flex-direction: column; gap: 9px; }
-.plan-features li {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: .875rem;
-  color: var(--ink2);
-}
-.plan-features li .check {
-  flex-shrink: 0;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  background: var(--green2);
-  color: var(--green);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .65rem;
-  font-weight: 800;
-  margin-top: 2px;
-}
-.plan-features li .muted { color: var(--ink3); }
-.plan-btn { margin-top: auto; }
+.closing { background: var(--ink); color: var(--paper); margin: 0 calc(-1 * max(18px, env(safe-area-inset-left, 0px))); padding: 56px max(18px, env(safe-area-inset-left, 0px)); }
+.closing .container { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+.closing h2 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); max-width: 18em; }
+.closing .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.closing .btn:hover { background: var(--paper2); }
 
-.faq {
-  max-width: 660px;
-  margin: 0 auto 64px;
+/* ── Priser ──────────────────────────────────────── */
+.page-head { padding-block: 56px 36px; max-width: 40em; }
+.page-head h1 { font-size: clamp(2.2rem, 4.6vw, 3.4rem); margin-bottom: 14px; letter-spacing: -.01em; }
+.page-head p { font-size: 1.1rem; color: var(--ink2); }
+.plans { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--ink); background: var(--sheet); margin-bottom: 20px; }
+.plan { padding: 26px 26px 28px; display: flex; flex-direction: column; border-left: 1px solid var(--rule); }
+.plan:first-child { border-left: none; }
+.plan.pick { background: var(--ink); color: var(--paper); }
+.plan.pick .plan-spec, .plan.pick .plan-note { color: rgba(250,249,246,.72); }
+.plan.pick .plan-row { border-color: rgba(250,249,246,.2); }
+.plan.pick .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.plan-name { font: 400 1.5rem 'DM Serif Display', serif; }
+.plan-tag { font: 500 .68rem 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; opacity: .7; min-height: 1.2em; }
+.plan-price { font: 500 2.6rem 'DM Mono', monospace; letter-spacing: -.03em; margin: 14px 0 0; line-height: 1.1; }
+.plan-price small { font-size: .9rem; letter-spacing: 0; opacity: .75; }
+.plan-note { font-size: .82rem; color: var(--ink3); margin-bottom: 18px; min-height: 1.3em; }
+.plan-rows { margin-bottom: 24px; }
+.plan-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--rule); font-size: .92rem; }
+.plan-row b { font-family: 'DM Mono', monospace; font-weight: 500; text-align: right; }
+.plan .btn { margin-top: auto; }
+@media (max-width: 860px) {
+  .plans { grid-template-columns: 1fr; }
+  .plan { border-left: none; border-top: 1px solid var(--rule); }
+  .plan:first-child { border-top: none; }
 }
-.faq h3 { font-size: 1.2rem; letter-spacing: -.01em; margin-bottom: 24px; }
-.faq-item { border-top: 1px solid var(--border); padding-block: 16px; }
-.faq-item:last-child { border-bottom: 1px solid var(--border); }
-.faq-q { font-weight: 600; font-size: .9375rem; margin-bottom: 6px; }
-.faq-a { font-size: .875rem; color: var(--ink2); line-height: 1.7; }
+.plans-foot { font-size: .9rem; color: var(--ink3); margin-bottom: 56px; max-width: 46em; }
 
-/* ── Help ────────────────────────────────────────────────────────── */
-.help-hero {
-  padding-block: 56px 48px;
-}
-.help-hero h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -.02em; margin-bottom: 10px; }
-.help-hero p { color: var(--ink2); font-size: 1.0625rem; max-width: 560px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; margin-bottom: 64px; }
+@media (max-width: 860px) { .two-col { grid-template-columns: 1fr; gap: 32px; } }
+.two-col h2 { font-size: 1.7rem; margin-bottom: 14px; }
+.two-col p { color: var(--ink2); margin-bottom: 10px; }
+.flow { list-style: none; padding: 0; margin: 0; counter-reset: f; }
+.flow li { counter-increment: f; display: grid; grid-template-columns: 34px 1fr; padding: 11px 0; border-top: 1px solid var(--rule); color: var(--ink2); }
+.flow li::before { content: counter(f, decimal-leading-zero); font: 500 .8rem 'DM Mono', monospace; color: var(--ink3); padding-top: 3px; }
+.flow li:last-child { border-bottom: 1px solid var(--rule); }
+.flow strong { color: var(--ink); }
 
-.help-toc {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 48px;
-}
-.toc-chip {
-  padding: 6px 14px;
-  border-radius: 100px;
-  border: 1.5px solid var(--border);
-  font-size: .8125rem;
-  font-weight: 500;
-  color: var(--ink2);
-  cursor: pointer;
-  text-decoration: none;
-  transition: border-color .15s, color .15s;
-}
-.toc-chip:hover { border-color: var(--accent); color: var(--accent); }
+.faq { max-width: 46em; margin: 0 0 72px; }
+.faq h2 { font-size: 1.7rem; margin-bottom: 18px; }
+.faq-item { border-top: 1px solid var(--rule); padding-block: 15px; }
+.faq-item:last-child { border-bottom: 1px solid var(--rule); }
+.faq-q { font-weight: 600; margin-bottom: 4px; }
+.faq-a { color: var(--ink2); font-size: .95rem; }
 
-.help-section {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 28px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow);
+/* ── Beställ ─────────────────────────────────────── */
+.order { display: grid; grid-template-columns: 1fr 340px; gap: 48px; align-items: start; padding-bottom: 72px; }
+@media (max-width: 900px) { .order { grid-template-columns: 1fr; gap: 28px; } }
+fieldset { border: none; padding: 0; margin: 0 0 30px; min-width: 0; }
+legend { font: 400 1.3rem 'DM Serif Display', serif; padding: 0 0 10px; margin-bottom: 14px; border-bottom: 1px solid var(--ink); width: 100%; }
+.fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.fgrid .full { grid-column: 1 / -1; }
+@media (max-width: 560px) { .fgrid { grid-template-columns: 1fr; } }
+.field label, .field .lbl { display: block; font-size: .82rem; font-weight: 600; margin-bottom: 4px; }
+.field .hint { font-size: .78rem; color: var(--ink3); margin-top: 3px; }
+.field input[type=text], .field input[type=email], .field input[type=tel], .field textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--ink3); border-radius: 3px; background: var(--sheet); color: var(--ink); font: 1rem 'Instrument Sans', sans-serif;
 }
-.help-section-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 18px;
-}
-.help-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  background: var(--accent2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.35rem;
-  flex-shrink: 0;
-}
-.help-section h3 { font-size: 1.05rem; font-weight: 700; }
-.help-section > p { font-size: .875rem; color: var(--ink2); line-height: 1.7; margin-bottom: 16px; }
-.help-section > p:last-child { margin-bottom: 0; }
+.field input:focus, .field textarea:focus { outline: 2px solid var(--blue); outline-offset: 1px; border-color: var(--blue); }
+.field textarea { min-height: 84px; resize: vertical; }
+.plan-pick { display: grid; gap: 10px; }
+.plan-opt { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: baseline; padding: 14px 16px; border: 1px solid var(--rule); background: var(--sheet); cursor: pointer; }
+.plan-opt:has(input:checked) { border-color: var(--ink); box-shadow: 4px 4px 0 var(--rule); }
+.plan-opt input { margin: 0; accent-color: var(--ink); }
+.plan-opt b { font-weight: 600; }
+.plan-opt small { display: block; color: var(--ink3); font-size: .82rem; }
+.plan-opt .mono { font-weight: 500; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.check { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; font-size: .92rem; }
+.check input { margin: 4px 0 0; accent-color: var(--ink); width: 18px; height: 18px; }
+.summary { position: sticky; top: 76px; border: 1px solid var(--ink); background: var(--sheet); box-shadow: 6px 6px 0 var(--rule); padding: 22px; }
+.summary h3 { font-size: 1.3rem; margin-bottom: 12px; }
+.sum-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: .92rem; }
+.sum-row.total { border-top: 2px solid var(--ink); font-weight: 600; font-size: 1.05rem; }
+.sum-row .mono { font-weight: 500; }
+.summary p { font-size: .82rem; color: var(--ink3); margin-top: 12px; }
+.terms { font-size: .82rem; color: var(--ink3); border-top: 1px solid var(--rule); padding-top: 14px; margin-top: 22px; max-width: 52em; }
+.terms p + p { margin-top: 6px; }
+.alert { padding: 12px 14px; border: 1px solid var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--ink); margin-bottom: 18px; font-size: .92rem; }
+.done { border: 1px solid var(--ink); background: var(--sheet); box-shadow: 6px 6px 0 var(--rule); padding: 32px; max-width: 640px; margin-bottom: 72px; }
+.done h2 { font-size: 2rem; margin-bottom: 10px; }
+.done p { color: var(--ink2); margin-bottom: 10px; }
+.done .big { font: 500 1.3rem 'DM Mono', monospace; color: var(--ink); }
 
-.help-steps {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.help-steps li {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  font-size: .875rem;
-  color: var(--ink2);
-}
-.step-dot {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--accent2);
-  color: var(--accent);
-  font-weight: 700;
-  font-size: .72rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 1px;
-  font-family: 'Sora', sans-serif;
-}
-.help-tip {
-  background: var(--accent2);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 8px 8px 0;
-  padding: 10px 14px;
-  font-size: .8125rem;
-  color: var(--accent);
-  font-weight: 500;
-  margin-top: 14px;
-}
+/* ── Hjälp ───────────────────────────────────────── */
+.help-hero { padding-block: 56px 36px; max-width: 40em; }
+.help-hero h2 { font-size: clamp(2.2rem, 4.6vw, 3.4rem); margin-bottom: 14px; letter-spacing: -.01em; }
+.help-hero p { color: var(--ink2); font-size: 1.1rem; }
+.getting-started-box { background: var(--ink); color: var(--paper); padding: 30px 32px; margin-bottom: 36px; }
+.getting-started-box h3 { font-size: 1.5rem; margin-bottom: 6px; }
+.getting-started-box > p { font-size: .95rem; opacity: .75; margin-bottom: 20px; }
+.gs-steps { display: grid; gap: 10px; }
+.gs-step { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: baseline; }
+.gs-num { font: 500 .8rem 'DM Mono', monospace; opacity: .6; }
+.gs-step p { font-size: .95rem; margin: 0; }
+.help-toc { display: flex; gap: 8px 18px; flex-wrap: wrap; margin-bottom: 36px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.toc-chip { font-weight: 600; font-size: .92rem; color: var(--ink); text-underline-offset: 4px; }
+.help-section { border-top: 1px solid var(--ink); padding: 26px 0 30px; display: grid; grid-template-columns: 220px 1fr; gap: 32px; scroll-margin-top: 70px; }
+@media (max-width: 760px) { .help-section { grid-template-columns: 1fr; gap: 12px; } }
+.help-section-header h3 { font-size: 1.5rem; }
+.help-section > p { color: var(--ink2); margin-bottom: 14px; max-width: 40em; grid-column: 2; }
+.help-section > ul, .help-section > .help-tip { grid-column: 2; }
+.help-section-header { grid-column: 1; grid-row: 1 / span 4; }
+@media (max-width: 760px) { .help-section > p, .help-section > ul, .help-section > .help-tip { grid-column: 1; } .help-section-header { grid-row: auto; } }
+.help-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; max-width: 40em; }
+.help-steps li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: baseline; color: var(--ink2); font-size: .95rem; }
+.step-dot { font: 500 .8rem 'DM Mono', monospace; color: var(--ink3); }
+.help-steps strong, .help-section strong { color: var(--ink); }
+.help-steps code { font-family: 'DM Mono', monospace; background: var(--paper2); padding: 1px 5px; font-size: .85em; }
+.help-tip { border-left: 3px solid var(--blue); background: var(--blue-bg); padding: 10px 14px; font-size: .9rem; margin-top: 14px; max-width: 40em; }
 
-.getting-started-box {
-  background: var(--accent);
-  border-radius: 14px;
-  padding: 32px;
-  margin-bottom: 48px;
-  color: #fff;
-}
-.getting-started-box h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: #fff;
-}
-.getting-started-box p { font-size: .875rem; opacity: .85; margin-bottom: 20px; }
-.gs-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 24px;
-}
-.gs-step {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-.gs-num {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(255,255,255,.25);
-  color: #fff;
-  font-size: .72rem;
-  font-weight: 800;
-  font-family: 'Sora', sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.gs-step p { font-size: .875rem; color: rgba(255,255,255,.9); margin: 0; line-height: 1.5; }
-.gs-step strong { color: #fff; }
-
-footer {
-  border-top: 1px solid var(--border);
-  padding-block: 32px;
-  text-align: center;
-  font-size: .8125rem;
-  color: var(--ink3);
-  margin-top: 32px;
-}
-footer a { color: var(--ink3); text-decoration: underline; }
+/* ── Sidfot ──────────────────────────────────────── */
+footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: .88rem; color: var(--ink2); }
+.foot { display: flex; justify-content: space-between; gap: 28px; flex-wrap: wrap; }
+.foot-brand { font: 400 1.3rem 'DM Serif Display', serif; color: var(--ink); margin-bottom: 6px; }
+.foot-links { display: flex; gap: 8px 20px; flex-wrap: wrap; align-items: flex-start; }
+.foot-links a { color: var(--ink); text-underline-offset: 4px; }
 </style>
 </head>
 <body>
@@ -562,191 +295,245 @@ footer a { color: var(--ink3); text-decoration: underline; }
 <nav class="site-nav">
   <div class="nav-inner">
     <a class="nav-logo" href="#start" onclick="navigate('start',this)"><img src="/favicon.svg" alt="Föreningsbalans" width="28" height="28"><strong style="font-weight:inherit">Förenings<span>balans</span></strong></a>
-    <button data-en="Start" class="nav-tab active" id="tab-start"   onclick="navigate('start',  this)">Start</button>
-    <button data-en="Pricing" class="nav-tab"        id="tab-priser"  onclick="navigate('priser', this)">Priser</button>
-    <button data-en="Help" class="nav-tab"        id="tab-hjalp"   onclick="navigate('hjalp',  this)">Hjälp</button>
-    <a data-en="Log in →" class="nav-tab" data-app href="https://app.foreningsbalans.se" style="color:var(--accent)">Logga in →</a>
+    <button class="nav-tab active" id="tab-start"  onclick="navigate('start',  this)" data-en="Start">Start</button>
+    <button class="nav-tab"        id="tab-priser" onclick="navigate('priser', this)" data-en="Pricing">Priser</button>
+    <button class="nav-tab"        id="tab-hjalp"  onclick="navigate('hjalp',  this)" data-en="Help">Hjälp</button>
+    <button class="nav-tab nav-order" id="tab-bestall" onclick="navigate('bestall', this)" data-en="Order">Beställ</button>
+    <a class="nav-tab nav-login" data-app href="https://app.foreningsbalans.se" data-en="Log in →">Logga in →</a>
     <div class="lang-switch" role="group" aria-label="Språk / Language">
       <button type="button" data-lang="sv" onclick="setLang('sv')">SV</button><span aria-hidden="true">|</span><button type="button" data-lang="en" onclick="setLang('en')">EN</button>
     </div>
   </div>
 </nav>
 
-<!-- ── VIEW: START ────────────────────────────────────────────────── -->
+<!-- ── VIEW: START ───────────────────────────────────────────────── -->
 <div class="view active" id="view-start">
   <div class="container">
 
     <section class="hero">
-      <div class="hero-eyebrow">
-        <span data-en="For non-profit associations" class="badge badge-blue">För ideella föreningar</span>
-        <span data-en="Free to start" class="badge badge-green">Gratis att börja</span>
+      <div>
+        <h1 data-en="A cash book the <em>treasurer</em> will actually keep.">Kassaboken som <em>kassören</em> faktiskt orkar föra.</h1>
+        <p class="hero-sub" data-en="Vouchers, receipts, budget and annual report in one place. For non-profit associations that want things in order for the auditor without buying business accounting software.">Verifikat, kvitton, budget och årsrapport på ett ställe. För ideella föreningar som vill ha ordning inför revisorn utan att köpa ett bokföringsprogram för företag.</p>
+        <div class="cta-row">
+          <a class="btn" data-app href="https://app.foreningsbalans.se" data-en="Try it free →">Prova gratis →</a>
+          <a class="textlink" href="#priser" onclick="navigate('priser'); return false;" data-en="See pricing">Se priser</a>
+        </div>
+        <p class="hero-note" data-en="Try it with up to 30 vouchers at no cost. No card needed.">Prova med upp till 30 verifikat utan kostnad. Ingen kortuppgift.</p>
       </div>
-      <h1 data-en="Simple bookkeeping for <em>non-profit associations</em>">Enkel bokföring för <em>ideella föreningar</em></h1>
-      <p data-en="Föreningsbalans is a web tool that helps your treasurer keep track of payments in and out, generate annual reports and keep the finances transparent to the whole board." class="hero-sub">
-        Föreningsbalans är ett webbverktyg som hjälper er kassör att hålla koll på in- och utbetalningar, generera årsrapporter och hålla ekonomin transparent inför hela styrelsen.
-      </p>
-      <div class="cta-row">
-        <a data-en="Get started free →" class="btn btn-primary" data-app href="https://app.foreningsbalans.se">Kom igång gratis →</a>
-        <a data-en="See pricing" class="btn btn-outline"  href="#" onclick="navigate('priser', document.getElementById('tab-priser')); return false;">Se priser</a>
-      </div>
-    </section>
 
-    <section class="features">
-      <div class="section-header">
-        <h2 data-en="Everything the treasurer needs">Allt kassören behöver</h2>
-        <p data-en="From vouchers to annual accounts — all in one place.">Från verifikat till årsredovisning — i en och samma vy.</p>
-      </div>
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div class="feature-icon">📒</div>
-          <h3 data-en="Cash book">Kassabok</h3>
-          <p data-en="Enter income and expenses quickly. Attach receipts, add comments and follow the balance as you go.">Mata in inkomster och utgifter snabbt. Bifoga kvitton, lägg till kommentarer och se saldot löpande.</p>
+      <div>
+        <div class="sheet" aria-label="Exempel på kassabok">
+          <div class="sheet-head"><strong>Björkbyns IF</strong><span class="kicker" data-en="Example · 2026">Exempel · 2026</span></div>
+          <table>
+            <thead><tr><th class="hide-sm" data-en="No.">Ver.</th><th data-en="Date">Datum</th><th data-en="Description">Beskrivning</th><th class="hide-sm" data-en="Category">Kategori</th><th class="n" data-en="Amount">Belopp</th><th class="n" data-en="Balance">Saldo</th></tr></thead>
+            <tbody>
+              <tr class="open"><td class="hide-sm"></td><td class="mono">2026-01-01</td><td data-en="Opening balance">Ingående saldo</td><td class="hide-sm"></td><td class="n"></td><td class="n">12 400,00</td></tr>
+              <tr><td class="hide-sm mono">001</td><td class="mono">2026-01-12</td><td><span data-en="Membership fees 2026">Medlemsavgifter 2026</span></td><td class="hide-sm"><span data-en="Fees">Avgifter</span></td><td class="n pos">+18 500,00</td><td class="n">30 900,00</td></tr>
+              <tr><td class="hide-sm mono">002</td><td class="mono">2026-01-20</td><td><span data-en="Rent, community hall">Hyra bygdegården</span></td><td class="hide-sm"><span data-en="Premises">Lokaler</span></td><td class="n neg">-3 200,00</td><td class="n">27 700,00</td></tr>
+              <tr><td class="hide-sm mono">003</td><td class="mono">2026-02-03</td><td><span data-en="Bank fees">Bankavgifter</span></td><td class="hide-sm"><span data-en="Bank">Bank</span></td><td class="n neg">-145,00</td><td class="n">27 555,00</td></tr>
+              <tr><td class="hide-sm mono">004</td><td class="mono">2026-03-14</td><td><span data-en="Coffee table sales">Försäljning fikabord</span></td><td class="hide-sm"><span data-en="Sales">Försäljning</span></td><td class="n pos">+2 340,00</td><td class="n">29 895,00</td></tr>
+              <tr><td class="hide-sm mono">005</td><td class="mono">2026-03-14</td><td><span data-en="Coffee and buns">Kaffe och bullar</span></td><td class="hide-sm"><span data-en="Refreshments">Fika och förtäring</span></td><td class="n neg">-612,50</td><td class="n">29 282,50</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <h3>Budget</h3>
-          <p data-en="Set a budget per category and financial year. Compare actuals against budget in real time.">Sätt en budget per kategori och räkenskapsperiod. Jämför utfall mot budget i realtid.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">📄</div>
-          <h3 data-en="Annual report (PDF)">Årsrapport (PDF)</h3>
-          <p data-en="Generate a complete income statement with a voucher list and cash report — ready for the annual accounts.">Generera en komplett resultaträkning med verifikatlista och kassarapport — redo för årsredovisningen.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🏷️</div>
-          <h3 data-en="Categories">Kategorier</h3>
-          <p data-en="Tailor the chart of accounts to your association. Lock categories for closed periods and hide old accounts.">Anpassa kontoplan efter er förening. Lås kategorier för stängda perioder och dölj gamla konton.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🗓️</div>
-          <h3 data-en="Financial years">Räkenskapsperioder</h3>
-          <p data-en="Manage several periods with the right start and end dates. Lock finished periods against accidental changes.">Hantera flera perioder med rätt start- och slutdatum. Lås avslutade perioder mot oavsiktliga ändringar.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">👥</div>
-          <h3 data-en="Multiple users">Flera användare</h3>
-          <p data-en="Invite up to 15 users per association with an invite link, with roles such as owner, member or viewer.">Bjud in upp till 15 användare per förening med en inbjudningslänk, med roller som ägare, medlem eller läsare.</p>
+        <div class="receipt">
+          <div class="receipt-ico" aria-hidden="true"></div>
+          <div data-en="A photo of the receipt gives a suggestion: <span class=&quot;mono&quot;>2026-03-14 · 612,50 SEK · Refreshments</span>. You review it before it is saved.">Foto på kvittot ger ett förslag: <span class="mono">2026-03-14 · 612,50 kr · Fika och förtäring</span>. Du granskar det innan det sparas.</div>
         </div>
       </div>
     </section>
 
-    <section class="howto">
-      <div class="section-header">
-        <h2 data-en="How it works">Hur det fungerar</h2>
-        <p data-en="Three steps from zero to a working cash book.">Tre steg från noll till fungerande kassabok.</p>
+    <section class="band">
+      <div class="band-head">
+        <div class="kicker" data-en="What is included">Det ingår</div>
+        <h2 data-en="What a treasurer needs, and not much more.">Det en kassör behöver, och inte mer.</h2>
+      </div>
+      <div class="list">
+        <div class="list-row"><h3 data-en="Cash book">Kassabok</h3><p data-en="Enter income and expenses, attach the receipt and follow the balance as you go. Vouchers are numbered and sorted by date.">Mata in inkomster och utgifter, bifoga kvitto och se saldot löpande. Verifikaten numreras och sorteras efter datum.</p></div>
+        <div class="list-row"><h3 data-en="Receipt reading">Kvittoavläsning</h3><p data-en="Take a photo of the receipt and AI suggests the date, amount and category. You decide what gets saved.">Ta kort på kvittot så föreslås datum, belopp och kategori med hjälp av AI. Du bestämmer vad som sparas.</p></div>
+        <div class="list-row"><h3 data-en="Budget against actuals">Budget mot utfall</h3><p data-en="Set a budget per category and financial year and follow the variances as the year goes on.">Lägg en budget per kategori och räkenskapsår och se avvikelserna i takt med att året går.</p></div>
+        <div class="list-row"><h3 data-en="Annual report and export">Årsrapport och export</h3><p data-en="Income statement, voucher list and cash report as a PDF. The whole year can also be exported to Excel, with the receipts in the same ZIP file.">Resultaträkning, verifikatlista och kassarapport som PDF. Hela året kan också exporteras till Excel, med kvittona i samma ZIP-fil.</p></div>
+        <div class="list-row"><h3 data-en="Financial years">Räkenskapsår</h3><p data-en="Several periods with their own dates. Lock a finished year so nothing changes afterwards.">Flera perioder med egna datum. Lås ett avslutat år så att inget ändras i efterhand.</p></div>
+        <div class="list-row"><h3 data-en="The whole board">Hela styrelsen</h3><p data-en="Invite the board as owner, member or viewer: 2, 5 or 15 users depending on the plan. The auditor can get read access.">Bjud in styrelsen som ägare, medlem eller läsare: 2, 5 eller 15 användare beroende på plan. Revisorn kan få läsrättighet.</p></div>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="band-head">
+        <div class="kicker" data-en="How to start">Så börjar ni</div>
+        <h2 data-en="Three steps from a blank page to a booked cash balance.">Tre steg från tomt blad till bokförd kassa.</h2>
       </div>
       <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <h3 data-en="Create an association">Skapa en förening</h3>
-          <p data-en="Log in with your email, give the association a name and your cash book is ready to use.">Logga in med din e-post, ge föreningen ett namn och din kassabok är redo att användas.</p>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <h3 data-en="Set up categories and a financial year">Lägg upp kategorier och period</h3>
-          <p data-en="Define your income and expense categories and a financial year with the right dates.">Definiera era inkomst- och utgiftskategorier och en räkenskapsperiod med rätt datum.</p>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <h3 data-en="Start bookkeeping">Börja bokföra</h3>
-          <p data-en="Enter vouchers as you go. The annual report is generated automatically when you need it.">Mata in verifikat löpande. Årsrapporten genereras automatiskt när ni behöver den.</p>
-        </div>
+        <div class="step"><div class="mono">01</div><h3 data-en="Create an account">Skapa konto</h3><p data-en="Email and password. Give the association a name.">E-post och lösenord. Ge föreningen ett namn.</p></div>
+        <div class="step"><div class="mono">02</div><h3 data-en="Set up the year">Lägg upp året</h3><p data-en="A financial year with the right dates, and your income and expense categories.">Ett räkenskapsår med rätt datum och era inkomst- och utgiftskategorier.</p></div>
+        <div class="step"><div class="mono">03</div><h3 data-en="Start bookkeeping">Börja bokföra</h3><p data-en="Enter vouchers as you go. The annual report is there when you need it.">Mata in verifikat löpande. Årsrapporten finns när ni behöver den.</p></div>
       </div>
     </section>
 
-    <div class="who">
-      <div class="section-header">
-        <h2 data-en="Fits every kind of association">Passar för alla typer av föreningar</h2>
-        <p data-en="Sports associations, village associations, cultural associations, hobby associations — anyone who needs simple, clear financial reporting.">Idrottsföreningar, byalag, kulturföreningar, hobbyföreningar — alla med behov av enkel och tydlig ekonomiredovisning.</p>
+    <section class="band">
+      <div class="band-head">
+        <div class="kicker" data-en="Who it is for">För vem</div>
+        <h2 data-en="Made for small and mid-sized associations.">Gjord för små och medelstora föreningar.</h2>
       </div>
-      <div class="who-list">
-        <span data-en="Sports associations" class="who-chip">Idrottsföreningar</span>
-        <span data-en="Snowmobile associations" class="who-chip">Snöskoterklubbar</span>
-        <span data-en="Village associations" class="who-chip">Byalag</span>
-        <span data-en="Cultural associations" class="who-chip">Kulturföreningar</span>
-        <span data-en="Outdoor associations" class="who-chip">Friluftsföreningar</span>
-        <span data-en="Hobby associations" class="who-chip">Hobbyföreningar</span>
-        <span data-en="Local heritage associations" class="who-chip">Hembygdsföreningar</span>
-        <span data-en="Student associations" class="who-chip">Studentföreningar</span>
-      </div>
-    </div>
+      <p class="for" data-en="<b>Sports associations, village associations, local heritage associations, snowmobile associations, student associations, cultural associations</b> and everyone else who has a treasurer and an auditor but no need for a finance department."><b>Idrottsföreningar, byalag, hembygdsföreningar, snöskoterklubbar, studentföreningar, kulturföreningar</b> och alla andra som har en kassör och en revisor men inget behov av en ekonomiavdelning.</p>
+    </section>
+  </div>
 
+  <div class="closing">
+    <div class="container">
+      <h2 data-en="Start keeping the cash book today.">Börja föra kassaboken i dag.</h2>
+      <a class="btn" data-app href="https://app.foreningsbalans.se" data-en="Try it free →">Prova gratis →</a>
+    </div>
   </div>
 </div>
 
-<!-- ── VIEW: PRISER ───────────────────────────────────────────────── -->
+<!-- ── VIEW: PRISER ──────────────────────────────────────────────── -->
 <div class="view" id="view-priser">
   <div class="container">
-
-    <div class="pricing-hero">
-      <h2 data-en="Simple and transparent">Enkelt och transparent</h2>
-      <p data-en="Start for free. Upgrade as your association grows.">Börja utan kostnad. Uppgradera när er förening växer.</p>
+    <div class="page-head">
+      <h1 data-en="Prices based on how much you book.">Priser efter hur mycket ni bokför.</h1>
+      <p data-en="The plan is set by the number of vouchers per financial year. You pay once a year, by invoice.">Planen styrs av antalet verifikat per räkenskapsår. Ni betalar en gång per år, mot faktura.</p>
     </div>
 
-    <div class="plan-grid">
-      <div class="plan-card">
-        <div data-en="Free" class="plan-label">Gratis</div>
-        <div class="plan-price"><sup></sup>0 <small data-en="SEK/month">kr/mån</small></div>
-        <p data-en="Perfect for a small association getting started." class="plan-desc">Perfekt för en liten förening som kommer igång.</p>
-        <hr class="plan-divider">
-        <ul class="plan-features">
-          <li><span class="check">✓</span> <span data-en="Up to <strong>100 vouchers</strong> per financial year">Upp till <strong>100 verifikat</strong> per räkenskapsår</span></li>
-          <li><span class="check">✓</span> <span data-en="1 association">1 förening</span></li>
-          <li><span class="check">✓</span> <span data-en="Up to <strong>15 users</strong> per association">Upp till <strong>15 användare</strong> per förening</span></li>
-          <li><span class="check">✓</span> <span data-en="Categories and budget">Kategorier och budget</span></li>
-          <li><span class="check">✓</span> <span data-en="PDF annual report">PDF-årsrapport</span></li>
-          <li><span class="check">✓</span> <span data-en="Financial years">Räkenskapsperioder</span></li>
-        </ul>
-        <a data-en="Get started free →" class="btn btn-outline plan-btn" data-app href="https://app.foreningsbalans.se">Kom igång gratis →</a>
+    <div class="plans">
+      <div class="plan ">
+        <div class="plan-tag" data-en="For the very smallest">För de allra minsta</div>
+        <div class="plan-name" data-en="Start">Start</div>
+        <div class="plan-price">499 <small data-en="SEK/year">kr/år</small></div>
+        <div class="plan-note" data-en="399 SEK excl. VAT">399 kr exkl. moms</div>
+        <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>100</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>5</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>2</b></div></div>
+        <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('start'); return false;" data-en="Order →">Beställ →</a>
       </div>
+      <div class="plan pick">
+        <div class="plan-tag" data-en="Most common">Vanligast</div>
+        <div class="plan-name" data-en="Association">Förening</div>
+        <div class="plan-price">990 <small data-en="SEK/year">kr/år</small></div>
+        <div class="plan-note" data-en="792 SEK excl. VAT">792 kr exkl. moms</div>
+        <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>500</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>10</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>5</b></div></div>
+        <a class="btn btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('forening'); return false;" data-en="Order →">Beställ →</a>
+      </div>
+      <div class="plan ">
+        <div class="plan-tag" data-en="For busy associations">För aktiva föreningar</div>
+        <div class="plan-name" data-en="Association Plus">Förening Plus</div>
+        <div class="plan-price">2 190 <small data-en="SEK/year">kr/år</small></div>
+        <div class="plan-note" data-en="1 752 SEK excl. VAT">1 752 kr exkl. moms</div>
+        <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>2 500</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>40</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>15</b></div></div>
+        <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('forening_plus'); return false;" data-en="Order →">Beställ →</a>
+      </div>
+    </div>
+    <p class="plans-foot" data-en="All features are in every plan. What differs is the volume: how many vouchers, receipt readings and users you get. Prices cover 12 months and include 25% VAT. If you want to try it first, you can create an account and book up to 30 vouchers at no cost.">Alla funktioner finns i alla planer. Det som skiljer är volymen: hur många verifikat, kvittoavläsningar och användare ni får. Priserna gäller 12 månader och anges inklusive 25 % moms. Vill ni prova först kan ni skapa ett konto och bokföra upp till 30 verifikat utan kostnad.</p>
 
-      <div class="plan-card featured">
-        <div class="plan-label">Plus</div>
-        <div class="plan-price"><sup></sup>49 <small data-en="SEK/month">kr/mån</small></div>
-        <p data-en="For active associations that keep their books all year round." class="plan-desc">För aktiva föreningar som bokför löpande hela året.</p>
-        <hr class="plan-divider">
-        <ul class="plan-features">
-          <li><span class="check">✓</span> <span data-en="<strong>Unlimited</strong> vouchers"><strong>Obegränsat</strong> antal verifikat</span></li>
-          <li><span class="check">✓</span> <span data-en="Up to <strong>5 associations</strong>">Upp till <strong>5 föreningar</strong></span></li>
-          <li><span class="check">✓</span> <span data-en="Up to <strong>15 users</strong> per association">Upp till <strong>15 användare</strong> per förening</span></li>
-          <li><span class="check">✓</span> <span data-en="Categories and budget">Kategorier och budget</span></li>
-          <li><span class="check">✓</span> <span data-en="PDF annual report + cash report">PDF-årsrapport + kassarapport</span></li>
-          <li><span class="check">✓</span> <span data-en="Financial years with locking">Räkenskapsperioder med låsning</span></li>
-          <li><span class="check">✓</span> <span data-en="Attach receipts (attachments)">Bifoga kvitton (bilagor)</span></li>
-          <li><span class="check">✓</span> <span data-en="Priority support">Prioriterad support</span></li>
-        </ul>
-        <a data-en="Contact us →" class="btn btn-primary plan-btn" href="mailto:hej@foreningsbalans.se">Kontakta oss →</a>
+    <div class="two-col">
+      <div>
+        <h2 data-en="What counts as a voucher?">Vad räknas som ett verifikat?</h2>
+        <p data-en="A voucher is one row in the cash book, that is, one income or one expense. The limit applies per association and financial year.">Ett verifikat är en rad i kassaboken, alltså en inkomst eller en utgift. Gränsen gäller per förening och räkenskapsår.</p>
+        <p data-en="An association with a few transactions a week often ends up around 100 to 200 vouchers a year. Start suits the very smallest associations and Association most others.">En förening med några transaktioner i veckan hamnar ofta runt 100 till 200 verifikat om året. Start passar de allra minsta föreningarna och Förening de flesta andra.</p>
+      </div>
+      <div>
+        <h2 data-en="How ordering works">Så går beställningen till</h2>
+        <ol class="flow">
+          <li><span data-en="<strong>Fill in the order.</strong> We need the association's details for the invoice."><strong>Fyll i beställningen.</strong> Vi behöver föreningens uppgifter för fakturan.</span></li>
+          <li><span data-en="<strong>You receive an invoice</strong> by email, with 30 days to pay."><strong>Ni får en faktura</strong> på e-post, med 30 dagars betalningsvillkor.</span></li>
+          <li><span data-en="<strong>The plan is activated</strong> when the payment is registered, and lasts 12 months."><strong>Planen aktiveras</strong> när betalningen är registrerad och gäller i 12 månader.</span></li>
+        </ol>
+        <p style="margin-top:14px"><a class="textlink" href="#bestall" onclick="navigate('bestall'); return false;" data-en="To the order form →">Till beställningen →</a></p>
       </div>
     </div>
 
     <div class="faq">
-      <h3 data-en="Frequently asked questions">Vanliga frågor</h3>
-
-      <div class="faq-item">
-        <div data-en="Do we have to pay to try it?" class="faq-q">Behöver vi betala för att testa?</div>
-        <div data-en="No. The free plan is permanent — you can use Föreningsbalans at no cost as long as you stay under 100 vouchers per financial year." class="faq-a">Nej. Gratis-planen är permanent — ni kan använda Föreningsbalans utan kostnad så länge ni håller er under 100 verifikat per räkenskapsår.</div>
-      </div>
-      <div class="faq-item">
-        <div data-en="What happens if we reach 100 vouchers?" class="faq-q">Vad händer om vi når 100 verifikat?</div>
-        <div data-en="You can still view and export all your data, but you cannot add more vouchers without upgrading to Plus." class="faq-a">Ni kan fortfarande se och exportera all data, men inte lägga till fler verifikat utan att uppgradera till Plus.</div>
-      </div>
-      <div class="faq-item">
-        <div data-en="Can the treasurer and the auditor use the app at the same time?" class="faq-q">Kan kassören och revisorn använda appen samtidigt?</div>
-        <div data-en="Yes. You invite up to 15 users per association, e.g. board members and the auditor, via an invite link — at no extra cost." class="faq-a">Ja. Du bjuder in upp till 15 användare per förening, t.ex. styrelsemedlemmar och revisor, via en inbjudningslänk — utan extra kostnad.</div>
-      </div>
-      <div class="faq-item">
-        <div data-en="Where is our data stored?" class="faq-q">Var lagras vår data?</div>
-        <div data-en="All data is stored in Sweden via Supabase (PostgreSQL), which complies with GDPR. No third parties have access to your financial data." class="faq-a">All data lagras i Sverige via Supabase (PostgreSQL), som uppfyller GDPR. Inga tredjeparter har tillgång till er ekonomidata.</div>
-      </div>
-      <div class="faq-item">
-        <div data-en="Can we cancel whenever we want?" class="faq-q">Kan vi avsluta när vi vill?</div>
-        <div data-en="Yes, you are not locked in. Before you leave you can export each financial year as an Excel file with all vouchers, together with your receipts and attachments, as well as a PDF annual report." class="faq-a">Ja, ni binder er inte. Innan ni slutar kan ni exportera varje räkenskapsår som en Excel-fil med alla verifikat, tillsammans med era kvitton och bilagor, samt som PDF-årsrapport.</div>
-      </div>
+      <h2 data-en="Frequently asked questions">Vanliga frågor</h2>
+      <div class="faq-item"><div class="faq-q" data-en="Can we try it before we buy?">Kan vi prova innan vi köper?</div><div class="faq-a" data-en="Yes. Create an account and book up to 30 vouchers at no cost and without card details. For more you need a plan.">Ja. Skapa ett konto och bokför upp till 30 verifikat utan kostnad och utan kortuppgifter. För mer behöver ni en plan.</div></div>
+      <div class="faq-item"><div class="faq-q" data-en="What happens when we reach the limit of our plan?">Vad händer när vi når gränsen i vår plan?</div><div class="faq-a" data-en="You can still view, download and export everything. What stops is new vouchers, until you upgrade or the next financial year starts.">Ni kan fortfarande se, ladda ner och exportera allt. Det som stoppas är nya verifikat tills ni uppgraderar eller nästa räkenskapsår börjar.</div></div>
+      <div class="faq-item"><div class="faq-q" data-en="Do you offer discounts for new associations or campaigns?">Har ni rabatt för nystartade föreningar eller kampanjer?</div><div class="faq-a" data-en="Sometimes. If you have a discount code, enter it in the order form and the price is recalculated straight away.">Ibland. Har ni fått en rabattkod fyller ni i den i beställningsformuläret, så räknas priset om direkt.</div></div>
+      <div class="faq-item"><div class="faq-q" data-en="Can we change plan during the year?">Kan vi byta plan under året?</div><div class="faq-a" data-en="Yes. Order the new plan and it applies from when the payment is registered. Get in touch if you want a deduction for unused time.">Ja. Beställ den nya planen så gäller den från att betalningen är registrerad. Hör av er om ni vill ha avdrag för oanvänd tid.</div></div>
+      <div class="faq-item"><div class="faq-q" data-en="Can the treasurer and the auditor use the app at the same time?">Kan kassören och revisorn använda appen samtidigt?</div><div class="faq-a" data-en="Yes, with an invite link. Start has room for 2 users, Association for 5 and Association Plus for 15, for example board members and the auditor.">Ja, via en inbjudningslänk. Start har plats för 2 användare, Förening för 5 och Förening Plus för 15, till exempel styrelsemedlemmar och revisor.</div></div>
+      <div class="faq-item"><div class="faq-q" data-en="Where is our data stored?">Var lagras vår data?</div><div class="faq-a" data-en="All data is stored in Sweden via Supabase (PostgreSQL), which complies with GDPR. No third parties have access to your financial data. Receipt reading only sends the single receipt you choose to read.">All data lagras i Sverige via Supabase (PostgreSQL), som uppfyller GDPR. Inga tredjeparter har tillgång till er ekonomidata. Kvittoavläsningen skickar bara det enskilda kvittot som ni själva väljer att läsa av.</div></div>
+      <div class="faq-item"><div class="faq-q" data-en="Can we leave whenever we want?">Kan vi sluta när vi vill?</div><div class="faq-a" data-en="Yes, you are not locked in. Before you leave you can export each financial year as an Excel file with all vouchers, together with receipts and attachments, as well as a PDF annual report.">Ja, ni binder er inte. Innan ni slutar kan ni exportera varje räkenskapsår som en Excel-fil med alla verifikat, tillsammans med kvitton och bilagor, samt som PDF-årsrapport.</div></div>
     </div>
-
   </div>
 </div>
 
+<!-- ── VIEW: BESTÄLL ─────────────────────────────────────────────── -->
+<div class="view" id="view-bestall">
+  <div class="container">
+    <div class="page-head">
+      <h1 data-en="Order Föreningsbalans.">Beställ Föreningsbalans.</h1>
+      <p data-en="Fill in the association's details and we will send an invoice. The plan is activated when the payment is registered.">Fyll i föreningens uppgifter så skickar vi en faktura. Planen aktiveras när betalningen är registrerad.</p>
+    </div>
+
+    <div id="order-done" class="done" hidden>
+      <h2 data-en="Thank you for your order!">Tack för beställningen!</h2>
+      <p><span data-en="Order number">Ordernummer</span>: <span class="big" id="done-no"></span></p>
+      <p><span data-en="We will send the invoice to">Vi skickar fakturan till</span> <strong id="done-email"></strong> <span data-en="within a few business days. The invoice is due 30 days after the invoice date.">inom några arbetsdagar. Fakturan förfaller 30 dagar efter fakturadatum.</span></p>
+      <p data-en="When the payment is registered, the plan is activated for your association for 12 months. If you have not created an account yet you can do that in the meantime, and we will connect the plan to the right association.">När betalningen är registrerad aktiveras planen för er förening i 12 månader. Har ni inte skapat ett konto än kan ni göra det under tiden, så kopplar vi planen till rätt förening.</p>
+      <p style="margin-top:18px"><a class="btn" data-app href="https://app.foreningsbalans.se" data-en="Go to the app →">Gå till appen →</a></p>
+    </div>
+
+    <div class="order" id="order-wrap">
+      <form id="order-form" novalidate>
+        <div class="alert" id="order-error" role="alert" hidden></div>
+
+        <fieldset>
+          <legend data-en="1. Choose a plan">1. Välj plan</legend>
+          <div class="plan-pick">
+            <label class="plan-opt"><input type="radio" name="plan_code" value="start"><span><b data-en="Start">Start</b><small data-en="Up to 100 vouchers per financial year, 2 users, 5 receipt readings a month">Upp till 100 verifikat per räkenskapsår, 2 användare, 5 kvittoavläsningar i månaden</small></span><span class="mono">499 <span data-en="SEK/year">kr/år</span></span></label>
+            <label class="plan-opt"><input type="radio" name="plan_code" value="forening" checked><span><b data-en="Association">Förening</b><small data-en="Up to 500 vouchers per financial year, 5 users, 10 receipt readings a month">Upp till 500 verifikat per räkenskapsår, 5 användare, 10 kvittoavläsningar i månaden</small></span><span class="mono">990 <span data-en="SEK/year">kr/år</span></span></label>
+            <label class="plan-opt"><input type="radio" name="plan_code" value="forening_plus"><span><b data-en="Association Plus">Förening Plus</b><small data-en="Up to 2,500 vouchers per financial year, 15 users, 40 receipt readings a month">Upp till 2 500 verifikat per räkenskapsår, 15 användare, 40 kvittoavläsningar i månaden</small></span><span class="mono">2 190 <span data-en="SEK/year">kr/år</span></span></label>
+          </div>
+          <div class="field" style="margin-top:16px;max-width:360px">
+            <label for="discount_code"><span data-en="Discount code (optional)">Rabattkod (valfritt)</span></label>
+            <div style="display:flex;gap:8px"><input type="text" id="discount_code" name="discount_code" maxlength="30" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><button type="button" class="btn btn-line" id="discount-apply" data-en="Apply">Använd</button></div>
+            <div class="hint" id="discount-msg" aria-live="polite"></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend data-en="2. The association">2. Föreningen</legend>
+          <div class="fgrid">
+            <div class="field full"><label for="org_name"><span data-en="Name of the association">Föreningens namn</span></label><input type="text" id="org_name" name="org_name" required autocomplete="organization" maxlength="120"></div>
+            <div class="field"><label for="org_number"><span data-en="Organisation number">Organisationsnummer</span></label><input type="text" id="org_number" name="org_number" required placeholder="802000-0000" data-en-ph="802000-0000" maxlength="11"><div class="hint" data-en="Ten digits, e.g. 802000-0000">Tio siffror, t.ex. 802000-0000</div></div>
+            <div class="field full"><label for="address"><span data-en="Address">Adress</span></label><input type="text" id="address" name="address" required autocomplete="street-address" maxlength="160"></div>
+            <div class="field"><label for="zip"><span data-en="Postcode">Postnummer</span></label><input type="text" id="zip" name="zip" required autocomplete="postal-code" maxlength="10"></div>
+            <div class="field"><label for="city"><span data-en="City">Ort</span></label><input type="text" id="city" name="city" required autocomplete="address-level2" maxlength="80"></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend data-en="3. Fakturering och kontakt">3. Fakturering och kontakt</legend>
+          <div class="fgrid">
+            <div class="field full"><label for="invoice_email"><span data-en="Send the invoice to (email)">Skicka fakturan till (e-post)</span></label><input type="email" id="invoice_email" name="invoice_email" required autocomplete="email" maxlength="200"></div>
+            <div class="field"><label for="invoice_reference"><span data-en="Your reference">Er referens</span></label><input type="text" id="invoice_reference" name="invoice_reference" maxlength="120"><div class="hint" data-en="Optional, printed on the invoice">Valfritt, skrivs på fakturan</div></div>
+            <div class="field"><label for="contact_name"><span data-en="Contact person">Kontaktperson</span></label><input type="text" id="contact_name" name="contact_name" required autocomplete="name" maxlength="120"></div>
+            <div class="field"><label for="contact_email"><span data-en="Contact email">Kontaktens e-post</span></label><input type="email" id="contact_email" name="contact_email" required maxlength="200"></div>
+            <div class="field"><label for="contact_phone"><span data-en="Phone">Telefon</span></label><input type="tel" id="contact_phone" name="contact_phone" autocomplete="tel" maxlength="40"></div>
+            <div class="field full"><label for="account_email"><span data-en="Email you log in with in the app">E-post ni loggar in med i appen</span></label><input type="email" id="account_email" name="account_email" maxlength="200"><div class="hint" data-en="Optional, but helps us connect the plan to the right association">Valfritt men hjälper oss att koppla planen till rätt förening</div></div>
+            <div class="field full"><label for="note"><span data-en="Message (optional)">Meddelande (valfritt)</span></label><textarea id="note" name="note" maxlength="1000"></textarea></div>
+          </div>
+        </fieldset>
+
+        <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+
+        <label class="check"><input type="checkbox" id="terms" name="terms"><span data-en="I am ordering on behalf of the association and accept the terms below.">Jag beställer för föreningens räkning och godkänner villkoren nedan.</span></label>
+        <p style="margin-top:18px"><button class="btn" type="submit" id="order-submit" data-en="Send order">Skicka beställning</button></p>
+
+        <div class="terms">
+          <p data-en="The service is delivered for 12 months from when the payment is registered. Prices include 25% VAT. The invoice is due 30 days after the invoice date.">Tjänsten levereras i 12 månader från att betalningen är registrerad. Priserna anges inklusive 25 % moms. Fakturan förfaller 30 dagar efter fakturadatum.</p>
+          <p data-en="You can export all of the association's data at any time. The details in the order (name, email, phone and address) are used for invoicing and customer contact and are kept for as long as the Swedish Accounting Act requires.">Ni kan när som helst exportera all föreningens data. Uppgifterna i beställningen (namn, e-post, telefon och adress) används för fakturering och kundkontakt och sparas så länge bokföringslagen kräver.</p>
+        </div>
+      </form>
+
+      <aside class="summary" aria-live="polite">
+        <h3 data-en="Summary">Sammanfattning</h3>
+        <div class="sum-row"><span id="sum-plan"></span><span class="mono" id="sum-list"></span></div>
+        <div class="sum-row" id="sum-disc-row" hidden><span id="sum-disc-label"></span><span class="mono" id="sum-disc"></span></div>
+        <div class="sum-row"><span data-en="Total excl. VAT">Summa exkl. moms</span><span class="mono" id="sum-excl"></span></div>
+        <div class="sum-row"><span data-en="VAT 25%">Moms 25 %</span><span class="mono" id="sum-vat"></span></div>
+        <div class="sum-row total"><span data-en="To pay">Att betala</span><span class="mono" id="sum-total"></span></div>
+        <p data-en="12 months. Invoice with 30 days to pay.">12 månader. Faktura med 30 dagars betalningsvillkor.</p>
+      </aside>
+    </div>
+  </div>
+</div>
 <!-- ── VIEW: HJÄLP ────────────────────────────────────────────────── -->
 <div class="view" id="view-hjalp">
   <div class="container">
@@ -794,7 +581,6 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
     <div class="help-section" id="sec-kassabok">
       <div class="help-section-header">
-        <div class="help-icon">📒</div>
         <h3 data-en="Cash book — day-to-day bookkeeping">Kassabok — löpande bokföring</h3>
       </div>
       <p data-en="The cash book is the heart of the app. This is where you record all payments in and out as vouchers.">Kassaboken är appens hjärta. Här registrerar du alla in- och utbetalningar som verifikat.</p>
@@ -810,7 +596,6 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
     <div class="help-section" id="sec-kategorier">
       <div class="help-section-header">
-        <div class="help-icon">🏷️</div>
         <h3 data-en="Categories — your chart of accounts">Kategorier — er kontoplan</h3>
       </div>
       <p data-en="Categories correspond to account numbers in traditional bookkeeping. Each category is either <strong>income</strong> or <strong>expense</strong>.">Kategorier motsvrar kontonummer i en traditionell bokföring. Varje kategori är antingen <strong>inkomst</strong> eller <strong>utgift</strong>.</p>
@@ -825,7 +610,6 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
     <div class="help-section" id="sec-perioder">
       <div class="help-section-header">
-        <div class="help-icon">🗓️</div>
         <h3 data-en="Financial years">Räkenskapsperioder</h3>
       </div>
       <p data-en="A financial year is a span of time (e.g. an operating year). Every voucher belongs to a period.">En räkenskapsperiod är ett tidsintervall (t.ex. ett verksamhetsår). Alla verifikat hör till en period.</p>
@@ -841,7 +625,6 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
     <div class="help-section" id="sec-budget">
       <div class="help-section-header">
-        <div class="help-icon">📊</div>
         <h3>Budget</h3>
       </div>
       <p data-en="Set a budgeted amount per category and see actuals against budget in real time.">Sätt ett budgeterat belopp per kategori och se utfall mot budget i realtid.</p>
@@ -855,7 +638,6 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
     <div class="help-section" id="sec-arsrapport">
       <div class="help-section-header">
-        <div class="help-icon">📄</div>
         <h3 data-en="Annual report — PDF export">Årsrapport — PDF-export</h3>
       </div>
       <p data-en="Generate a complete annual report as a PDF, ready to attach to the annual accounts or present at the annual general meeting.">Generera en komplett årsrapport i PDF-format, redo att bifogas årsredovisningen eller presenteras på årsmötet.</p>
@@ -870,10 +652,9 @@ footer a { color: var(--ink3); text-decoration: underline; }
 
     <div class="help-section" id="sec-medlemmar">
       <div class="help-section-header">
-        <div class="help-icon">👥</div>
         <h3 data-en="Members — invite board members">Medlemmar — bjud in styrelsemedlemmar</h3>
       </div>
-      <p data-en="Up to 15 users per association can get access to the cash book — at no extra cost.">Upp till 15 användare per förening kan få tillgång till kassaboken — utan extra kostnad.</p>
+      <p data-en="How many users you can invite depends on the plan: 2 (Start), 5 (Association) or 15 (Association Plus).">Hur många användare ni kan bjuda in beror på planen: 2 (Start), 5 (Förening) eller 15 (Förening Plus).</p>
       <ul class="help-steps">
         <li><div class="step-dot">1</div><span data-en="Go to the <strong>Members</strong> tab.">Gå till fliken <strong>Medlemmar</strong>.</span></li>
         <li><div class="step-dot">2</div><span data-en="Click <strong>Create invite link</strong>.">Klicka <strong>Skapa inbjudningslänk</strong>.</span></li>
@@ -886,29 +667,40 @@ footer a { color: var(--ink3); text-decoration: underline; }
   </div>
 </div>
 
+
+
+
+
+
+
+
 <footer>
-  <div class="container">
-    <span data-en="Föreningsbalans — bookkeeping for non-profit associations">Föreningsbalans — bokföring för ideella föreningar</span> &nbsp;·&nbsp; <span data-en="Contact">Kontakt</span>: <span style="user-select:all">hej@foreningsbalans.se</span>
+  <div class="container foot">
+    <div>
+      <div class="foot-brand">Föreningsbalans</div>
+      <div data-en="Bookkeeping for non-profit associations.">Bokföring för ideella föreningar.</div>
+      <div style="margin-top:6px"><span data-en="Contact">Kontakt</span>: <span style="user-select:all">hej@foreningsbalans.se</span></div>
+    </div>
+    <div class="foot-links">
+      <a href="#priser" onclick="navigate('priser'); return false;" data-en="Pricing">Priser</a>
+      <a href="#hjalp" onclick="navigate('hjalp'); return false;" data-en="Help">Hjälp</a>
+      <a href="#bestall" onclick="navigate('bestall'); return false;" data-en="Order">Beställ</a>
+      <a data-app href="https://app.foreningsbalans.se" data-en="Log in">Logga in</a>
+    </div>
   </div>
 </footer>
 
 <script>
-function navigate(id, tabEl) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  const view = document.getElementById('view-' + id);
-  if (view) view.classList.add('active');
-  if (tabEl) tabEl.classList.add('active');
-  else {
-    const tab = document.getElementById('tab-' + id);
-    if (tab) tab.classList.add('active');
-  }
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  try { history.replaceState(null, '', '#' + id); } catch(e) {}
-}
-
 const LANG_KEY = 'kb_lang';
 const APP_URL = 'https://app.foreningsbalans.se';
+const SUPABASE_URL = 'https://wolfkumocsceeemtmjrp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_9gmDtAoHr7ZSPpBnLmTDZA_F785TJrG';
+const VAT = 25;
+const PLANS = {
+  start:         { sv: 'Start',          en: 'Start',            incl: 499 },
+  forening:      { sv: 'Förening',      en: 'Association',      incl: 990 },
+  forening_plus: { sv: 'Förening Plus', en: 'Association Plus', incl: 2190 }
+};
 const META = {
   sv: {
     title: 'Föreningsbalans — Enkel bokföring för ideella föreningar',
@@ -919,6 +711,34 @@ const META = {
     desc: 'Föreningsbalans helps your treasurer keep track of payments in and out, generate annual reports and keep the finances transparent to the whole board.'
   }
 };
+const MSG = {
+  sv: {
+    invalid: 'Kontrollera att alla obligatoriska fält är ifyllda.',
+    invalid_email: 'Kontrollera e-postadresserna.',
+    invalid_orgnr: 'Organisationsnumret ska vara tio siffror, t.ex. 802000-0000.',
+    terms: 'Du behöver godkänna villkoren.',
+    invalid_plan: 'Planen kunde inte väljas. Ladda om sidan och försök igen.',
+    rate_limited: 'För många beställningar just nu. Försök igen om en stund eller mejla hej@foreningsbalans.se.',
+    network: 'Beställningen kunde inte skickas. Försök igen eller mejla hej@foreningsbalans.se.',
+    invalid_code: 'Rabattkoden gäller inte (längre) för den här beställningen.',
+    code_ok: 'Rabatt: {pct} %',
+    sending: 'Skickar…'
+  },
+  en: {
+    invalid: 'Please check that all required fields are filled in.',
+    invalid_email: 'Please check the email addresses.',
+    invalid_orgnr: 'The organisation number must be ten digits, e.g. 802000-0000.',
+    terms: 'You need to accept the terms.',
+    invalid_plan: 'The plan could not be selected. Reload the page and try again.',
+    rate_limited: 'Too many orders right now. Try again in a while or email hej@foreningsbalans.se.',
+    network: 'The order could not be sent. Try again or email hej@foreningsbalans.se.',
+    invalid_code: 'The discount code is not valid for this order.',
+    code_ok: 'Discount: {pct}%',
+    sending: 'Sending…'
+  }
+};
+
+let currentLang = 'sv';
 
 function detectLang() {
   try {
@@ -928,11 +748,63 @@ function detectLang() {
   return (navigator.language || '').toLowerCase().startsWith('sv') ? 'sv' : 'en';
 }
 
+const kr = n => Number(n).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\s/g, ' ');
+
+let discount = null; // { code, percent } när en giltig kod är använd
+
+function updateSummary() {
+  const code = (document.querySelector('input[name=plan_code]:checked') || {}).value || 'forening';
+  const p = PLANS[code];
+  const pct = discount ? discount.percent : 0;
+  const total = Math.round(p.incl * (100 - pct)) / 100;
+  const listExcl = Math.round(p.incl / (1 + VAT / 100) * 100) / 100;
+  const excl = Math.round(total / (1 + VAT / 100) * 100) / 100;
+  const cur = currentLang === 'en' ? 'SEK' : 'kr';
+  document.getElementById('sum-plan').textContent = 'Föreningsbalans ' + p[currentLang] + (currentLang === 'en' ? ', 12 months' : ', 12 månader');
+  document.getElementById('sum-list').textContent = kr(listExcl) + ' ' + cur;
+  document.getElementById('sum-disc-row').hidden = !discount;
+  if (discount) {
+    document.getElementById('sum-disc-label').textContent = (currentLang === 'en' ? 'Discount ' : 'Rabatt ') + pct + ' % (' + discount.code + ')';
+    document.getElementById('sum-disc').textContent = kr(excl - listExcl) + ' ' + cur;
+  }
+  document.getElementById('sum-excl').textContent = kr(excl) + ' ' + cur;
+  document.getElementById('sum-vat').textContent = kr(total - excl) + ' ' + cur;
+  document.getElementById('sum-total').textContent = kr(total) + ' ' + cur;
+  if (discount) document.getElementById('discount-msg').textContent = MSG[currentLang].code_ok.replace('{pct}', pct);
+}
+
+async function applyDiscount(quiet) {
+  const input = document.getElementById('discount_code');
+  const m = document.getElementById('discount-msg');
+  const code = input.value.trim();
+  discount = null;
+  m.textContent = '';
+  if (code) {
+    const plan = (document.querySelector('input[name=plan_code]:checked') || {}).value;
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/resolve_discount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+        body: JSON.stringify({ p_code: code, p_plan: plan })
+      });
+      const out = await res.json();
+      if (out && out.ok) discount = { code: out.code, percent: out.percent };
+      else if (!quiet) m.textContent = MSG[currentLang].invalid_code;
+    } catch (e) { if (!quiet) m.textContent = MSG[currentLang].network; }
+  }
+  updateSummary();
+}
+
 function applyLang(lang) {
+  currentLang = lang;
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-en]').forEach(el => {
     if (el.dataset.sv === undefined) el.dataset.sv = el.innerHTML;
     el.innerHTML = lang === 'en' ? el.dataset.en : el.dataset.sv;
+  });
+  document.querySelectorAll('[data-en-ph]').forEach(el => {
+    if (el.dataset.phSv === undefined) el.dataset.phSv = el.getAttribute('placeholder') || '';
+    el.setAttribute('placeholder', lang === 'en' ? el.dataset.enPh : el.dataset.phSv);
   });
   document.querySelectorAll('[data-app]').forEach(a => { a.href = APP_URL + '/?lang=' + lang; });
   document.querySelectorAll('.lang-switch button').forEach(b => {
@@ -942,6 +814,7 @@ function applyLang(lang) {
   });
   document.title = META[lang].title;
   document.querySelector('meta[name="description"]').setAttribute('content', META[lang].desc);
+  updateSummary();
 }
 
 function setLang(lang) {
@@ -949,11 +822,76 @@ function setLang(lang) {
   applyLang(lang);
 }
 
+function navigate(id, tabEl) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const view = document.getElementById('view-' + id);
+  if (view) view.classList.add('active');
+  const tab = tabEl && tabEl.classList && tabEl.classList.contains('nav-tab') ? tabEl : document.getElementById('tab-' + id);
+  if (tab) tab.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  try { history.replaceState(null, '', '#' + id); } catch(e) {}
+}
+
+function selectPlan(code) {
+  const r = document.querySelector('input[name=plan_code][value="' + code + '"]');
+  if (r) { r.checked = true; if (discount) applyDiscount(true); else updateSummary(); }
+}
+
+function showOrderError(code) {
+  const box = document.getElementById('order-error');
+  box.textContent = MSG[currentLang][code] || MSG[currentLang].invalid;
+  box.hidden = false;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+document.querySelectorAll('input[name=plan_code]').forEach(r => r.addEventListener('change', () => { if (discount) applyDiscount(true); else updateSummary(); }));
+document.getElementById('discount-apply').addEventListener('click', () => applyDiscount(false));
+document.getElementById('discount_code').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyDiscount(false); } });
+
+document.getElementById('order-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target;
+  document.getElementById('order-error').hidden = true;
+  if (!f.checkValidity()) { f.reportValidity(); return; }
+  if (!f.terms.checked) { showOrderError('terms'); return; }
+  const btn = document.getElementById('order-submit');
+  const label = btn.innerHTML;
+  btn.disabled = true; btn.textContent = MSG[currentLang].sending;
+  const val = n => (f.elements[n].value || '').trim();
+  const payload = {
+    plan_code: f.elements.plan_code.value, org_name: val('org_name'), org_number: val('org_number'),
+    address: val('address'), zip: val('zip'), city: val('city'),
+    invoice_email: val('invoice_email'), invoice_reference: val('invoice_reference'),
+    contact_name: val('contact_name'), contact_email: val('contact_email'), contact_phone: val('contact_phone'),
+    discount_code: val('discount_code'), account_email: val('account_email'), note: val('note'), website: val('website'),
+    terms: true, lang: currentLang
+  };
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/submit_order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+      body: JSON.stringify({ p: payload })
+    });
+    const out = await res.json();
+    if (!res.ok || out.error) { showOrderError(out && out.error ? out.error : 'network'); return; }
+    document.getElementById('done-no').textContent = out.order_no;
+    document.getElementById('done-email').textContent = out.invoice_email || payload.invoice_email;
+    document.getElementById('order-wrap').hidden = true;
+    document.getElementById('order-done').hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    showOrderError('network');
+  } finally {
+    btn.disabled = false; btn.innerHTML = label;
+  }
+});
+
 applyLang(detectLang());
 
 (function() {
   const h = (location.hash || '#start').slice(1);
-  if (['start','priser','hjalp'].includes(h)) navigate(h);
+  if (['start','priser','hjalp','bestall'].includes(h)) navigate(h);
   else navigate('start');
 })();
 </script>

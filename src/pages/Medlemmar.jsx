@@ -19,8 +19,6 @@ const ROLE_STYLE = {
   viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)', border: '1px solid var(--border)' },
 }
 
-const MAX_MEMBERS = 15
-
 function RoleBadge({ role }) {
   const { t } = useI18n()
   return (
@@ -37,6 +35,10 @@ export default function Medlemmar({ orgId, orgName }) {
   const canManage   = myRole === 'main_owner' || myRole === 'owner'
 
   const [members, setMembers] = useState([])
+  const [maxMembers, setMaxMembers] = useState(15)
+  useEffect(() => {
+    supabase.rpc('get_org_plan', { p_org: orgId }).then(({ data }) => { if (data?.member_limit) setMaxMembers(data.member_limit) })
+  }, [orgId])
   const [invites, setInvites] = useState([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied]   = useState(false)
@@ -159,8 +161,8 @@ export default function Medlemmar({ orgId, orgName }) {
 
   async function createInvite() {
     setError('')
-    if (members.length >= MAX_MEMBERS) {
-      setError(t('Föreningen har redan max {max} användare. Ta bort en användare innan du bjuder in fler.', { max: MAX_MEMBERS }))
+    if (members.length >= maxMembers) {
+      setError(t('Föreningen har redan max {max} användare. Ta bort en användare innan du bjuder in fler.', { max: maxMembers }))
       return
     }
     const { error } = await supabase
@@ -216,7 +218,7 @@ export default function Medlemmar({ orgId, orgName }) {
       {/* Members */}
       <section style={{ marginBottom: 32 }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.1rem', marginBottom: 12, color: 'var(--ink)' }}>
-          {t('Medlemmar')} ({members.length}/{MAX_MEMBERS})
+          {t('Medlemmar')} ({members.length}/{maxMembers})
         </h3>
         <table className="data-table" style={{ width: '100%' }}>
           <thead>
@@ -311,8 +313,8 @@ export default function Medlemmar({ orgId, orgName }) {
                 <option value="viewer">{t('Läsare (skrivskyddad)')}</option>
                 <option value="owner">{t('Ägare')}</option>
               </select>
-              <button className="btn btn-primary btn-sm" onClick={createInvite} disabled={members.length >= MAX_MEMBERS}
-                title={members.length >= MAX_MEMBERS ? t('Max {max} användare per förening', { max: MAX_MEMBERS }) : undefined}>
+              <button className="btn btn-primary btn-sm" onClick={createInvite} disabled={members.length >= maxMembers}
+                title={members.length >= maxMembers ? t('Max {max} användare per förening', { max: maxMembers }) : undefined}>
                 + {t('Ny inbjudan')}
               </button>
             </div>
@@ -356,7 +358,7 @@ export default function Medlemmar({ orgId, orgName }) {
             </div>
           )}
           <p style={{ marginTop: 12, fontSize: '0.78rem', color: 'var(--ink-muted)' }}>
-            {t('Namnet följer med när personen skapar konto och syns bara för medlemmarna i den här föreningen. Länken är giltig i 7 dagar. En förening kan ha max {max} användare.', { max: MAX_MEMBERS })}
+            {t('Namnet följer med när personen skapar konto och syns bara för medlemmarna i den här föreningen. Länken är giltig i 7 dagar. En förening kan ha max {max} användare.', { max: maxMembers })}
           </p>
         </section>
       )}

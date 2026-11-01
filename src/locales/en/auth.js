@@ -42,6 +42,8 @@ export default {
   'Spara nytt lösenord': 'Save new password',
   // Skapa förening / gå med
   'Inbjudningslänken är ogiltig eller har gått ut.': 'The invitation link is invalid or has expired.',
+  'Föreningen har redan max 2 användare.': 'The association already has the maximum of 2 users.',
+  'Föreningen har redan max 5 användare.': 'The association already has the maximum of 5 users.',
   'Föreningen har redan max 15 användare.': 'The association already has the maximum of 15 users.',
   'föreningen': 'the association',
   'Du har blivit inbjuden': 'You have been invited',
