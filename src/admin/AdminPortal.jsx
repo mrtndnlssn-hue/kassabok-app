@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ArrowLeft, Loader, FileDown, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Loader, FileDown, RefreshCw, Mail } from 'lucide-react'
 import { supabase } from '../supabase'
 import { buildInvoicePdf, money } from './invoicePdf'
 import { fmtDate, isoDate, isoDateTime, todayStr } from '../store'
@@ -255,6 +255,7 @@ function OrderModal({ order, orgs, planName, onClose, onChanged }) {
 function Invoices({ settings }) {
   const [invoices, err, reload] = useQuery('invoices', '*, orders(order_no)', 'created_at')
   const [msg, setMsg] = useState('')
+  const [sending, setSending] = useState('')
   if (err) return <Err msg={err} />
   if (!invoices) return <Busy />
 
@@ -262,6 +263,19 @@ function Invoices({ settings }) {
     setMsg('')
     const { error } = await supabase.rpc(rpc, args)
     if (error) setMsg(error.message); else { setMsg(okMsg); reload() }
+  }
+  // Skickar fakturan som e-post (PDF som bilaga) från faktura@foreningsbalans.se via funktionen send-invoice
+  async function send(inv) {
+    if (!window.confirm(`Skicka faktura ${inv.invoice_no} till ${inv.customer?.email}?`)) return
+    setMsg(''); setSending(inv.id)
+    try {
+      const doc = buildInvoicePdf({ invoice: inv, seller: settings.seller })
+      const pdfBase64 = doc.output('datauristring').split(',')[1]
+      const { data, error } = await supabase.functions.invoke('send-invoice', { body: { invoiceId: inv.id, pdfBase64, filename: `${inv.invoice_no}.pdf` } })
+      if (error) setMsg('Tjänsten för e-post kunde inte nås.')
+      else if (data?.error) setMsg(data.error)
+      else { setMsg(`Fakturan skickades till ${data.to}.`); reload() }
+    } finally { setSending('') }
   }
   function pdf(inv) {
     const doc = buildInvoicePdf({ invoice: inv, seller: settings.seller })
@@ -280,11 +294,12 @@ function Invoices({ settings }) {
             <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{money(i.total)}</td>
             <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{day(i.issue_date)}</td>
             <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{day(i.due_date)}</td>
-            <td><Pill status={i.status} label={INV_STATUS[i.status]} />{i.status === 'paid' && <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{day(i.paid_date)}</div>}</td>
+            <td><Pill status={i.status} label={INV_STATUS[i.status]} />{i.status === 'paid' && <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{day(i.paid_date)}</div>}{i.sent_at && <div style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Mejlad {day(i.sent_at)} till {i.sent_to}</div>}</td>
             <td>
               <div className="btn-row">
                 <button className="btn btn-secondary btn-sm" onClick={() => pdf(i)}><FileDown size={13} /> PDF</button>
-                {i.status === 'draft' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_issue_invoice', { p_invoice: i.id }, 'Faktura utfärdad. Ladda ner PDF:en och skicka den till kunden.')}>Utfärda</button>}
+                {i.status === 'sent' && <button className="btn btn-secondary btn-sm" disabled={sending === i.id} onClick={() => send(i)}><Mail size={13} /> {sending === i.id ? 'Skickar…' : i.sent_at ? 'Skicka igen' : 'Skicka'}</button>}
+                {i.status === 'draft' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_issue_invoice', { p_invoice: i.id }, 'Faktura utfärdad. Klicka på Skicka för att maila den till kunden, eller ladda ner PDF:en.')}>Utfärda</button>}
                 {i.status === 'sent' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_mark_invoice_paid', { p_invoice: i.id, p_paid: todayStr() }, 'Markerad som betald. Planen är aktiverad om beställningen är kopplad till en förening.')}>Markera betald</button>}
                 {(i.status === 'draft' || i.status === 'sent') && <button className="btn btn-danger btn-sm" onClick={() => window.confirm('Makulera fakturan?') && run('admin_void_invoice', { p_invoice: i.id }, 'Fakturan är makulerad.')}>Makulera</button>}
               </div>
