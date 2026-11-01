@@ -38,4 +38,5 @@ export default {
   'Till startsidan': 'Go to the home page',
   'Inloggad som': 'Signed in as',
   'Demo': 'Demo',
+  'Byggtid': 'Build time',
 }

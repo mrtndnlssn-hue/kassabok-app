@@ -4,7 +4,7 @@ import { useAuth } from './AuthProvider'
 import { useI18n, LANGUAGES } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
 
-export default function OrgSetup() {
+export default function OrgSetup({ onDone, onCancel }) {
   const { t, lang, setLang } = useI18n()
   const { session, setOrgId, addOrg } = useAuth()
   const [name, setName]       = useState('')
@@ -38,6 +38,7 @@ export default function OrgSetup() {
 
       window.history.replaceState({}, '', window.location.pathname)
       addOrg(data.org_id, data.role)
+      onDone?.()
     } catch (e) {
       setError(e.message)
       setLoading(false)
@@ -54,6 +55,7 @@ export default function OrgSetup() {
       if (createErr) throw createErr
 
       addOrg(orgId, 'main_owner')
+      onDone?.()
     } catch (e) {
       setError(e.message)
       setLoading(false)
@@ -124,7 +126,8 @@ export default function OrgSetup() {
           </>
         )}
 
-        <div style={{ marginTop:16, textAlign:'right' }}>
+        <div style={{ marginTop:16, display:'flex', justifyContent:'flex-end', gap:8 }}>
+          {onCancel && <button className="btn btn-secondary btn-sm" onClick={onCancel}>{t('Avbryt')}</button>}
           <button className="btn btn-secondary btn-sm" onClick={() => supabase.auth.signOut()}>
             {t('Logga ut')}
           </button>

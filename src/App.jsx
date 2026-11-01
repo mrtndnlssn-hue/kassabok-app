@@ -325,7 +325,9 @@ function MainApp({ orgId, role }) {
 
           <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:8, display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8, fontSize:'0.65rem', color:'rgba(255,255,255,0.3)' }}>
             <span>Martin Danielsson</span>
-            <span title={t('Sparas i Supabase')} style={{ fontFamily:'var(--font-mono)', color:'rgba(255,255,255,0.22)' }}>{isoDateTime(new Date(__BUILD_TIME__))}</span>
+            {isPlatformAdmin && (
+              <span title={t('Byggtid')} style={{ fontFamily:'var(--font-mono)', color:'rgba(255,255,255,0.22)' }}>{isoDateTime(new Date(__BUILD_TIME__))}</span>
+            )}
           </div>
         </div>
       </aside>
@@ -382,6 +384,13 @@ export default function App() {
     setOrgId(id);
   }
 
+  // Efter att en förening skapats eller en inbjudan godkänts: lämna formuläret och gå direkt in i föreningen
+  function orgReady() {
+    try { sessionStorage.setItem('orgPicked', '1') } catch {}
+    setPickerDone(true);
+    setShowCreate(false);
+  }
+
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', color:'var(--ink-muted)', fontFamily:'var(--font-body)' }}>
       <Loader size={28} style={{ animation:'spin 1s linear infinite' }}/>
@@ -398,10 +407,10 @@ export default function App() {
   }
 
   // Inbjudningslänk – visa OrgSetup oavsett om användaren redan har en förening
-  if (new URLSearchParams(window.location.search).has('invite')) return <OrgSetup />;
+  if (new URLSearchParams(window.location.search).has('invite')) return <OrgSetup onDone={orgReady} />;
 
   // Skapa ny förening (från OrgPicker)
-  if (showCreate) return <OrgSetup />;
+  if (showCreate) return <OrgSetup onDone={orgReady} onCancel={() => setShowCreate(false)} />;
 
   // Visa väljare efter inloggning om användaren har föreningar och inte redan valt
   if (orgs.length > 0 && !pickerDone && !isDemoSession(session)) {
@@ -409,7 +418,7 @@ export default function App() {
   }
 
   // Inga föreningar alls – skapa direkt
-  if (!orgId) return <OrgSetup />;
+  if (!orgId) return <OrgSetup onDone={orgReady} />;
 
   return <MainApp orgId={orgId} role={role} />;
 }
