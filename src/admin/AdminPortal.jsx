@@ -435,7 +435,7 @@ function Settings({ settings, reload }) {
       <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 16 }}>
         <input type="checkbox" style={{ width: 'auto', marginTop: 4 }} checked={enforce} onChange={e => setEnforce(e.target.checked)} />
         <span><strong>Verkställ planernas gränser</strong><br /><span style={{ fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
-          När detta är på stoppas nya verifikat över planens gräns och AI-läsningar följer planens kvot. Alla föreningar som inte har en betald plan räknas som Prova (30 verifikat per räkenskapsår, inga AI-läsningar). Kontrollera i Föreningar-fliken att ingen befintlig förening redan ligger över sin gräns innan du slår på det.
+          När detta är på stoppas nya verifikat över planens gräns och AI-läsningar följer planens kvot. Alla föreningar som inte har en betald plan räknas som Prova (15 verifikat per räkenskapsår, inga AI-läsningar). Kontrollera i Föreningar-fliken att ingen befintlig förening redan ligger över sin gräns innan du slår på det.
         </span></span>
       </label>
       <button className="btn btn-primary" onClick={save}>Spara</button>
