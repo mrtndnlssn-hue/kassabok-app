@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
+import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
 import { store, attachments, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
@@ -18,6 +18,7 @@ import Medlemmar from './pages/Medlemmar';
 import Installningar from './pages/Installningar';
 import Komigang from './pages/Komigang';
 import { useI18n } from './i18n';
+import useIsMobile from './hooks/useIsMobile';
 import LanguageSwitch from './components/LanguageSwitch';
 const AdminPortal = lazy(() => import('./admin/AdminPortal'));
 import './index.css';
@@ -46,6 +47,9 @@ const NO_PERIOD_PAGES = ['komigang', 'kategorier', 'perioder', 'medlemmar', 'ins
 
 function MainApp({ orgId, role }) {
   const { t } = useI18n();
+  const isMobile = useIsMobile();
+  const [moreOpen, setMoreOpen]     = useState(false);
+  const [addRequest, setAddRequest] = useState(false);   // "+" i flikmenyn ber Kassabok öppna nytt verifikat
   const { orgs, setOrgId: switchOrg, session } = useAuth()
   const canWrite = role !== 'viewer'
   const isOwnerRole = role === 'main_owner' || role === 'owner';
@@ -195,7 +199,7 @@ function MainApp({ orgId, role }) {
   const pageMap   = {
     komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} />,
     dashboard:  <Dashboard  {...pageProps} />,
-    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} />,
+    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
@@ -215,6 +219,90 @@ function MainApp({ orgId, role }) {
     medlemmar:     t('Bjud in och hantera föreningens användare'),
     installningar: t('Föreningsnamn och borttagning'),
   };
+
+  // ── Mobilvariant: toppfält, innehåll och flikmeny längst ner (Översikt, Kassabok, Nytt, Budget, Mer) ──
+  if (isMobile) {
+    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite));
+    const moreItems = visible.filter(n => !['dashboard', 'kassabok', 'budget'].includes(n.id));
+    const go  = id => { setMoreOpen(false); navigate(id); };
+    const tab = (id, Icon, label) => (
+      <button key={id} className={`m-tab${page === id ? ' active' : ''}`} onClick={() => go(id)}>
+        <Icon size={22}/><span>{label}</span>
+      </button>
+    );
+    return (
+      <div className="m-shell">
+        <header className="m-topbar">
+          <a className="m-brand" href="https://foreningsbalans.se" title={t('Till startsidan')}>
+            <img src="/favicon.svg" alt="" width="26" height="26" />
+            <span>{orgName || t('Min Förening')}</span>
+          </a>
+          <select className="m-period" value={activePeriodId || ''} onChange={e => handlePeriodChange(e.target.value)} aria-label={t('Räkenskapsperiod')}>
+            {sortedPeriods.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+        </header>
+
+        <main className="m-main">
+          {isDemoSession(session) && (
+            <div className="notice notice-info" style={{ fontSize:'0.8rem' }}>
+              <strong>{t('Demoläge.')}</strong> {t('Du kan ändra fritt, men ändringarna sparas inte och försvinner när du laddar om sidan eller loggar ut.')}
+            </div>
+          )}
+          <h2 className="m-title">{t(NAV.find(n => n.id === page)?.label || '')}</h2>
+          {pageMap[page]}
+        </main>
+
+        <nav className="m-tabbar" aria-label={t('Meny')}>
+          {tab('dashboard', LayoutDashboard, t('Översikt'))}
+          {tab('kassabok', BookOpen, t('Kassabok'))}
+          {canWrite && (
+            <button className="m-tab m-tab-add" onClick={() => { go('kassabok'); setAddRequest(true); }} aria-label={t('Lägg till verifikat')}>
+              <span className="m-add-circle"><Plus size={26}/></span>
+            </button>
+          )}
+          {tab('budget', PieChart, t('Budget'))}
+          <button className={`m-tab${moreItems.some(n => n.id === page) ? ' active' : ''}`} onClick={() => setMoreOpen(true)}>
+            <Menu size={22}/><span>{t('Mer')}</span>
+          </button>
+        </nav>
+
+        {moreOpen && (
+          <div className="m-sheet-overlay" onClick={() => setMoreOpen(false)}>
+            <div className="m-sheet" onClick={e => e.stopPropagation()}>
+              <div className="m-sheet-head">
+                <strong>{t('Meny')}</strong>
+                <button className="modal-close" onClick={() => setMoreOpen(false)} aria-label={t('Stäng')}><X size={20}/></button>
+              </div>
+              {moreItems.map(n => {
+                const Icon = n.icon;
+                return (
+                  <button key={n.id} className={`m-sheet-item${page === n.id ? ' active' : ''}`} onClick={() => go(n.id)}>
+                    <Icon size={20}/> {t(n.label)}
+                  </button>
+                );
+              })}
+              {isPlatformAdmin && (
+                <a className="m-sheet-item" href="#admin"><Shield size={20}/> Adminportal</a>
+              )}
+              {orgs.length > 1 && (
+                <div className="m-sheet-block">
+                  <label>{t('Förening')}</label>
+                  <select value={orgId} onChange={e => { switchOrg(e.target.value); setMoreOpen(false); navigate('dashboard'); }}>
+                    {orgs.map(o => <option key={o.orgId} value={o.orgId}>{orgNames[o.orgId] || o.orgId.slice(0,8)}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="m-sheet-block m-sheet-row"><span>{t('Språk')}</span><LanguageSwitch /></div>
+              <div className="m-sheet-block" style={{ fontSize:'0.78rem', color:'var(--ink-muted)' }}>
+                {t('Inloggad som')} {isDemoSession(session) ? t('Demo') : session?.user?.email}
+              </div>
+              <button className="m-sheet-item" onClick={() => supabase.auth.signOut()}><LogOut size={20}/> {t('Logga ut')}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">

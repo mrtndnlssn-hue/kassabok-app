@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Scale, Receipt } from 'lucide-react';
 import { fmt, txsForPeriod, sumByCategory, txLines } from '../store';
 import { useI18n } from '../i18n';
+import useIsMobile from '../hooks/useIsMobile';
 
 function MonthChart({ monthly, categories, periodTxs }) {
   const { t } = useI18n();
@@ -59,6 +60,7 @@ function MonthChart({ monthly, categories, periodTxs }) {
 
 export default function Dashboard({ transactions, categories, budget, activePeriod }) {
   const { t } = useI18n();
+  const isMobile = useIsMobile();
   const periodTxs = useMemo(() => txsForPeriod(transactions, activePeriod), [transactions, activePeriod]);
   const actuals   = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
 
@@ -126,6 +128,27 @@ export default function Dashboard({ transactions, categories, budget, activePeri
         <div className="section-title">{t('Senaste verifikat')}</div>
         {recent.length === 0 ? (
           <div className="empty-state"><Receipt size={32}/><p>{t('Inga verifikat registrerade ännu.')}</p></div>
+        ) : isMobile ? (
+          <div>
+            {recent.map(tx => {
+              const lines = txLines(tx);
+              const cat = catMap[lines[0].categoryId];
+              return (
+                <div className="m-card" key={tx.id} style={{ padding:'10px 12px' }}>
+                  <div className="m-card-top">
+                    <span className="m-date">{tx.date}</span>
+                    <span className={`m-amount ${cat?.type==='income'?'positive':'negative'}`}>{cat?.type==='income'?'+':'−'}{fmt(tx.amount)}</span>
+                  </div>
+                  <div className="m-card-desc" style={{ marginBottom:0 }}>{tx.description || '–'}</div>
+                  <div className="m-card-cat">
+                    {cat && <span className={`badge ${cat.type==='income'?'badge-income':'badge-expense'}`}>{cat.id}</span>}
+                    <span>{cat?.name}</span>
+                    {lines.length > 1 && <span style={{ color:'var(--ink-muted)' }}>+{lines.length - 1}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="table-wrap">
             <table>

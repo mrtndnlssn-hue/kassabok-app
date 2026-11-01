@@ -61,4 +61,6 @@ export default {
   'Lägg till konto': 'Add account',
   'Summa': 'Total',
   'Verifikatet saknar konto.': 'The voucher has no account.',
+  'Ta foto av kvittot': 'Take a photo of the receipt',
+  'Välj fil': 'Choose file',
 }

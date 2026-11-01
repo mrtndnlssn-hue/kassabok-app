@@ -1,11 +1,12 @@
-import { useState, useMemo, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Check, Search, Paperclip, Upload, FileText, Sparkles } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Plus, Pencil, Trash2, X, Check, Search, Paperclip, Upload, FileText, Sparkles, Camera } from 'lucide-react';
 import { getReceiptUsage, readReceipt, canReadWithAi } from '../receiptAi';
 import AttachmentPanel from './AttachmentPanel';
 import { fmt, txsForPeriod, todayStr, isValidIsoDate, txLines } from '../store';
 import DateInput from '../components/DateInput';
 import { useAuth } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
+import useIsMobile from '../hooks/useIsMobile';
 
 const emptyForm = () => ({
   date: todayStr(),
@@ -14,8 +15,9 @@ const emptyForm = () => ({
   comment: '',
 });
 
-export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, activePeriod }) {
+export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, activePeriod, addRequest, onAddHandled }) {
   const { t } = useI18n()
+  const isMobile = useIsMobile()
   const { role } = useAuth()
   const canWrite = role !== 'viewer'
   const period = activePeriod;
@@ -36,6 +38,14 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const [aiBusy, setAiBusy]         = useState(false);
   const [aiMsg, setAiMsg]           = useState(null); // {type: 'ok'|'error', text}
   const fileRef = useRef();
+  const cameraRef = useRef();
+
+  // "+" i mobilens flikmeny ber om ett nytt verifikat
+  useEffect(() => {
+    if (!addRequest) return
+    if (!activePeriod?.locked) openAdd()
+    onAddHandled?.()
+  }, [addRequest])
 
   const yearTxs = useMemo(() => txsForPeriod(transactions, period), [transactions, period]);
   const catMap   = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories]);
@@ -183,7 +193,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     <div>
       {/* Toolbar */}
       <div className="gap-row" style={{ marginBottom: 20 }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 300 }}>
+        <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : 1, maxWidth: isMobile ? 'none' : 300 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
           <input
             value={search}
@@ -192,12 +202,12 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
             style={{ paddingLeft: 32 }}
           />
         </div>
-        <select value={filterType} onChange={e => { setFilterType(e.target.value); setFilterCat('all'); }} style={{ width: 'auto' }}>
+        <select value={filterType} onChange={e => { setFilterType(e.target.value); setFilterCat('all'); }} style={{ width: isMobile ? 'calc(50% - 4px)' : 'auto' }}>
           <option value="all">{t('Alla typer')}</option>
           <option value="income">{t('Intäkter')}</option>
           <option value="expense">{t('Kostnader')}</option>
         </select>
-        <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ width: 'auto', maxWidth: 220 }}>
+        <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ width: isMobile ? 'calc(50% - 4px)' : 'auto', maxWidth: isMobile ? 'none' : 220 }}>
           <option value="all">{t('Alla konton')}</option>
           {categories
             .filter(c => filterType === 'all' || c.type === filterType)
@@ -205,7 +215,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
             .map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
         </select>
         <div className="ml-auto">
-          {canWrite && (
+          {canWrite && !isMobile && (
             <button className="btn btn-primary" onClick={openAdd} disabled={!!activePeriod?.locked} style={{ opacity: activePeriod?.locked ? 0.4 : 1, cursor: activePeriod?.locked ? "not-allowed" : "pointer" }}>
               <Plus size={15} /> {t('Lägg till verifikat')}
             </button>
@@ -221,7 +231,57 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
         </div>
       )}
 
-      {/* Table */}
+      {/* Tabell (dator) / kortlista (telefon) */}
+      {isMobile ? (
+        <div>
+          <div className="m-summary">
+            <span>{t('Totalt ({n} verifikat)', { n: filtered.length })}</span>
+            <span className="mono" style={{ color: 'var(--accent)' }}>{fmt(totalIncome)}</span>
+            <span className="mono" style={{ color: 'var(--red)' }}>{fmt(totalExpense)}</span>
+          </div>
+          {filtered.length === 0 && (
+            <div className="empty-state"><p>{t('Inga verifikat att visa.')}</p></div>
+          )}
+          {filtered.map((tx, i) => {
+            const lines = txLines(tx);
+            const shown = shownLines(tx);
+            const incAmt = sumType(shown, 'income');
+            const expAmt = sumType(shown, 'expense');
+            return (
+              <div className="m-card" key={tx.id}>
+                <div className="m-card-top">
+                  <span className="m-date">{tx.date} · {String(i + 1).padStart(3, '0')}</span>
+                  <span className={`m-amount ${incAmt ? 'positive' : 'negative'}`}>{incAmt ? `+${fmt(incAmt)}` : `−${fmt(expAmt)}`}</span>
+                </div>
+                <div className="m-card-desc">{tx.description || '–'}</div>
+                {lines.map((l, k) => {
+                  const c = catMap[l.categoryId];
+                  return (
+                    <div className="m-card-cat" key={k}>
+                      <span className={`badge ${c?.type === 'income' ? 'badge-income' : 'badge-expense'}`}>{c?.id || l.categoryId}</span>
+                      <span>{c?.name}</span>
+                      {lines.length > 1 && <span className="mono" style={{ color: 'var(--ink-muted)' }}>{fmt(l.amount)}</span>}
+                    </div>
+                  );
+                })}
+                {tx.comment && <div className="m-card-comment">{tx.comment}</div>}
+                <div className="m-card-actions">
+                  <button className="btn btn-secondary" onClick={() => setAttachTx({ tx, verNum: i + 1 })} aria-label={t('Bilagor')}><Paperclip size={15} /> {t('Bilagor')}</button>
+                  {canWrite && (
+                    <>
+                      <button className="btn btn-secondary" onClick={() => openEdit(tx)} disabled={!!activePeriod?.locked} aria-label={t('Redigera')}><Pencil size={15} /></button>
+                      <button className={`btn ${deleteConfirm === tx.id ? 'btn-danger' : 'btn-secondary'}`} onClick={() => handleDelete(tx.id)} disabled={!!activePeriod?.locked}
+                        aria-label={deleteConfirm === tx.id ? t('Bekräfta radering') : t('Radera')}>
+                        {deleteConfirm === tx.id ? <Check size={15} /> : <Trash2 size={15} />}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div className="table-wrap" style={{ marginBottom: 16 }}>
         <table>
           <thead>
@@ -322,6 +382,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
           )}
         </table>
       </div>
+      )}
 
       {/* Modal */}
       {attachTx && (
@@ -414,6 +475,17 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                 <div className="form-row">
                   <div>
                     <label>{t('Bilagor (kvitto/faktura)')}</label>
+                    {isMobile ? (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => cameraRef.current?.click()}>
+                          <Camera size={16} /> {t('Ta foto av kvittot')}
+                        </button>
+                        <button type="button" className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => fileRef.current?.click()}>
+                          <Upload size={16} /> {t('Välj fil')}
+                        </button>
+                        <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => addFiles(e.target.files)} />
+                      </div>
+                    ) : (
                     <div
                       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                       onDragLeave={() => setDragOver(false)}
@@ -429,6 +501,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                       <Upload size={16} style={{ opacity: 0.6 }} />
                       {t('Dra och släpp filer här, eller klicka för att välja')}
                     </div>
+                    )}
                     <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={e => addFiles(e.target.files)} />
                     {newFiles.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>

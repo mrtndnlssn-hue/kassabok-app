@@ -3,6 +3,7 @@ import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { useAuth } from '../auth/AuthProvider';
 import { Lock, Unlock } from 'lucide-react';
 import { useI18n } from '../i18n';
+import useIsMobile from '../hooks/useIsMobile';
 
 function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite }) {
   const { t } = useI18n();
@@ -70,6 +71,61 @@ function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentCh
   );
 }
 
+function CatCard({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite }) {
+  const { t } = useI18n();
+  const [localVal, setLocalVal] = useState(budgetValue > 0 ? String(budgetValue) : '');
+  const [localComment, setLocalComment] = useState(comment || '');
+  const act = actual || 0;
+  const bud = budgetValue || 0;
+  const dev = act - bud;
+  const pct = bud > 0 ? Math.min((act / bud) * 100, 150) : 0;
+  const barClass = pct > 100 ? 'over' : pct > 80 ? 'warn' : 'ok';
+
+  function handleBlur() {
+    const parsed = parseFloat(localVal.replace(',', '.')) || 0;
+    setLocalVal(parsed > 0 ? String(parsed) : '');
+    onBudgetChange(cat.id, parsed);
+  }
+  function handleCommentBlur() {
+    const text = localComment.trim();
+    setLocalComment(text);
+    if (text !== (comment || '')) onCommentChange(cat.id, text);
+  }
+
+  return (
+    <div className="m-card">
+      <div className="m-card-top">
+        <span><span className={`badge ${cat.type==='income'?'badge-income':'badge-expense'}`}>{cat.id}</span> <strong>{cat.name}</strong></span>
+        <span className={`m-amount ${act>0?(cat.type==='income'?'positive':'negative'):''}`}>{act!==0 ? fmt(act) : '–'}</span>
+      </div>
+      {bud>0 && (
+        <>
+          <div style={{ fontSize:'0.72rem', color:'var(--ink-muted)', textAlign:'right', marginTop:4 }}>{Math.round((act/bud)*100)}%</div>
+          <div className="progress-bar"><div className={`progress-fill ${barClass}`} style={{ width:`${Math.min(pct,100)}%` }}/></div>
+        </>
+      )}
+      <div className="m-field-grid">
+        <div>
+          <label>{t('Budget (kr)')}</label>
+          <input type="number" inputMode="decimal" step="100" min="0" value={localVal} placeholder="0"
+            onChange={e => canWrite && setLocalVal(e.target.value)} onBlur={canWrite ? handleBlur : undefined}
+            readOnly={!canWrite} style={{ textAlign:'right', color:'var(--blue)' }} />
+        </div>
+        <div>
+          <label>{t('Avvikelse (kr)')}</label>
+          <div className={`mono ${dev>0?'positive':dev<0?'negative':''}`} style={{ padding:'9px 0', textAlign:'right' }}>
+            {bud>0||act!==0 ? (dev>0?'+':'')+fmt(dev) : '–'}
+          </div>
+        </div>
+      </div>
+      {(canWrite || localComment) && (
+        <input type="text" value={localComment} placeholder={canWrite ? t('Kommentar…') : ''} style={{ marginTop:8 }}
+          onChange={e => canWrite && setLocalComment(e.target.value)} onBlur={canWrite ? handleCommentBlur : undefined} readOnly={!canWrite} />
+      )}
+    </div>
+  );
+}
+
 function SectionTotal({ label, budgetTotal, actualTotal }) {
   const { t } = useI18n();
   const dev = actualTotal - budgetTotal;
@@ -86,6 +142,7 @@ function SectionTotal({ label, budgetTotal, actualTotal }) {
 
 export default function BudgetResultat({ transactions, categories, budget, budgetComments = {}, onBudgetChange, onCommentChange, onLockChange, activePeriod }) {
   const { t } = useI18n();
+  const isMobile = useIsMobile();
   const { role } = useAuth()
   const isMember = role !== 'viewer'
   const budgetLocked = !!activePeriod?.budgetLocked
@@ -122,7 +179,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
         <span>
           {budgetLocked
             ? <><Lock size={13} style={{ display:'inline', verticalAlign:'middle', marginRight:6 }}/>{t('Budgeten för')} <strong>{label}</strong> ({span}) {t('är låst och kan inte ändras.')}</>
-            : <>{t('Budget för perioden')} <strong>{label}</strong> ({span}). {t('Ange belopp och tryck Tab eller Enter.')}</>}
+            : <>{t('Budget för perioden')} <strong>{label}</strong> ({span}).{isMobile ? '' : ` ${t('Ange belopp och tryck Tab eller Enter.')}`}</>}
         </span>
         {isMember && (
           <button className="btn btn-sm btn-secondary" onClick={toggleBudgetLock}>
@@ -132,7 +189,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
       </div>
       {lockError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:16 }}>{lockError}</div>}
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
+      <div className="budget-stats" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
         {[
           { label:t('Budgeterat netto'), value:netBudget, muted:true },
           { label:t('Faktiskt netto'), value:netActual },
@@ -147,6 +204,26 @@ export default function BudgetResultat({ transactions, categories, budget, budge
         ))}
       </div>
 
+      {isMobile ? (
+        <div>
+          {[['income', incCats, 'Intäkter', 'Summa intäkter', totalBudgetInc, totalActualInc], ['expense', expCats, 'Kostnader', 'Summa kostnader', totalBudgetExp, totalActualExp]].map(([type, cats, title, sumLabel, bTot, aTot]) => (
+            <div key={type} style={{ marginBottom: 18 }}>
+              <div style={{ background: type === 'income' ? 'var(--accent)' : 'var(--red)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px', borderRadius:'var(--r)', marginBottom:10 }}>{t(title)}</div>
+              {cats.map(cat => (
+                <CatCard key={`${activePeriod.id}-${cat.id}`} cat={cat}
+                  budgetValue={periodBudget[cat.id]||0} actual={actuals[cat.id]||0} comment={periodComments[cat.id]||''} canWrite={canWrite}
+                  onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
+                  onCommentChange={(catId, text) => onCommentChange(activePeriod.id, catId, text)} />
+              ))}
+              <div className="m-summary" style={{ fontWeight:600, color:'var(--ink)' }}>
+                <span>{t(sumLabel)}</span>
+                <span className="mono">{t('Budget')}: {fmt(bTot)}</span>
+                <span className="mono">{t('Utfall (kr)')}: {fmt(aTot)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="table-wrap">
         <table>
           <thead>
@@ -197,6 +274,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
           </tfoot>
         </table>
       </div>
+      )}
     </div>
   );
 }

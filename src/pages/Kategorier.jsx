@@ -321,7 +321,7 @@ export default function Kategorier({ categories, transactions, fiscalPeriods, on
         </div>
       )}
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
+      <div className="cat-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
         <div>
           <div className="section-title" style={{ color:'var(--accent)' }}>{t('Intäktskategorier')}</div>
           <CatTable items={incCats} allCats={cats} transactions={transactions} lockedCatIds={lockedCatIds} onUpdate={update} onUpdateCode={updateCode} badCodes={badCodes} onRemove={requestRemove} onToggleHidden={toggleHidden} canWrite={canWrite} showHidden={showHidden} />

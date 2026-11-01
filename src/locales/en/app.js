@@ -39,4 +39,7 @@ export default {
   'Inloggad som': 'Signed in as',
   'Demo': 'Demo',
   'Byggtid': 'Build time',
+  'Mer': 'More',
+  'Meny': 'Menu',
+  'Stäng': 'Close',
 }
