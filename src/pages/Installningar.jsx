@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { Check, Trash2, AlertTriangle, X } from 'lucide-react'
-import { store } from '../store'
+import { store, attachments } from '../store'
 import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
 import { useI18n } from '../i18n'
 
@@ -58,25 +58,15 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
   async function handleDelete() {
     setDeleteStep(3); setDeleteError('')
     try {
-      const tables = [
-        { table: 'transactions',         col: 'org_id' },
-        { table: 'budget',                col: 'org_id' },
-        { table: 'categories',           col: 'org_id' },
-        { table: 'fiscal_periods',       col: 'org_id' },
-        { table: 'org_settings',         col: 'org_id' },
-        { table: 'org_invites',          col: 'org_id' },
-        { table: 'organization_members', col: 'org_id' },
-        { table: 'organizations',        col: 'id'     },
-      ]
-      for (const { table, col } of tables) {
-        const { error } = await supabase.from(table).delete().eq(col, orgId)
-        if (error) throw error
-      }
+      // Bilagorna först (filer i Storage), sedan raderar databasfunktionen allt annat och själva föreningen
+      await attachments.removeAllForOrg(orgId)
+      const { error } = await supabase.rpc('delete_organization', { p_org_id: orgId })
+      if (error) throw error
       try { localStorage.removeItem(`activeOrg_${session.user.id}`) } catch {}
       try { sessionStorage.removeItem('orgPicked') } catch {}
       window.location.reload()
     } catch (e) {
-      setDeleteError(e.message)
+      setDeleteError(t(e.message))
       setDeleteStep(2)
     }
   }

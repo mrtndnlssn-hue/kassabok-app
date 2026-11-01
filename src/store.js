@@ -204,6 +204,15 @@ const dbAttachments = {
     return result
   },
 
+  // Tar bort alla bilagor för en förening (en mapp per verifikat) när föreningen raderas.
+  async removeAllForOrg(orgId) {
+    const { data: folders } = await supabase.storage.from('attachments').list(orgId, { limit: 1000 })
+    for (const folder of folders || []) {
+      const { data: files } = await supabase.storage.from('attachments').list(`${orgId}/${folder.name}`, { limit: 1000 })
+      if (files?.length) await supabase.storage.from('attachments').remove(files.map(f => `${orgId}/${folder.name}/${f.name}`))
+    }
+  },
+
   async listForPeriod(orgId, txIds) {
     const results = []
     for (const txId of txIds) {

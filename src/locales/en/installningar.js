@@ -64,4 +64,5 @@ export default {
   // Datumfält
   'Välj i kalender': 'Pick from calendar',
   'Datum på formatet YYYY-MM-DD, t.ex. 2026-03-31': 'Date in the format YYYY-MM-DD, e.g. 2026-03-31',
+  'Bara huvudägaren kan ta bort föreningen.': 'Only the main owner can delete the association.',
 }
