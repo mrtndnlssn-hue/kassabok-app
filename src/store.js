@@ -6,19 +6,35 @@ export const compareCategoryIds = (a, b) =>
   String(a).localeCompare(String(b), 'sv', { numeric: true, sensitivity: 'base' })
 export const sortCats = cats => [...(cats || [])].sort((a, b) => compareCategoryIds(a.id, b.id))
 
+// Ett verifikat har en eller flera rader (konto + belopp). Äldre verifikat utan rader räknas som en rad.
+export const txLines = tx =>
+  tx.lines && tx.lines.length ? tx.lines : [{ categoryId: tx.categoryId, amount: Number(tx.amount) || 0 }]
+
+// Normaliserar rader från formuläret: bara rader med konto, belopp avrundat till öre.
+const cleanLines = lines => (lines || [])
+  .filter(l => l.categoryId)
+  .map(l => ({ categoryId: l.categoryId, amount: Math.round((Number(l.amount) || 0) * 100) / 100 }))
+const sumLines = lines => Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100
+
 const dbStore = {
   async getAll(orgId) {
-    const [orgRes, settingsRes, catsRes, txsRes, budgetRes, periodsRes] = await Promise.all([
+    const [orgRes, settingsRes, catsRes, txsRes, budgetRes, periodsRes, linesRes] = await Promise.all([
       supabase.from('organizations').select('name').eq('id', orgId).single(),
       supabase.from('org_settings').select('active_period_id').eq('org_id', orgId).maybeSingle(),
       supabase.from('categories').select('*').eq('org_id', orgId).order('id'),
       supabase.from('transactions').select('*').eq('org_id', orgId).order('date', { ascending: false }),
       supabase.from('budget').select('*').eq('org_id', orgId),
       supabase.from('fiscal_periods').select('*').eq('org_id', orgId).order('start_date'),
+      supabase.from('transaction_lines').select('*').eq('org_id', orgId).order('position'),
     ])
 
-    for (const res of [orgRes, catsRes, txsRes, budgetRes, periodsRes]) {
+    for (const res of [orgRes, catsRes, txsRes, budgetRes, periodsRes, linesRes]) {
       if (res.error) throw res.error
+    }
+
+    const linesByTx = {}
+    for (const l of linesRes.data || []) {
+      (linesByTx[l.tx_id] ||= []).push({ id: l.id, categoryId: l.category_id, amount: Number(l.amount) })
     }
 
     const budgetObj = {}
@@ -44,6 +60,7 @@ const dbStore = {
         amount:      Number(t.amount),
         comment:     t.comment || '',
         createdAt:   t.created_at,
+        lines:       linesByTx[t.id] || null,
       })),
       budget:         budgetObj,
       budgetComments: commentObj,
@@ -133,16 +150,25 @@ const dbStore = {
   },
 
   async addTransaction(orgId, tx) {
+    const lines = cleanLines(tx.lines || [{ categoryId: tx.categoryId, amount: tx.amount }])
+    if (!lines.length) throw new Error('Verifikatet saknar konto.')
     const { data, error } = await supabase.from('transactions').insert({
       org_id:      orgId,
       date:        tx.date,
       description: tx.description,
-      category_id: tx.categoryId,
-      amount:      tx.amount,
+      category_id: lines[0].categoryId,
+      amount:      sumLines(lines),
       comment:     tx.comment || '',
     }).select().single()
     if (error) throw error
-    return { ...tx, id: data.id, createdAt: data.created_at }
+    const { error: lineErr } = await supabase.from('transaction_lines').insert(
+      lines.map((l, i) => ({ tx_id: data.id, org_id: orgId, category_id: l.categoryId, amount: l.amount, position: i }))
+    )
+    if (lineErr) {
+      await supabase.from('transactions').delete().eq('id', data.id)   // inget halvfärdigt verifikat
+      throw lineErr
+    }
+    return { ...tx, id: data.id, lines, amount: sumLines(lines), categoryId: lines[0].categoryId, createdAt: data.created_at }
   },
 
   async updateTransaction(orgId, id, updates) {
@@ -152,8 +178,33 @@ const dbStore = {
     if (updates.categoryId  !== undefined) patch.category_id = updates.categoryId
     if (updates.amount      !== undefined) patch.amount      = updates.amount
     if (updates.comment     !== undefined) patch.comment     = updates.comment
+    const lines = updates.lines ? cleanLines(updates.lines) : null
+    if (lines) {
+      if (!lines.length) throw new Error('Verifikatet saknar konto.')
+      patch.category_id = lines[0].categoryId
+      patch.amount      = sumLines(lines)
+    }
     const { error } = await supabase.from('transactions').update(patch).eq('id', id).eq('org_id', orgId)
     if (error) throw error
+    if (lines) {
+      // Nya rader först, sedan de gamla bort: ett fel lämnar aldrig verifikatet utan rader
+      const { data: old } = await supabase.from('transaction_lines').select('id').eq('tx_id', id)
+      const { error: insErr } = await supabase.from('transaction_lines').insert(
+        lines.map((l, i) => ({ tx_id: id, org_id: orgId, category_id: l.categoryId, amount: l.amount, position: i }))
+      )
+      if (insErr) throw insErr
+      if (old?.length) await supabase.from('transaction_lines').delete().in('id', old.map(o => o.id))
+    }
+  },
+
+  // Flyttar verifikatets rader från ett konto till ett annat (när ett konto tas bort)
+  async reassignCategory(orgId, txId, oldCat, newCat) {
+    const { error } = await supabase.from('transaction_lines').update({ category_id: newCat })
+      .eq('tx_id', txId).eq('org_id', orgId).eq('category_id', oldCat)
+    if (error) throw error
+    const { error: e2 } = await supabase.from('transactions').update({ category_id: newCat })
+      .eq('id', txId).eq('org_id', orgId).eq('category_id', oldCat)
+    if (e2) throw e2
   },
 
   async deleteTransaction(orgId, id) {
@@ -251,7 +302,11 @@ const demoStore = {
     const map = Object.fromEntries(renames.map(r => [r.from, r.to]))
     const d = demo.data
     d.categories   = d.categories.map(c => map[c.id] ? { ...c, id: map[c.id] } : c)
-    d.transactions = d.transactions.map(t => map[t.categoryId] ? { ...t, categoryId: map[t.categoryId] } : t)
+    d.transactions = d.transactions.map(t => ({
+      ...t,
+      categoryId: map[t.categoryId] ?? t.categoryId,
+      lines: t.lines ? t.lines.map(l => ({ ...l, categoryId: map[l.categoryId] ?? l.categoryId })) : t.lines,
+    }))
     for (const pid of Object.keys(d.budget)) d.budget[pid] = remapKeys(d.budget[pid], map)
     for (const pid of Object.keys(d.budgetComments)) d.budgetComments[pid] = remapKeys(d.budgetComments[pid], map)
   },
@@ -278,24 +333,34 @@ const demoStore = {
   async addTransaction(_o, tx) {
     const id = `demo-${++demo.seq}`
     const createdAt = new Date().toISOString()
+    const lines = cleanLines(tx.lines || [{ categoryId: tx.categoryId, amount: tx.amount }])
     demo.data.transactions.push({
-      id, date: tx.date, description: tx.description, categoryId: tx.categoryId,
-      amount: Number(tx.amount), comment: tx.comment || '', createdAt,
+      id, date: tx.date, description: tx.description, categoryId: lines[0].categoryId,
+      amount: sumLines(lines), comment: tx.comment || '', createdAt, lines,
     })
     demo.data.transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-    return { ...tx, id, createdAt }
+    return { ...tx, id, lines, createdAt }
   },
   async updateTransaction(_o, id, updates) {
+    const lines = updates.lines ? cleanLines(updates.lines) : null
     demo.data.transactions = demo.data.transactions.map(t => t.id === id ? {
       ...t,
       ...Object.fromEntries(['date', 'description', 'categoryId', 'amount', 'comment']
         .filter(k => updates[k] !== undefined).map(k => [k, updates[k]])),
+      ...(lines ? { lines, categoryId: lines[0].categoryId, amount: sumLines(lines) } : {}),
     } : t)
     demo.data.transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
   },
   async deleteTransaction(_o, id) {
     demo.data.transactions = demo.data.transactions.filter(t => t.id !== id)
     demo.files.delete(id)
+  },
+  async reassignCategory(_o, txId, oldCat, newCat) {
+    demo.data.transactions = demo.data.transactions.map(t => t.id !== txId ? t : {
+      ...t,
+      categoryId: t.categoryId === oldCat ? newCat : t.categoryId,
+      lines: t.lines ? t.lines.map(l => l.categoryId === oldCat ? { ...l, categoryId: newCat } : l) : t.lines,
+    })
   },
 }
 
@@ -384,7 +449,9 @@ export function sumByCategory(txs, categories) {
   const result = {}
   for (const cat of categories) result[cat.id] = 0
   for (const tx of txs) {
-    if (tx.categoryId in result) result[tx.categoryId] += Number(tx.amount) || 0
+    for (const l of txLines(tx)) {
+      if (l.categoryId in result) result[l.categoryId] += Number(l.amount) || 0
+    }
   }
   return result
 }

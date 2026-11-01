@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { Plus, Pencil, Trash2, X, Check, Search, Paperclip, Upload, FileText, Sparkles } from 'lucide-react';
 import { getReceiptUsage, readReceipt, canReadWithAi } from '../receiptAi';
 import AttachmentPanel from './AttachmentPanel';
-import { fmt, txsForPeriod, todayStr, isValidIsoDate } from '../store';
+import { fmt, txsForPeriod, todayStr, isValidIsoDate, txLines } from '../store';
 import DateInput from '../components/DateInput';
 import { useAuth } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
@@ -10,8 +10,7 @@ import { useI18n } from '../i18n';
 const emptyForm = () => ({
   date: todayStr(),
   description: '',
-  categoryId: '',
-  amount: '',
+  lines: [{ categoryId: '', amount: '' }],   // ett verifikat kan bokföras på flera konton
   comment: '',
 });
 
@@ -45,23 +44,37 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     let txs = [...yearTxs].sort((a, b) => b.date?.localeCompare(a.date));
     if (search) {
       const q = search.toLowerCase();
-      txs = txs.filter(t =>
-        t.description?.toLowerCase().includes(q) ||
-        t.categoryId?.toLowerCase().includes(q) ||
-        catMap[t.categoryId]?.name.toLowerCase().includes(q)
+      txs = txs.filter(x =>
+        x.description?.toLowerCase().includes(q) ||
+        txLines(x).some(l => l.categoryId?.toLowerCase().includes(q) || catMap[l.categoryId]?.name.toLowerCase().includes(q))
       );
     }
     if (filterType !== 'all') {
-      txs = txs.filter(t => catMap[t.categoryId]?.type === filterType);
+      txs = txs.filter(x => txLines(x).some(l => catMap[l.categoryId]?.type === filterType));
     }
     if (filterCat !== 'all') {
-      txs = txs.filter(t => t.categoryId === filterCat);
+      txs = txs.filter(x => txLines(x).some(l => l.categoryId === filterCat));
     }
     return txs;
   }, [yearTxs, search, filterType, filterCat, catMap]);
 
-  const totalIncome  = filtered.filter(t => catMap[t.categoryId]?.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpense = filtered.filter(t => catMap[t.categoryId]?.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+  // De rader av ett verifikat som matchar filtren (så att summorna stämmer när man filtrerar på ett konto)
+  const shownLines = tx => txLines(tx).filter(l =>
+    (filterCat === 'all' || l.categoryId === filterCat) &&
+    (filterType === 'all' || catMap[l.categoryId]?.type === filterType));
+  const sumType = (lines, type) => lines.filter(l => catMap[l.categoryId]?.type === type).reduce((s, l) => s + Number(l.amount), 0);
+
+  const totalIncome  = filtered.reduce((s, x) => s + sumType(shownLines(x), 'income'), 0);
+  const totalExpense = filtered.reduce((s, x) => s + sumType(shownLines(x), 'expense'), 0);
+
+  // ── Konton på verifikatet (ett eller flera) ──
+  const isSplit      = form.lines.length > 1;
+  const linesTotal   = form.lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+  const lineTypes    = new Set(form.lines.filter(l => l.categoryId).map(l => catMap[l.categoryId]?.type));
+  const mixedTypes   = lineTypes.size > 1;
+  const setLine      = (i, patch) => setForm(f => ({ ...f, lines: f.lines.map((l, j) => j === i ? { ...l, ...patch } : l) }));
+  const addLine      = () => setForm(f => ({ ...f, lines: [...f.lines, { categoryId: '', amount: '' }] }));
+  const removeLine   = i => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }));
 
   function openAdd() {
     setForm(emptyForm());
@@ -80,9 +93,12 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
       setForm(f => ({
         ...f,
         date:        r.date || f.date,
-        amount:      r.amount != null ? String(r.amount) : f.amount,
         description: r.description || f.description,
-        categoryId:  r.category_id || f.categoryId,
+        // AI-förslaget är ett enda konto: ersätter en eventuell uppdelning
+        lines: [{
+          categoryId: r.category_id || f.lines[0]?.categoryId || '',
+          amount:     r.amount != null ? String(r.amount) : (f.lines.length === 1 ? f.lines[0].amount : ''),
+        }],
       }));
       setAiUsage(u => u && { ...u, used: r.used, limit: r.limit });
       setAiMsg({ type: 'ok', text: r.confidence === 'high'
@@ -95,7 +111,8 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     }
   }
   function openEdit(tx) {
-    setForm({ date: tx.date, description: tx.description || '', categoryId: tx.categoryId, amount: String(tx.amount), comment: tx.comment || '' });
+    setForm({ date: tx.date, description: tx.description || '', comment: tx.comment || '',
+      lines: txLines(tx).map(l => ({ categoryId: l.categoryId, amount: String(l.amount) })) });
     setEditId(tx.id);
     setNewFiles([]);
     setSaveError('');
@@ -104,7 +121,10 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   async function handleSubmit(e) {
     e.preventDefault();
     if (!isValidIsoDate(form.date)) { setSaveError(t('Ange ett giltigt datum på formatet YYYY-MM-DD.')); return; }
-    const payload = { ...form, amount: parseFloat(form.amount) || 0 };
+    if (form.lines.some(l => !l.categoryId || !(parseFloat(l.amount) > 0))) { setSaveError(t('Välj konto och ange belopp för varje rad.')); return; }
+    if (mixedTypes) { setSaveError(t('Alla konton på ett verifikat måste vara av samma typ (alla intäkter eller alla kostnader).')); return; }
+    const lines = form.lines.map(l => ({ categoryId: l.categoryId, amount: parseFloat(l.amount) }));
+    const payload = { date: form.date, description: form.description, comment: form.comment, lines };
     setSaving(true);
     setSaveError('');
     try {
@@ -147,6 +167,17 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const visibleCats = categories.filter(c => !c.hidden);
   const incCats  = visibleCats.filter(c => c.type === 'income');
   const expCats  = visibleCats.filter(c => c.type === 'expense');
+  const categoryOptions = (
+    <>
+      <option value="">{t('– Välj kategori –')}</option>
+      <optgroup label={t('Intäkter')}>
+        {incCats.map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
+      </optgroup>
+      <optgroup label={t('Kostnader')}>
+        {expCats.map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
+      </optgroup>
+    </>
+  );
 
   return (
     <div>
@@ -214,24 +245,35 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
               </td></tr>
             )}
             {filtered.map((tx, i) => {
-              const cat = catMap[tx.categoryId];
-              const isInc = cat?.type === 'income';
+              const lines = txLines(tx);
+              const isInc = catMap[lines[0].categoryId]?.type === 'income';
+              const shown = shownLines(tx);
+              const incAmt = sumType(shown, 'income');
+              const expAmt = sumType(shown, 'expense');
               return (
                 <tr key={tx.id}>
                   <td className="mono" style={{ color: 'var(--ink-muted)' }}>{String(i + 1).padStart(3, '0')}</td>
                   <td className="mono">{tx.date}</td>
                   <td>{tx.description || <em style={{ color: 'var(--ink-muted)' }}>–</em>}</td>
                   <td>
-                    <span className={`badge ${isInc ? 'badge-income' : 'badge-expense'}`}>{cat?.id}</span>
-                    {' '}<span style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>{cat?.name}</span>
+                    {lines.map((l, k) => {
+                      const c = catMap[l.categoryId];
+                      return (
+                        <div key={k} style={{ whiteSpace: 'nowrap' }}>
+                          <span className={`badge ${c?.type === 'income' ? 'badge-income' : 'badge-expense'}`}>{c?.id || l.categoryId}</span>
+                          {' '}<span style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>{c?.name}</span>
+                          {lines.length > 1 && <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginLeft: 6 }}>{fmt(l.amount)}</span>}
+                        </div>
+                      );
+                    })}
                   </td>
                   <td>
                     <span style={{ fontSize: '0.78rem', color: isInc ? 'var(--accent)' : 'var(--red)', fontWeight: 600 }}>
                       {isInc ? t('Intäkt') : t('Kostnad')}
                     </span>
                   </td>
-                  <td className="positive text-right">{isInc ? fmt(tx.amount) : ''}</td>
-                  <td className="negative text-right">{!isInc ? fmt(tx.amount) : ''}</td>
+                  <td className="positive text-right">{incAmt ? fmt(incAmt) : ''}</td>
+                  <td className="negative text-right">{expAmt ? fmt(expAmt) : ''}</td>
                   <td style={{ color: 'var(--ink-muted)', fontSize: '0.8rem', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {tx.comment || ''}
                   </td>
@@ -304,25 +346,56 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                   <DateInput value={form.date} onChange={date => setForm(f => ({ ...f, date }))} required />
                 </div>
                 <div>
-                  <label>{t('Belopp (kr)')} *</label>
-                  <input type="number" step="0.01" min="0" placeholder="0.00" value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required />
+                  <label>{isSplit ? t('Summa (kr)') : `${t('Belopp (kr)')} *`}</label>
+                  {isSplit
+                    ? <div className="mono" style={{ padding: '9px 0', fontWeight: 600 }}>{fmt(linesTotal)}</div>
+                    : <input type="number" step="0.01" min="0" placeholder="0.00" value={form.lines[0].amount}
+                        onChange={e => setLine(0, { amount: e.target.value })} required />}
                 </div>
               </div>
-              <div className="form-row">
-                <div>
-                  <label>{t('Kategori')} *</label>
-                  <select value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))} required>
-                    <option value="">{t('– Välj kategori –')}</option>
-                    <optgroup label={t('Intäkter')}>
-                      {incCats.map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
-                    </optgroup>
-                    <optgroup label={t('Kostnader')}>
-                      {expCats.map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
-                    </optgroup>
-                  </select>
+              {!isSplit ? (
+                <div className="form-row">
+                  <div>
+                    <label>{t('Kategori')} *</label>
+                    <select value={form.lines[0].categoryId} onChange={e => setLine(0, { categoryId: e.target.value })} required>
+                      {categoryOptions}
+                    </select>
+                    <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={addLine}>
+                      <Plus size={12} /> {t('Dela upp på flera konton')}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="form-row">
+                  <div>
+                    <label>{t('Konton')} *</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {form.lines.map((l, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <select value={l.categoryId} onChange={e => setLine(i, { categoryId: e.target.value })} required style={{ flex: 1, minWidth: 0 }}>
+                            {categoryOptions}
+                          </select>
+                          <input type="number" step="0.01" min="0" placeholder="0.00" value={l.amount} required
+                            onChange={e => setLine(i, { amount: e.target.value })} style={{ width: 110, textAlign: 'right' }} />
+                          <button type="button" title={t('Ta bort rad')} onClick={() => removeLine(i)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex', padding: 4 }}>
+                            <X size={15} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={addLine}><Plus size={12} /> {t('Lägg till konto')}</button>
+                      <span style={{ fontSize: '0.85rem' }}>{t('Summa')}: <strong className="mono">{fmt(linesTotal)}</strong></span>
+                    </div>
+                    {mixedTypes && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--red)', marginTop: 6 }}>
+                        {t('Alla konton på ett verifikat måste vara av samma typ (alla intäkter eller alla kostnader).')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="form-row">
                 <div>
                   <label>{t('Beskrivning')}</label>

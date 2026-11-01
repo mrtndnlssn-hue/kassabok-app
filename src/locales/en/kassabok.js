@@ -51,4 +51,14 @@ export default {
   'AI-avläsning är inte aktiverad för föreningen.': 'AI reading is not enabled for the association.',
   'Månadsgränsen på 50 avläsningar är nådd. Fyll i uppgifterna manuellt.': 'The monthly limit of 50 readings has been reached. Fill in the details manually.',
   'Det gick inte att läsa av dokumentet. Fyll i uppgifterna manuellt.': 'The document could not be read. Fill in the details manually.',
+  // Verifikat på flera konton
+  'Välj konto och ange belopp för varje rad.': 'Choose an account and enter an amount for each line.',
+  'Alla konton på ett verifikat måste vara av samma typ (alla intäkter eller alla kostnader).': 'All accounts on a voucher must be of the same type (all income or all expenses).',
+  'Summa (kr)': 'Total (SEK)',
+  'Dela upp på flera konton': 'Split across several accounts',
+  'Konton': 'Accounts',
+  'Ta bort rad': 'Remove line',
+  'Lägg till konto': 'Add account',
+  'Summa': 'Total',
+  'Verifikatet saknar konto.': 'The voucher has no account.',
 }

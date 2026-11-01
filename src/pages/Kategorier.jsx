@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Trash2, Check, AlertCircle, X, ArrowRight, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
-import { compareCategoryIds, fmt } from '../store';
+import { compareCategoryIds, fmt, txLines } from '../store';
 import { useI18n } from '../i18n';
 
 const dbId = c => c.origId ?? c.id   // koden som kategorin har i databasen just nu
@@ -23,7 +23,7 @@ function CatTable({ items, allCats, transactions, lockedCatIds, onUpdate, onUpda
         </thead>
         <tbody>
           {visible.map(cat => {
-            const txCount  = (transactions || []).filter(tx => tx.categoryId === dbId(cat)).length
+            const txCount  = (transactions || []).filter(tx => txLines(tx).some(l => l.categoryId === dbId(cat))).length
             const isLocked = lockedCatIds.has(dbId(cat))
             const codeEditable = canWrite && !isLocked
             const codeBad = badCodes.has(cat._k)
@@ -189,7 +189,7 @@ export default function Kategorier({ categories, transactions, fiscalPeriods, on
     if (!locked.length) return new Set()
     const ids = new Set()
     ;(transactions || []).forEach(tx => {
-      if (locked.some(p => tx.date >= p.start && tx.date <= p.end)) ids.add(tx.categoryId)
+      if (locked.some(p => tx.date >= p.start && tx.date <= p.end)) txLines(tx).forEach(l => ids.add(l.categoryId))
     })
     return ids
   }, [fiscalPeriods, transactions])
@@ -233,7 +233,12 @@ export default function Kategorier({ categories, transactions, fiscalPeriods, on
 
   function requestRemove(cat) {
     if (lockedCatIds.has(dbId(cat))) return
-    const affected = cat.origId ? (transactions || []).filter(tx => tx.categoryId === cat.origId) : []
+    // Verifikat med rader på kontot; beloppet som visas är det som ligger på just det kontot
+    const affected = cat.origId
+      ? (transactions || [])
+          .filter(tx => txLines(tx).some(l => l.categoryId === cat.origId))
+          .map(tx => ({ ...tx, amount: txLines(tx).filter(l => l.categoryId === cat.origId).reduce((s, l) => s + Number(l.amount), 0) }))
+      : []
     if (affected.length > 0) setDeleteModal({ cat, affectedTxs: affected })
     else { setCats(prev => prev.filter(c => c._k !== cat._k)); setDirty(true) }
   }

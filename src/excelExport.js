@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { attachments, txsForPeriod } from './store'
+import { attachments, txsForPeriod, txLines } from './store'
 import { translate as tr } from './i18n'
 
 export function sortPeriodTxs(txs) {
@@ -64,33 +64,40 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     ws.addRow({ desc: tr('Ingående saldo'), bal: opening }).font = { italic: true }
   }
 
+  // Ett verifikat med flera konton får en rad per konto (samma verifikatnummer);
+  // kommentar, registrerad och bilagor står bara på den första raden.
   txs.forEach((tx, i) => {
-    const cat = catMap[tx.categoryId]
-    const isInc = cat?.type === 'income'
-    const amount = Number(tx.amount) || 0
-    balance += isInc ? amount : -amount
-    if (isInc) totalInc += amount; else totalExp += amount
-
     const atts = attachmentsByTx[tx.id] || []
-    const row = ws.addRow({
-      ver: String(i + 1).padStart(3, '0'),
-      date: toDate(tx.date),
-      desc: tx.description || '',
-      catId: tx.categoryId,
-      cat: cat?.name || '',
-      type: cat ? (isInc ? tr('Inkomst') : tr('Utgift')) : '',
-      inc: isInc ? amount : null,
-      exp: !isInc ? amount : null,
-      bal: balance,
-      comment: tx.comment || '',
-      created: tx.createdAt ? new Date(tx.createdAt) : null,
-      attCount: atts.length,
-    })
     const folder = verFolderName(tx, i)
-    atts.forEach((filename, k) => {
-      const cell = row.getCell(`att${k}`)
-      cell.value = { text: filename, hyperlink: encodeURI(`${tr('bilagor')}/${folder}/${filename}`) }
-      cell.font = { color: { argb: 'FF0563C1' }, underline: true }
+    txLines(tx).forEach((line, li) => {
+      const cat = catMap[line.categoryId]
+      const isInc = cat?.type === 'income'
+      const amount = Number(line.amount) || 0
+      balance += isInc ? amount : -amount
+      if (isInc) totalInc += amount; else totalExp += amount
+
+      const first = li === 0
+      const row = ws.addRow({
+        ver: String(i + 1).padStart(3, '0'),
+        date: toDate(tx.date),
+        desc: tx.description || '',
+        catId: line.categoryId,
+        cat: cat?.name || '',
+        type: cat ? (isInc ? tr('Inkomst') : tr('Utgift')) : '',
+        inc: isInc ? amount : null,
+        exp: !isInc ? amount : null,
+        bal: balance,
+        comment: first ? (tx.comment || '') : '',
+        created: first && tx.createdAt ? new Date(tx.createdAt) : null,
+        attCount: first ? atts.length : null,
+      })
+      if (first) {
+        atts.forEach((filename, k) => {
+          const cell = row.getCell(`att${k}`)
+          cell.value = { text: filename, hyperlink: encodeURI(`${tr('bilagor')}/${folder}/${filename}`) }
+          cell.font = { color: { argb: 'FF0563C1' }, underline: true }
+        })
+      }
     })
   })
 
@@ -134,7 +141,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   styleHeader(cs.getRow(1))
   const periodBudget = budget?.[period.id] || {}
   const actuals = {}
-  for (const tx of txs) actuals[tx.categoryId] = (actuals[tx.categoryId] || 0) + (Number(tx.amount) || 0)
+  for (const tx of txs) for (const l of txLines(tx)) actuals[l.categoryId] = (actuals[l.categoryId] || 0) + (Number(l.amount) || 0)
   for (const c of [...categories].sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
     const actual = actuals[c.id] || 0
     const bud = periodBudget[c.id] || 0

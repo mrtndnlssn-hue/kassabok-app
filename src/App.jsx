@@ -152,7 +152,7 @@ function MainApp({ orgId, role }) {
     else setCats(sortCats(cats));
   }
   async function handleReasignAndDelete(catId, moves) {
-    for (const { txId, newCategoryId } of moves) await store.updateTransaction(orgId, txId, { categoryId: newCategoryId });
+    for (const { txId, newCategoryId } of moves) await store.reassignCategory(orgId, txId, catId, newCategoryId);
     await fetchAll();
   }
   async function handleBudgetChange(periodId, catId, amount) {

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Scale, Receipt } from 'lucide-react';
-import { fmt, txsForPeriod, sumByCategory } from '../store';
+import { fmt, txsForPeriod, sumByCategory, txLines } from '../store';
 import { useI18n } from '../i18n';
 
 function MonthChart({ monthly, categories, periodTxs }) {
@@ -84,10 +84,12 @@ export default function Dashboard({ transactions, categories, budget, activePeri
       const txM = parseInt(tx.date.slice(5,7));
       const col = cols.find(c => c.year===txY && c.month===txM);
       if (!col) continue;
-      const cat = categories.find(c => c.id===tx.categoryId);
-      if (!cat) continue;
-      if (cat.type==='income') col.income += Number(tx.amount)||0;
-      else col.expense += Number(tx.amount)||0;
+      for (const l of txLines(tx)) {
+        const cat = categories.find(c => c.id===l.categoryId);
+        if (!cat) continue;
+        if (cat.type==='income') col.income += Number(l.amount)||0;
+        else col.expense += Number(l.amount)||0;
+      }
     }
     return cols;
   }, [periodTxs, categories, activePeriod]);
@@ -130,7 +132,8 @@ export default function Dashboard({ transactions, categories, budget, activePeri
               <thead><tr><th>{t('Datum')}</th><th>{t('Beskrivning')}</th><th>{t('Kategori')}</th><th className="text-right">{t('Belopp')}</th></tr></thead>
               <tbody>
                 {recent.map(tx => {
-                  const cat = catMap[tx.categoryId];
+                  const lines = txLines(tx);
+                  const cat = catMap[lines[0].categoryId];
                   return (
                     <tr key={tx.id}>
                       <td className="mono">{tx.date}</td>
@@ -138,6 +141,7 @@ export default function Dashboard({ transactions, categories, budget, activePeri
                       <td>
                         {cat && <span className={`badge ${cat.type==='income'?'badge-income':'badge-expense'}`}>{cat.id}</span>}
                         {' '}<span style={{fontSize:'0.82rem'}}>{cat?.name}</span>
+                        {lines.length > 1 && <span style={{fontSize:'0.72rem',color:'var(--ink-muted)',marginLeft:6}}>+{lines.length - 1}</span>}
                       </td>
                       <td className={cat?.type==='income'?'positive':'negative'}>
                         {cat?.type==='income'?'+':'−'}{fmt(tx.amount)}
