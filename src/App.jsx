@@ -280,7 +280,7 @@ function MainApp({ orgId, role }) {
           })}
         </nav>
 
-        <div className="sidebar-footer" style={{ display:'flex', flexDirection:'column', gap:6 }}>
+        <div className="sidebar-footer" style={{ display:'flex', flexDirection:'column', gap:12, textAlign:'left' }}>
           {orgs.length > 1 && (
             <div>
               <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:4 }}>{t('Förening')}</div>
@@ -300,23 +300,33 @@ function MainApp({ orgId, role }) {
               </div>
             </div>
           )}
-          {isPlatformAdmin && (
-            <a href="#admin" style={{ display:'flex', alignItems:'center', gap:6, color:'rgba(255,255,255,0.7)', fontSize:'0.78rem', textDecoration:'none', padding:'4px 0' }}>
-              <Shield size={12}/> Adminportal
-            </a>
-          )}
-          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.25)' }}>☁ {t('Sparas i Supabase')}</div>
-          <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.18)', fontFamily:'var(--font-mono)' }}>
-            {isoDateTime(new Date(__BUILD_TIME__))}
+
+          {/* Konto: vem som är inloggad, adminportal (bara plattformsägaren), logga ut och språk */}
+          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase' }}>{t('Inloggad som')}</div>
+            <div title={session?.user?.email} style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.75)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {isDemoSession(session) ? t('Demo') : session?.user?.email}
+            </div>
+            {isPlatformAdmin && (
+              <a href="#admin" style={{ display:'flex', alignItems:'center', gap:6, color:'rgba(255,255,255,0.75)', fontSize:'0.78rem', textDecoration:'none', padding:'4px 0' }}>
+                <Shield size={12}/> Adminportal
+              </a>
+            )}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.6)', fontSize:'0.78rem', padding:'4px 0' }}
+              >
+                <LogOut size={12}/> {t('Logga ut')}
+              </button>
+              <LanguageSwitch dark />
+            </div>
           </div>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', fontSize:'0.75rem', padding:'4px 0' }}
-          >
-            <LogOut size={12}/> {t('Logga ut')}
-          </button>
-          <LanguageSwitch dark style={{ marginLeft:-7 }} />
-          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.35)' }}>Martin Danielsson</div>
+
+          <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:8, display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8, fontSize:'0.65rem', color:'rgba(255,255,255,0.3)' }}>
+            <span>Martin Danielsson</span>
+            <span title={t('Sparas i Supabase')} style={{ fontFamily:'var(--font-mono)', color:'rgba(255,255,255,0.22)' }}>{isoDateTime(new Date(__BUILD_TIME__))}</span>
+          </div>
         </div>
       </aside>
 

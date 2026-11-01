@@ -36,4 +36,6 @@ export default {
   'Återställ demon': 'Reset the demo',
   'Föreningsbalans – Bokföring för ideella föreningar': 'Föreningsbalans – Bookkeeping for non-profit associations',
   'Till startsidan': 'Go to the home page',
+  'Inloggad som': 'Signed in as',
+  'Demo': 'Demo',
 }
