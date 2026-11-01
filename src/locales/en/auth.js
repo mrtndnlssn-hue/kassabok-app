@@ -60,4 +60,10 @@ export default {
   'Kom igång': 'Get started',
   'Språk': 'Language',
   'Styr appens språk och namnen på standardkategorierna. Du kan byta språk senare, och döpa om kategorierna.': 'Sets the app language and the names of the default categories. You can change the language later, and rename the categories.',
+  'Typ av förening': 'Type of association',
+  'Visa föreslagna kategorier ({n})': 'Show suggested categories ({n})',
+  'Du kan ändra, lägga till och ta bort kategorier när som helst.': 'You can change, add and remove categories at any time.',
+  'Ogiltig kategorilista.': 'Invalid category list.',
+  'Ogiltig kategori i listan.': 'Invalid category in the list.',
+  'Kategorikoderna måste vara unika.': 'The category codes must be unique.',
 }

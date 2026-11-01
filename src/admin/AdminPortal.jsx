@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ArrowLeft, Loader, FileDown, RefreshCw } from 'lucide-react'
 import { supabase } from '../supabase'
 import { buildInvoicePdf, money } from './invoicePdf'
+import { fmtDate, isoDate, isoDateTime, todayStr } from '../store'
+import DateInput from '../components/DateInput'
 
 // Adminportal för plattformsägaren. Bara på svenska – används inte av föreningarna.
 
@@ -13,7 +15,8 @@ const ORDER_STATUS = { new: 'Ny', invoiced: 'Fakturerad', paid: 'Betald', cancel
 const INV_STATUS = { draft: 'Underlag', sent: 'Skickad', paid: 'Betald', void: 'Makulerad' }
 const STATUS_COLOR = { new: '#b45309', invoiced: '#1d4ed8', paid: '#15803d', cancelled: '#6b7280', draft: '#b45309', sent: '#1d4ed8', void: '#6b7280' }
 
-const day = v => (v ? String(v).slice(0, 10) : '–')
+// Datum visas alltid som YYYY-MM-DD; tidsstämplar räknas om till lokal tid, rena datum lämnas som de är
+const day = v => fmtDate(v) || '–'
 const mb = b => (b ? `${(b / 1048576).toFixed(1)} MB` : '0 MB')
 
 function Pill({ status, label }) {
@@ -151,7 +154,7 @@ function Orgs({ plans }) {
 }
 
 function PlanModal({ org, plans, onClose, onSaved }) {
-  const inAYear = () => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10) }
+  const inAYear = () => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return isoDate(d) }
   const [plan, setPlan] = useState(org.plan_code)
   const [until, setUntil] = useState(org.plan_valid_until || inAYear())
   const [err, setErr] = useState('')
@@ -163,7 +166,7 @@ function PlanModal({ org, plans, onClose, onSaved }) {
     <Modal title={`Plan – ${org.name}`} onClose={onClose}>
       <Err msg={err} />
       <Field label="Plan"><select value={plan} onChange={e => setPlan(e.target.value)}>{plans.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}</select></Field>
-      {plan !== 'gratis' && <Field label="Giltig till"><input type="date" value={until} onChange={e => setUntil(e.target.value)} /></Field>}
+      {plan !== 'gratis' && <Field label="Giltig till"><DateInput value={until} onChange={setUntil} /></Field>}
       <div className="btn-row"><button className="btn btn-primary" onClick={save}>Spara</button><button className="btn btn-secondary" onClick={onClose}>Avbryt</button></div>
     </Modal>
   )
@@ -224,7 +227,7 @@ function OrderModal({ order, orgs, planName, onClose, onChanged }) {
     if (error) setErr(error.message); else onChanged()
   }
   const rows = [
-    ['Order', order.order_no], ['Skapad', String(order.created_at).replace('T', ' ').slice(0, 16)], ['Plan', planName(order.plan_code)],
+    ['Order', order.order_no], ['Skapad', isoDateTime(new Date(order.created_at))], ['Plan', planName(order.plan_code)],
     ['Belopp', `${money(order.total)} kr (varav moms ${money(order.vat_amount)})`],
     ['Rabattkod', order.discount_code ? `${order.discount_code} (${order.discount_percent} %)` : '–'],
     ['Förening', `${order.org_name} (${order.org_number})`], ['Adress', `${order.address}, ${order.zip} ${order.city}`],
@@ -282,7 +285,7 @@ function Invoices({ settings }) {
               <div className="btn-row">
                 <button className="btn btn-secondary btn-sm" onClick={() => pdf(i)}><FileDown size={13} /> PDF</button>
                 {i.status === 'draft' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_issue_invoice', { p_invoice: i.id }, 'Faktura utfärdad. Ladda ner PDF:en och skicka den till kunden.')}>Utfärda</button>}
-                {i.status === 'sent' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_mark_invoice_paid', { p_invoice: i.id, p_paid: new Date().toISOString().slice(0, 10) }, 'Markerad som betald. Planen är aktiverad om beställningen är kopplad till en förening.')}>Markera betald</button>}
+                {i.status === 'sent' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_mark_invoice_paid', { p_invoice: i.id, p_paid: todayStr() }, 'Markerad som betald. Planen är aktiverad om beställningen är kopplad till en förening.')}>Markera betald</button>}
                 {(i.status === 'draft' || i.status === 'sent') && <button className="btn btn-danger btn-sm" onClick={() => window.confirm('Makulera fakturan?') && run('admin_void_invoice', { p_invoice: i.id }, 'Fakturan är makulerad.')}>Makulera</button>}
               </div>
             </td>
@@ -367,7 +370,7 @@ function Discounts({ plans }) {
         <Field label="Kod"><div style={{ display: 'flex', gap: 6 }}><input required value={form.code} onChange={e => set('code', e.target.value.toUpperCase())} placeholder="t.ex. VAR2027" /><button type="button" className="btn btn-secondary btn-sm" onClick={randomCode}>Slumpa</button></div></Field>
         <Field label="Rabatt (%)"><input required type="number" min="1" max="100" value={form.percent} onChange={e => set('percent', e.target.value)} /></Field>
         <Field label="Max antal användningar"><input type="number" min="1" value={form.max_uses} onChange={e => set('max_uses', e.target.value)} placeholder="obegränsat" /></Field>
-        <Field label="Giltig till"><input type="date" value={form.valid_until} onChange={e => set('valid_until', e.target.value)} /></Field>
+        <Field label="Giltig till"><DateInput value={form.valid_until} onChange={v => set('valid_until', v)} /></Field>
         <Field label="Bara för plan"><select value={form.plan_code} onChange={e => set('plan_code', e.target.value)}><option value="">alla</option>{plans.filter(p => p.price_incl_vat_sek > 0).map(p => <option key={p.code} value={p.code}>{p.name}</option>)}</select></Field>
         <Field label="Anteckning (syns bara här)"><input value={form.note} onChange={e => set('note', e.target.value)} /></Field>
         <div style={{ marginBottom: 12 }}><button className="btn btn-primary" type="submit">Skapa kod</button></div>
@@ -375,7 +378,7 @@ function Discounts({ plans }) {
       <Table head={['Kod', 'Rabatt', 'Använd', 'Giltig till', 'Plan', 'Anteckning', 'Status', '']}
         rows={codes.map(c => {
           const exhausted = c.max_uses && c.uses >= c.max_uses
-          const expired = c.valid_until && c.valid_until < new Date().toISOString().slice(0, 10)
+          const expired = c.valid_until && c.valid_until < todayStr()
           const on = c.active && !exhausted && !expired
           return (
             <tr key={c.code}>

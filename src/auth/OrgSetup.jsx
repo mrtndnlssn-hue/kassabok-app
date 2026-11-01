@@ -3,11 +3,13 @@ import { supabase } from '../supabase'
 import { useAuth } from './AuthProvider'
 import { useI18n, LANGUAGES } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
+import { ORG_TEMPLATES, templateById, templateCategories } from '../orgTemplates'
 
 export default function OrgSetup({ onDone, onCancel }) {
   const { t, lang, setLang } = useI18n()
   const { session, setOrgId, addOrg } = useAuth()
   const [name, setName]       = useState('')
+  const [orgType, setOrgType] = useState('allman')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const [inviteOrgName, setInviteOrgName] = useState(null)
@@ -50,8 +52,10 @@ export default function OrgSetup({ onDone, onCancel }) {
     setLoading(true)
     setError('')
     try {
-      // Allt skapas atomärt i databasen: förening, huvudägare, standardkategorier och innevarande år
-      const { data: orgId, error: createErr } = await supabase.rpc('create_organization', { p_name: name.trim(), p_lang: lang })
+      // Allt skapas atomärt i databasen: förening, huvudägare, kategorier enligt vald föreningstyp och innevarande år
+      const { data: orgId, error: createErr } = await supabase.rpc('create_organization', {
+        p_name: name.trim(), p_lang: lang, p_type: orgType, p_categories: templateCategories(orgType, lang),
+      })
       if (createErr) throw createErr
 
       addOrg(orgId, 'main_owner')
@@ -63,9 +67,9 @@ export default function OrgSetup({ onDone, onCancel }) {
   }
 
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontFamily:'var(--font-body)', background:'var(--paper)', position:'relative' }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', padding:'48px 16px', boxSizing:'border-box', fontFamily:'var(--font-body)', background:'var(--paper)', position:'relative' }}>
       <LanguageSwitch style={{ position:'absolute', top:16, right:16 }} />
-      <div style={{ width:400, background:'var(--paper-2)', borderRadius:'var(--r-lg)', border:'1px solid var(--border)', padding:32, boxShadow:'0 4px 24px rgba(0,0,0,0.08)' }}>
+      <div style={{ width:'100%', maxWidth:460, background:'var(--paper-2)', borderRadius:'var(--r-lg)', border:'1px solid var(--border)', padding:32, boxShadow:'0 4px 24px rgba(0,0,0,0.08)' }}>
 
         {inviteCode ? (
           <>
@@ -108,6 +112,29 @@ export default function OrgSetup({ onDone, onCancel }) {
                     required
                     autoFocus
                   />
+                </div>
+              </div>
+              <div className="form-row">
+                <div>
+                  <label>{t('Typ av förening')}</label>
+                  <select value={orgType} onChange={e => setOrgType(e.target.value)}>
+                    {ORG_TEMPLATES.map(o => <option key={o.id} value={o.id}>{o.label[lang]}</option>)}
+                  </select>
+                  <div style={{ fontSize:'0.75rem', color:'var(--ink-muted)', marginTop:4 }}>{templateById(orgType).desc[lang]}</div>
+                  <details style={{ marginTop:8 }}>
+                    <summary style={{ cursor:'pointer', fontSize:'0.8rem', color:'var(--accent)' }}>{t('Visa föreslagna kategorier ({n})', { n: templateById(orgType).categories.length })}</summary>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginTop:8, fontSize:'0.75rem', color:'var(--ink-soft)' }}>
+                      {['income', 'expense'].map(type => (
+                        <div key={type}>
+                          <div style={{ fontWeight:600, marginBottom:4 }}>{type === 'income' ? t('Intäkter') : t('Kostnader')}</div>
+                          {templateCategories(orgType, lang).filter(c => c.type === type).map(c => (
+                            <div key={c.id}><span className="mono" style={{ color:'var(--ink-muted)' }}>{c.id}</span> {c.name}</div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize:'0.72rem', color:'var(--ink-muted)', marginTop:8 }}>{t('Du kan ändra, lägga till och ta bort kategorier när som helst.')}</div>
+                  </details>
                 </div>
               </div>
               <div className="form-row">
