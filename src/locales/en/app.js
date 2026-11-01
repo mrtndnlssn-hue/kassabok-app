@@ -35,5 +35,5 @@ export default {
     'You can change things freely, but nothing is saved: changes disappear when you reload the page or log out.',
   'Återställ demon': 'Reset the demo',
   'Föreningsbalans – Bokföring för ideella föreningar': 'Föreningsbalans – Bookkeeping for non-profit associations',
-  'Till översikten': 'Go to the overview',
+  'Till startsidan': 'Go to the home page',
 }

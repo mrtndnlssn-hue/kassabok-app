@@ -50,7 +50,7 @@ export default function LoginPage() {
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontFamily:'var(--font-body)', background:'var(--paper)', position:'relative' }}>
       <LanguageSwitch style={{ position:'absolute', top:16, right:16 }} />
       <div style={{ width:380, background:'var(--paper-2)', borderRadius:'var(--r-lg)', border:'1px solid var(--border)', padding:32, boxShadow:'0 4px 24px rgba(0,0,0,0.08)' }}>
-        <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'1.8rem', marginBottom:4, color:'var(--ink)', display:'flex', alignItems:'center', gap:10 }}><img src="/favicon.svg" alt="" width="34" height="34" />Föreningsbalans</h1>
+        <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'1.8rem', marginBottom:4, color:'var(--ink)', display:'flex', alignItems:'center', gap:10 }}><a href="https://foreningsbalans.se" title={t('Till startsidan')} style={{ display:'flex', alignItems:'center', gap:10, color:'inherit', textDecoration:'none' }}><img src="/favicon.svg" alt="" width="34" height="34" />Föreningsbalans</a></h1>
         <p style={{ color:'var(--ink-muted)', fontSize:'0.85rem', marginBottom: inviteOrg ? 16 : 24 }}>{t('Bokföring för ideell förening')}</p>
 
         {inviteOrg && (

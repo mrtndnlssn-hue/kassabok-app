@@ -214,11 +214,11 @@ function MainApp({ orgId, role }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <button type="button" onClick={() => navigate('dashboard')} title={t('Till översikten')} aria-label={t('Till översikten')}
-            style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14, padding:0, background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
+          <a href="https://foreningsbalans.se" title={t('Till startsidan')} aria-label={t('Till startsidan')}
+            style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14, textDecoration:'none' }}>
             <img src="/favicon.svg" alt="" width="26" height="26" />
             <span style={{ fontSize:'0.85rem', fontWeight:600, color:'rgba(255,255,255,0.75)', letterSpacing:'0.01em', textTransform:'none', margin:0 }}>Föreningsbalans</span>
-          </button>
+          </a>
           <h1>{orgName || t('Min Förening')}</h1>
 
           <div style={{ marginTop:10 }}>

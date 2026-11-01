@@ -49,7 +49,7 @@ export default function OrgPicker({ onCreateNew, onPick }) {
       <div style={{ width:'100%', maxWidth:440 }}>
         {/* Header */}
         <div style={{ marginBottom:32, textAlign:'center' }}>
-          <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'2rem', color:'var(--ink)', marginBottom:4, display:'flex', alignItems:'center', gap:10 }}><img src="/favicon.svg" alt="" width="38" height="38" />Föreningsbalans</h1>
+          <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'2rem', color:'var(--ink)', marginBottom:4, display:'flex', alignItems:'center', gap:10 }}><a href="https://foreningsbalans.se" title={t('Till startsidan')} style={{ display:'flex', alignItems:'center', gap:10, color:'inherit', textDecoration:'none' }}><img src="/favicon.svg" alt="" width="38" height="38" />Föreningsbalans</a></h1>
           <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>{t('Välj en förening eller skapa ny')}</p>
         </div>
 
