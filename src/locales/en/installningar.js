@@ -71,4 +71,9 @@ export default {
   'Verifikat i nuvarande räkenskapsår:': 'Vouchers in the current financial year:',
   'AI-avläsningar per månad:': 'AI readings per month:',
   'Behöver ni fler verifikat? Se planerna och beställ på': 'Need more vouchers? See the plans and order at',
+  // Plannamn
+  'Prova': 'Trial',
+  'Liten': 'Small',
+  'Medel': 'Medium',
+  'Stor': 'Large',
 }

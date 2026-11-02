@@ -116,7 +116,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="section-title">{t('Plan')}</div>
           <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:10 }}>
-            <strong style={{ fontSize:'1.1rem' }}>{plan.plan_name}</strong>
+            <strong style={{ fontSize:'1.1rem' }}>{t(plan.plan_name)}</strong>
             {plan.plan_code !== 'gratis' && plan.valid_until && (
               <span style={{ fontSize:'0.8rem', color:'var(--ink-muted)' }}>{t('Giltig till {date}', { date: plan.valid_until })}</span>
             )}
@@ -208,7 +208,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
         </p>
         {!projAllowed ? (
           <div className="notice notice-info" style={{ fontSize: '0.85rem' }}>
-            {t('Märkning ingår i planerna Förening och Förening Plus.')} <a href="https://foreningsbalans.se/#priser">{t('Se planerna')}</a>
+            {t('Märkning ingår i planerna Medel och Stor.')} <a href="https://foreningsbalans.se/#priser">{t('Se planerna')}</a>
           </div>
         ) : (
           <form onSubmit={saveProjects}>

@@ -45,7 +45,7 @@ export default {
   'Märkning av inkomster och utgifter': 'Tagging income and expenses',
   'Följ vissa projekt, sektioner eller event genom att märka inkomster och utgifter. Du får en egen rapport per märkning, och kan koppla medlemmar så att de ser sin del på översikten.':
     'Follow specific projects, sections or events by tagging income and expenses. You get a separate report for each one, and can link members so they see their part on the overview.',
-  'Märkning ingår i planerna Förening och Förening Plus.': 'Tagging is included in the Förening and Förening Plus plans.',
+  'Märkning ingår i planerna Medel och Stor.': 'Tagging is included in the Medium and Large plans.',
   'Se planerna': 'See the plans',
   'Använd märkning i {namn}': 'Use tagging in {namn}',
   'Vad ska funktionen heta hos er? Till exempel Sektion och Sektioner, Projekt och Projekt eller Event och Event. Lämna tomt för Projekt.':
@@ -73,5 +73,5 @@ export default {
   'Projektet finns inte.': 'That project does not exist.',
   'Projektet är stängt.': 'That project is closed.',
   'Verifikat är märkta med detta. Stäng det i stället för att ta bort det.': 'Vouchers are tagged with this. Close it instead of deleting it.',
-  'Märkning med projekt ingår i planerna Förening och Förening Plus.': 'Tagging with projects is included in the Förening and Förening Plus plans.',
+  'Märkning med projekt ingår i planerna Medel och Stor.': 'Tagging with projects is included in the Medium and Large plans.',
 }
