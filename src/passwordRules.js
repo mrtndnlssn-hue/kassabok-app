@@ -13,7 +13,7 @@ const COMMON = [
 export const passwordHint = () => t('Minst 10 tecken, med små och stora bokstäver, siffror och symboler (till exempel ! # ?).')
 
 // Samma teckenuppsättning som Supabase använder för symboler
-const SYMBOL = /[!@#$%^&*()_+\-=[\]{};':"\|<>?,./`~]/
+export const SYMBOL = /[!@#$%^&*()_+\-=[\]{};':"\|<>?,./`~]/
 
 // Returnerar ett felmeddelande, eller tom text om lösenordet duger
 export function checkPassword(password, email = '') {
@@ -27,4 +27,20 @@ export function checkPassword(password, email = '') {
   const local = String(email).split('@')[0].toLowerCase()
   if (local.length >= 4 && pw.toLowerCase().includes(local)) return t('Lösenordet får inte innehålla din e-postadress.')
   return ''
+}
+
+// Underlag för styrkemätaren: vilka krav som är uppfyllda och en styrka 0–4
+export function passwordStrength(password, email = '') {
+  const pw = String(password || '')
+  const checks = [
+    { ok: pw.length >= MIN_PASSWORD_LENGTH, label: t('Minst 10 tecken') },
+    { ok: /[a-z]/.test(pw),                 label: t('Liten bokstav') },
+    { ok: /[A-Z]/.test(pw),                 label: t('Stor bokstav') },
+    { ok: /\d/.test(pw),                    label: t('Siffra') },
+    { ok: SYMBOL.test(pw),                  label: t('Symbol') },
+  ]
+  const met = checks.filter(c => c.ok).length
+  let score = 0
+  if (pw) score = checkPassword(pw, email) ? (met <= 2 ? 1 : 2) : (pw.length >= 16 ? 4 : 3)
+  return { checks, score }
 }

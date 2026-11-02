@@ -3,7 +3,8 @@ import { supabase } from '../supabase'
 import { demoCredentials } from '../demo'
 import { useI18n } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
-import { checkPassword, passwordHint, MIN_PASSWORD_LENGTH } from '../passwordRules'
+import { checkPassword, MIN_PASSWORD_LENGTH } from '../passwordRules'
+import PasswordStrength from '../components/PasswordStrength'
 
 export default function LoginPage() {
   const { t } = useI18n()
@@ -101,7 +102,7 @@ export default function LoginPage() {
                 <div>
                   <label>{t('Lösenord')}</label>
                   <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'register' ? MIN_PASSWORD_LENGTH : undefined} placeholder={mode === 'register' ? t('Minst 10 tecken') : t('Lösenord')} />
-                  {mode === 'register' && <div style={{ fontSize:'0.75rem', color:'var(--ink-muted)', marginTop:4 }}>{passwordHint()}</div>}
+                  {mode === 'register' && <PasswordStrength password={password} email={email} />}
                 </div>
               </div>
             )}

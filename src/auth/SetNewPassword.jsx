@@ -3,7 +3,8 @@ import { supabase } from '../supabase'
 import { useAuth } from './AuthProvider'
 import { useI18n } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
-import { checkPassword, passwordHint, MIN_PASSWORD_LENGTH } from '../passwordRules'
+import { checkPassword, MIN_PASSWORD_LENGTH } from '../passwordRules'
+import PasswordStrength from '../components/PasswordStrength'
 
 export default function SetNewPassword() {
   const { t } = useI18n()
@@ -48,7 +49,7 @@ export default function SetNewPassword() {
               <div>
                 <label>{t('Nytt lösenord')}</label>
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={MIN_PASSWORD_LENGTH} placeholder={t('Minst 10 tecken')} autoFocus />
-                <div style={{ fontSize:'0.75rem', color:'var(--ink-muted)', marginTop:4 }}>{passwordHint()}</div>
+                <PasswordStrength password={password} />
               </div>
             </div>
             <div className="form-row">
