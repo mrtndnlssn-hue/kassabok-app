@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { locale, translate } from './i18n'
+import { optimizeImage } from './imageCompress'
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024 // samma som bucketens gräns i Supabase
 
@@ -341,7 +342,8 @@ const dbAttachments = {
   },
 
   async upload(orgId, txId, files) {
-    for (const file of files) {
+    for (const original of files) {
+      const file = await optimizeImage(original)
       if (file.size > MAX_ATTACHMENT_BYTES) {
         throw new Error(translate('{namn} är större än 10 MB och kan inte laddas upp.', { namn: file.name }))
       }
@@ -529,7 +531,8 @@ const demoAttachments = {
   },
   async upload(_o, txId, files) {
     const arr = demo.files.get(txId) || []
-    for (const file of files) {
+    for (const original of files) {
+      const file = await optimizeImage(original)
       const name = file.name.replace(/[^\w.\-åäöÅÄÖ]/g, '_')
       const i = arr.findIndex(f => f.name === name)
       if (i >= 0) arr[i] = { name, file }
