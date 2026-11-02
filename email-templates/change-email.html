@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Föreningsbalans</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f2ec;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2ec;">
+    <tr><td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <tr><td style="padding:0 4px 16px;">
+          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+            <td style="padding-right:10px;"><img src="https://foreningsbalans.se/apple-touch-icon.png" width="32" height="32" alt="" style="display:block;border-radius:7px;"></td>
+            <td style="font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:700;color:#1a1a2e;">Föreningsbalans</td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="background:#ffffff;border:1px solid #e2ded2;border-radius:12px;padding:28px 28px 24px;">
+          <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.25;color:#1a1a2e;font-weight:700;">Bekräfta din nya e-postadress</h1>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1a1a2e;">Du har bett om att byta e-postadress för ditt konto från {{ .Email }} till {{ .NewEmail }}. Bekräfta bytet med knappen.</p>
+          <p style="margin:0 0 20px;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#2d6a4f;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:8px;">Bekräfta ny e-postadress</a></p>
+          <p style="margin:0;font-size:12.5px;line-height:1.6;color:#6b6b80;">Fungerar inte knappen? Kopiera den här länken till webbläsaren:<br><a href="{{ .ConfirmationURL }}" style="color:#2d6a4f;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+          <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#6b6b80;">Har du inte begärt detta bör du byta lösenord eller höra av dig till oss.</p>
+        </td></tr>
+        <tr><td style="padding:16px 4px 0;">
+          <div style="border-top:1px solid #e2ded2;padding-top:16px;">
+            <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#1a1a2e;">Confirm your new email address</p>
+            <p style="margin:0 0 10px;font-size:13px;line-height:1.6;color:#6b6b80;">You asked to change the email address of your account from {{ .Email }} to {{ .NewEmail }}. Confirm the change here: <a href="{{ .ConfirmationURL }}" style="color:#2d6a4f;font-weight:600;">Confirm new email address</a></p>
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#6b6b80;">If you did not ask for this, change your password or contact us.</p>
+          </div>
+        </td></tr>
+        <tr><td style="padding:20px 4px 0;font-size:12px;line-height:1.6;color:#6b6b80;">
+          Föreningsbalans · <a href="https://foreningsbalans.se" style="color:#6b6b80;">foreningsbalans.se</a><br>
+          Frågor? Svara inte på det här mejlet utan skriv till <a href="mailto:hej@foreningsbalans.se" style="color:#6b6b80;">hej@foreningsbalans.se</a>.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
