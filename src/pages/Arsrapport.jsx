@@ -4,9 +4,11 @@ import { fmt, txsForPeriod, sumByCategory } from '../store';
 import { exportAnnualReport, exportBudget } from '../pdfExport';
 import { exportPeriodExcel, exportPeriodVouchers, downloadBlob } from '../excelExport';
 import { useI18n } from '../i18n';
+import { useProjects, cap } from '../ProjectsContext';
 
 export default function Arsrapport({ transactions, categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod }) {
   const { t } = useI18n();
+  const { enabled: projOn, projects, labels } = useProjects();
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
   const [loading, setLoading]           = useState(false);
   const [done, setDone]                 = useState(false);
@@ -48,7 +50,7 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
     }
   }
 
-  const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget: periodBudget }));
+  const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget: periodBudget, projects: projOn ? projects : [], projectLabel: cap(labels.one) }));
   const handleVouchers = () => runDownload('vouchers', () => exportPeriodVouchers({ orgId, period, transactions }));
 
   async function handleBudgetExport() {

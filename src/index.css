@@ -89,6 +89,16 @@ tfoot td{padding:11px 14px;font-weight:600;background:var(--paper-2);border-top:
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;}
 .badge-income{background:var(--accent-3);color:var(--accent);}
 .badge-expense{background:var(--red-soft);color:var(--red);}
+.badge-project{background:var(--paper-2);color:var(--blue);border:1px solid var(--border);letter-spacing:0;}
+.badge-closed{background:var(--paper-2);color:var(--ink-muted);border:1px solid var(--border);}
+.badge-open{background:var(--accent-3);color:var(--accent);}
+.project-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-bottom:24px;}
+.project-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;display:flex;flex-direction:column;gap:8px;}
+.project-card.clickable{cursor:pointer;}
+.project-card.clickable:hover{border-color:var(--accent-2);}
+.project-card h4{margin:0;font-size:1rem;}
+.project-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:0.78rem;color:var(--ink-muted);}
+.project-totals strong{display:block;font-family:var(--font-mono);font-size:0.85rem;color:var(--ink);}
 
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,46,0.5);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px);}
 .modal{background:#fff;border-radius:var(--r-lg);padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);}

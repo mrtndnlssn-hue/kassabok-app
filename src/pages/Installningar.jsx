@@ -5,8 +5,9 @@ import { Check, Trash2, AlertTriangle, X } from 'lucide-react'
 import { store, attachments } from '../store'
 import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
 import { useI18n } from '../i18n'
+import { useProjects, defaultLabels } from '../ProjectsContext'
 
-export default function Installningar({ orgId, orgName, onOrgNameChange }) {
+export default function Installningar({ orgId, orgName, onOrgNameChange, onProjectSettingsChange }) {
   const { t } = useI18n()
   const { session, role } = useAuth()
 
@@ -53,6 +54,36 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
       setAiUsage(u => ({ ...u, enabled }))
     } catch (e) {
       setAiError(e.message)
+    }
+  }
+
+  // --- Märkning med projekt/sektioner ---
+  const { allowed: projAllowed, settings: projSettings } = useProjects()
+  const [projOn, setProjOn]         = useState(!!projSettings?.enabled)
+  const [projOne, setProjOne]       = useState(projSettings?.labelSingular || '')
+  const [projMany, setProjMany]     = useState(projSettings?.labelPlural || '')
+  const [projSaving, setProjSaving] = useState(false)
+  const [projDone, setProjDone]     = useState(false)
+  const [projError, setProjError]   = useState('')
+  useEffect(() => {
+    setProjOn(!!projSettings?.enabled); setProjOne(projSettings?.labelSingular || ''); setProjMany(projSettings?.labelPlural || '')
+  }, [projSettings?.enabled, projSettings?.labelSingular, projSettings?.labelPlural])
+  const projDirty = projOn !== !!projSettings?.enabled || projOne.trim() !== (projSettings?.labelSingular || '') || projMany.trim() !== (projSettings?.labelPlural || '')
+
+  async function saveProjects(e) {
+    e.preventDefault()
+    setProjError(''); setProjDone(false)
+    if (!!projOne.trim() !== !!projMany.trim()) { setProjError(t('Fyll i både enkelform och flertal, eller lämna båda tomma.')); return }
+    setProjSaving(true)
+    try {
+      await store.setProjectSettings(orgId, { enabled: projOn, singular: projOne, plural: projMany })
+      await onProjectSettingsChange?.()
+      setProjDone(true)
+      setTimeout(() => setProjDone(false), 3000)
+    } catch (err) {
+      setProjError(t(err.message))
+    } finally {
+      setProjSaving(false)
     }
   }
 
@@ -154,6 +185,47 @@ export default function Installningar({ orgId, orgName, onOrgNameChange }) {
           </label>
         ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span>}
         {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
+      </div>
+
+      {/* Märkning med projekt/sektioner */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="section-title">{t('Märkning av inkomster och utgifter')}</div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+          {t('Följ vissa projekt, sektioner eller event genom att märka inkomster och utgifter. Du får en egen rapport per märkning, och kan koppla medlemmar så att de ser sin del på översikten.')}
+        </p>
+        {!projAllowed ? (
+          <div className="notice notice-info" style={{ fontSize: '0.85rem' }}>
+            {t('Märkning ingår i planerna Förening och Förening Plus.')} <a href="https://foreningsbalans.se/#priser">{t('Se planerna')}</a>
+          </div>
+        ) : (
+          <form onSubmit={saveProjects}>
+            {projError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{projError}</div>}
+            {projDone && <div className="notice notice-success" style={{ marginBottom: 12 }}>{t('Inställningarna har sparats.')}</div>}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0 }}>
+              <input type="checkbox" checked={projOn} disabled={!canManageAi} onChange={e => { setProjOn(e.target.checked); setProjDone(false) }} style={{ width: 'auto' }} />
+              {t('Använd märkning i {namn}', { namn: orgName })}
+            </label>
+            <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', margin: '8px 0 0' }}>
+              {t('Stänger ni av märkningen sparas alla projekt, kopplingar och märkta verifikat, men de syns inte i appen. Slår ni på den igen finns allt kvar.')}
+            </p>
+            {projOn && (
+              <div style={{ marginTop: 16 }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', margin: '0 0 10px' }}>
+                  {t('Vad ska funktionen heta hos er? Till exempel Sektion och Sektioner, Projekt och Projekt eller Event och Event. Lämna tomt för Projekt.')}
+                </p>
+                <div className="form-row form-row-cols">
+                  <div><label>{t('Enkelform')}</label><input type="text" value={projOne} maxLength={30} placeholder={defaultLabels().one} disabled={!canManageAi} onChange={e => { setProjOne(e.target.value); setProjDone(false) }} /></div>
+                  <div><label>{t('Flertal')}</label><input type="text" value={projMany} maxLength={30} placeholder={defaultLabels().many} disabled={!canManageAi} onChange={e => { setProjMany(e.target.value); setProjDone(false) }} /></div>
+                </div>
+              </div>
+            )}
+            {canManageAi
+              ? <button className="btn btn-primary" type="submit" disabled={projSaving || !projDirty} style={{ marginTop: 14 }}>
+                  {projSaving ? t('Sparar…') : <><Check size={14}/> {t('Spara')}</>}
+                </button>
+              : <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
+          </form>
+        )}
       </div>
 
       {/* Ta bort förening */}

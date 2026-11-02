@@ -7,11 +7,12 @@ import DateInput from '../components/DateInput';
 import { useAuth } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
 import useIsMobile from '../hooks/useIsMobile';
+import { useProjects, cap, lower } from '../ProjectsContext';
 
 const emptyForm = () => ({
   date: todayStr(),
   description: '',
-  lines: [{ categoryId: '', amount: '' }],   // ett verifikat kan bokföras på flera konton
+  lines: [{ categoryId: '', amount: '', projectId: '' }],   // ett verifikat kan bokföras på flera konton
   comment: '',
 });
 
@@ -20,6 +21,9 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const isMobile = useIsMobile()
   const { role } = useAuth()
   const canWrite = role !== 'viewer'
+  const { enabled: projOn, labels, projects } = useProjects()
+  const projMap = useMemo(() => Object.fromEntries(projects.map(p => [p.id, p])), [projects])
+  const showProjects = projOn && projects.length > 0
   const period = activePeriod;
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
@@ -29,6 +33,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [attachTx, setAttachTx]       = useState(null); // {tx, verNum}
   const [filterCat, setFilterCat]     = useState('all');
+  const [filterProject, setFilterProject] = useState('all');   // 'all' | 'none' | projekt-id
   const [newFiles, setNewFiles]       = useState([]); // [{file, url}]
   const [previewIdx, setPreviewIdx]   = useState(0);
   const [saving, setSaving]           = useState(false);
@@ -65,13 +70,21 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     if (filterCat !== 'all') {
       txs = txs.filter(x => txLines(x).some(l => l.categoryId === filterCat));
     }
+    if (filterProject !== 'all') {
+      txs = txs.filter(x => txLines(x).some(l => matchesProject(l)));
+    }
     return txs;
-  }, [yearTxs, search, filterType, filterCat, catMap]);
+  }, [yearTxs, search, filterType, filterCat, filterProject, catMap]);
+
+  function matchesProject(l) {
+    return filterProject === 'all' || (filterProject === 'none' ? !l.projectId : l.projectId === filterProject);
+  }
 
   // De rader av ett verifikat som matchar filtren (så att summorna stämmer när man filtrerar på ett konto)
   const shownLines = tx => txLines(tx).filter(l =>
     (filterCat === 'all' || l.categoryId === filterCat) &&
-    (filterType === 'all' || catMap[l.categoryId]?.type === filterType));
+    (filterType === 'all' || catMap[l.categoryId]?.type === filterType) &&
+    matchesProject(l));
   const sumType = (lines, type) => lines.filter(l => catMap[l.categoryId]?.type === type).reduce((s, l) => s + Number(l.amount), 0);
 
   const totalIncome  = filtered.reduce((s, x) => s + sumType(shownLines(x), 'income'), 0);
@@ -83,7 +96,20 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const lineTypes    = new Set(form.lines.filter(l => l.categoryId).map(l => catMap[l.categoryId]?.type));
   const mixedTypes   = lineTypes.size > 1;
   const setLine      = (i, patch) => setForm(f => ({ ...f, lines: f.lines.map((l, j) => j === i ? { ...l, ...patch } : l) }));
-  const addLine      = () => setForm(f => ({ ...f, lines: [...f.lines, { categoryId: '', amount: '' }] }));
+  const addLine      = () => setForm(f => ({ ...f, lines: [...f.lines, { categoryId: '', amount: '', projectId: f.lines[f.lines.length - 1]?.projectId || '' }] }));
+
+  // Projekt som kan väljas: pågående, samt ett redan valt (även om det stängts sedan dess)
+  const projectSelect = (value, onChange, style) => (
+    <select value={value || ''} onChange={e => onChange(e.target.value)} style={style}>
+      <option value="">{t('– Inget –')}</option>
+      {projects.filter(p => !p.closed || p.id === value).map(p => (
+        <option key={p.id} value={p.id}>{p.name}{p.closed ? ` (${t('stängd')})` : ''}</option>
+      ))}
+    </select>
+  );
+  const projectChip = l => projOn && l.projectId && projMap[l.projectId]
+    ? <span className="badge badge-project" title={cap(labels.one)} style={{ marginLeft: 6 }}>{projMap[l.projectId].name}</span>
+    : null;
   const removeLine   = i => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }));
 
   function openAdd() {
@@ -108,6 +134,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
         lines: [{
           categoryId: r.category_id || f.lines[0]?.categoryId || '',
           amount:     r.amount != null ? String(r.amount) : (f.lines.length === 1 ? f.lines[0].amount : ''),
+          projectId:  f.lines[0]?.projectId || '',
         }],
       }));
       setAiUsage(u => u && { ...u, used: r.used, limit: r.limit });
@@ -122,7 +149,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   }
   function openEdit(tx) {
     setForm({ date: tx.date, description: tx.description || '', comment: tx.comment || '',
-      lines: txLines(tx).map(l => ({ categoryId: l.categoryId, amount: String(l.amount) })) });
+      lines: txLines(tx).map(l => ({ categoryId: l.categoryId, amount: String(l.amount), projectId: l.projectId || '' })) });
     setEditId(tx.id);
     setNewFiles([]);
     setSaveError('');
@@ -133,7 +160,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     if (!isValidIsoDate(form.date)) { setSaveError(t('Ange ett giltigt datum på formatet YYYY-MM-DD.')); return; }
     if (form.lines.some(l => !l.categoryId || !(parseFloat(l.amount) > 0))) { setSaveError(t('Välj konto och ange belopp för varje rad.')); return; }
     if (mixedTypes) { setSaveError(t('Alla konton på ett verifikat måste vara av samma typ (alla intäkter eller alla kostnader).')); return; }
-    const lines = form.lines.map(l => ({ categoryId: l.categoryId, amount: parseFloat(l.amount) }));
+    const lines = form.lines.map(l => ({ categoryId: l.categoryId, amount: parseFloat(l.amount), projectId: l.projectId || null }));
     const payload = { date: form.date, description: form.description, comment: form.comment, lines };
     setSaving(true);
     setSaveError('');
@@ -214,6 +241,13 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
             .sort((a, b) => String(a.id).localeCompare(String(b.id), 'sv', { numeric: true }))
             .map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
         </select>
+        {showProjects && (
+          <select value={filterProject} onChange={e => setFilterProject(e.target.value)} style={{ width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? 'none' : 220 }}>
+            <option value="all">{t('Alla {namn}', { namn: lower(labels.many) })}</option>
+            <option value="none">{t('Utan {namn}', { namn: lower(labels.one) })}</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}{p.closed ? ` (${t('stängd')})` : ''}</option>)}
+          </select>
+        )}
         <div className="ml-auto">
           {canWrite && !isMobile && (
             <button className="btn btn-primary" onClick={openAdd} disabled={!!activePeriod?.locked} style={{ opacity: activePeriod?.locked ? 0.4 : 1, cursor: activePeriod?.locked ? "not-allowed" : "pointer" }}>
@@ -261,6 +295,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                       <span className={`badge ${c?.type === 'income' ? 'badge-income' : 'badge-expense'}`}>{c?.id || l.categoryId}</span>
                       <span>{c?.name}</span>
                       {lines.length > 1 && <span className="mono" style={{ color: 'var(--ink-muted)' }}>{fmt(l.amount)}</span>}
+                      {projectChip(l)}
                     </div>
                   );
                 })}
@@ -323,6 +358,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                           <span className={`badge ${c?.type === 'income' ? 'badge-income' : 'badge-expense'}`}>{c?.id || l.categoryId}</span>
                           {' '}<span style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>{c?.name}</span>
                           {lines.length > 1 && <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginLeft: 6 }}>{fmt(l.amount)}</span>}
+                          {projectChip(l)}
                         </div>
                       );
                     })}
@@ -415,6 +451,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                 </div>
               </div>
               {!isSplit ? (
+                <>
                 <div className="form-row">
                   <div>
                     <label>{t('Kategori')} *</label>
@@ -426,22 +463,39 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                     </button>
                   </div>
                 </div>
+                {showProjects && (
+                  <div className="form-row">
+                    <div>
+                      <label>{cap(labels.one)}</label>
+                      {projectSelect(form.lines[0].projectId, v => setLine(0, { projectId: v }))}
+                    </div>
+                  </div>
+                )}
+                </>
               ) : (
                 <div className="form-row">
                   <div>
                     <label>{t('Konton')} *</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {form.lines.map((l, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <select value={l.categoryId} onChange={e => setLine(i, { categoryId: e.target.value })} required style={{ flex: 1, minWidth: 0 }}>
-                            {categoryOptions}
-                          </select>
-                          <input type="number" step="0.01" min="0" placeholder="0.00" value={l.amount} required
-                            onChange={e => setLine(i, { amount: e.target.value })} style={{ width: 110, textAlign: 'right' }} />
-                          <button type="button" title={t('Ta bort rad')} onClick={() => removeLine(i)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex', padding: 4 }}>
-                            <X size={15} />
-                          </button>
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <select value={l.categoryId} onChange={e => setLine(i, { categoryId: e.target.value })} required style={{ flex: 1, minWidth: 0 }}>
+                              {categoryOptions}
+                            </select>
+                            <input type="number" step="0.01" min="0" placeholder="0.00" value={l.amount} required
+                              onChange={e => setLine(i, { amount: e.target.value })} style={{ width: 110, textAlign: 'right' }} />
+                            <button type="button" title={t('Ta bort rad')} onClick={() => removeLine(i)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex', padding: 4 }}>
+                              <X size={15} />
+                            </button>
+                          </div>
+                          {showProjects && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 28 }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', minWidth: 60 }}>{cap(labels.one)}</span>
+                              {projectSelect(l.projectId, v => setLine(i, { projectId: v }), { flex: 1, minWidth: 0, fontSize: '0.82rem' })}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

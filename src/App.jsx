@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings } from 'lucide-react';
+import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings, Layers } from 'lucide-react';
 import { store, attachments, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
@@ -17,6 +17,8 @@ import Rakenskapsperioder from './pages/Rakenskapsperioder';
 import Medlemmar from './pages/Medlemmar';
 import Installningar from './pages/Installningar';
 import Komigang from './pages/Komigang';
+import Projekt from './pages/Projekt';
+import { ProjectsProvider, projectLabels, cap, lower } from './ProjectsContext';
 import { useI18n } from './i18n';
 import useIsMobile from './hooks/useIsMobile';
 import LanguageSwitch from './components/LanguageSwitch';
@@ -31,6 +33,7 @@ const NAV_GROUPS = [
   { title: 'Bokföring', items: [
     { id: 'kassabok',  label: 'Kassabok',           icon: BookOpen },
     { id: 'budget',    label: 'Budget & utfall',    icon: PieChart },
+    { id: 'projekt',   label: 'Projekt',            icon: Layers, needsProjects: true },
   ] },
   { title: 'Rapporter', items: [
     { id: 'arsrapport', label: 'Rapporter & export', icon: FileText },
@@ -43,7 +46,7 @@ const NAV_GROUPS = [
   ] },
 ];
 const NAV = NAV_GROUPS.flatMap(g => g.items);
-const NO_PERIOD_PAGES = ['komigang', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
+const NO_PERIOD_PAGES = ['komigang', 'projekt', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
 
 function MainApp({ orgId, role }) {
   const { t } = useI18n();
@@ -88,6 +91,13 @@ function MainApp({ orgId, role }) {
   const [orgName, setOrgName]         = useState('');
   const [fiscalPeriods, setFiscalPeriods] = useState([]);
   const [activePeriodId, setActivePeriodId] = useState(null);
+  const [projectData, setProjectData] = useState(null);      // märkning med projekt/sektioner (plan + inställning + projekt)
+  const [openProjectId, setOpenProjectId] = useState(null);
+
+  const pd = projectData || { allowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] };
+  const projOn = pd.allowed && pd.enabled;
+  const labels = projectLabels(pd);
+  const navLabel = n => (n.id === 'projekt' ? cap(labels.many) : t(n.label));
 
   async function fetchAll() {
     setLoading(true);
@@ -101,6 +111,7 @@ function MainApp({ orgId, role }) {
       setOrgName(data.orgName || '');
       setOrgNames(prev => ({ ...prev, [orgId]: data.orgName || '' }));
       setFiscalPeriods(periods);
+      setProjectData(data.projectData || null);
 
       const today  = todayStr();
       const active =
@@ -122,7 +133,24 @@ function MainApp({ orgId, role }) {
     }
   }
 
-  useEffect(() => { fetchAll(); }, [orgId]);
+  useEffect(() => { setOpenProjectId(null); fetchAll(); }, [orgId]);
+
+  // Läser om bara projekten (efter att ett projekt ändrats eller inställningen bytts)
+  async function reloadProjects() {
+    setProjectData(await store.getProjectData(orgId));
+  }
+  function openProject(id) {
+    setOpenProjectId(id);
+    if (id) navigate('projekt');
+  }
+
+  // Sidan Projekt finns bara när funktionen är påslagen
+  useEffect(() => {
+    if (!loading && page === 'projekt' && !projOn) {
+      window.history.replaceState({ page: 'dashboard' }, '', '#dashboard');
+      setPage('dashboard');
+    }
+  }, [loading, page, projOn]);
 
   useEffect(() => {
     if (orgs.length <= 1) return
@@ -196,22 +224,30 @@ function MainApp({ orgId, role }) {
   );
 
   const pageProps = { transactions, categories, budget, orgName, activePeriod, fiscalPeriods };
+  const myUserId = session?.user?.id;
+  const projectCtx = {
+    allowed: pd.allowed, enabled: projOn, labels, settings: pd, projects: pd.projects,
+    mine: pd.projects.filter(p => p.members.some(m => m.userId === myUserId)).sort((a, b) => Number(a.closed) - Number(b.closed)),
+    openProjectId, openProject, reload: reloadProjects,
+  };
   const pageMap   = {
     komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
+    projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
     medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
-    installningar: <Installningar orgId={orgId} orgName={orgName} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
+    installningar: <Installningar orgId={orgId} orgName={orgName} onProjectSettingsChange={reloadProjects} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };
 
   const subtitles = {
     komigang:   t('Gör föreningen redo steg för steg'),
     dashboard:  t('Ekonomisk översikt – {period}', { period: activePeriod?.label || '–' }),
     kassabok:   t('Verifikat – {period}', { period: activePeriod?.label || '–' }),
+    projekt:    t('Följ {namn}: intäkter, kostnader och rapporter', { namn: lower(labels.many) }),
     budget:     t('Budget vs utfall – {period}', { period: activePeriod?.label || '–' }),
     kategorier: t('Definiera intäkts- och kostnadskategorier'),
     arsrapport: t('Årsrapport, Excel, verifikat och budget som filer'),
@@ -222,7 +258,7 @@ function MainApp({ orgId, role }) {
 
   // ── Mobilvariant: toppfält, innehåll och flikmeny längst ner (Översikt, Kassabok, Nytt, Budget, Mer) ──
   if (isMobile) {
-    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite));
+    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn));
     const moreItems = visible.filter(n => !['dashboard', 'kassabok', 'budget'].includes(n.id));
     const go  = id => { setMoreOpen(false); navigate(id); };
     const tab = (id, Icon, label) => (
@@ -248,8 +284,8 @@ function MainApp({ orgId, role }) {
               <strong>{t('Demoläge.')}</strong> {t('Du kan ändra fritt, men ändringarna sparas inte och försvinner när du laddar om sidan eller loggar ut.')}
             </div>
           )}
-          <h2 className="m-title">{t(NAV.find(n => n.id === page)?.label || '')}</h2>
-          {pageMap[page]}
+          <h2 className="m-title">{NAV.find(n => n.id === page) ? navLabel(NAV.find(n => n.id === page)) : ''}</h2>
+          <ProjectsProvider value={projectCtx}>{pageMap[page]}</ProjectsProvider>
         </main>
 
         <nav className="m-tabbar" aria-label={t('Meny')}>
@@ -277,7 +313,7 @@ function MainApp({ orgId, role }) {
                 const Icon = n.icon;
                 return (
                   <button key={n.id} className={`m-sheet-item${page === n.id ? ' active' : ''}`} onClick={() => go(n.id)}>
-                    <Icon size={20}/> {t(n.label)}
+                    <Icon size={20}/> {navLabel(n)}
                   </button>
                 );
               })}
@@ -348,7 +384,7 @@ function MainApp({ orgId, role }) {
         <nav className="sidebar-nav">
           {NAV_GROUPS.map((g, gi) => {
             const items = g.items.filter(n =>
-              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite));
+              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn));
             if (!items.length) return null;
             return (
               <div key={gi}>
@@ -359,7 +395,7 @@ function MainApp({ orgId, role }) {
                   const Icon = n.icon;
                   return (
                     <button key={n.id} className={`nav-btn${page === n.id ? ' active' : ''}`} onClick={() => navigate(n.id)}>
-                      <Icon size={16}/> {t(n.label)}
+                      <Icon size={16}/> {navLabel(n)}
                     </button>
                   );
                 })}
@@ -429,7 +465,7 @@ function MainApp({ orgId, role }) {
         )}
         <header className="page-header">
           <div>
-            <h2>{t(NAV.find(n => n.id === page)?.label || '')}</h2>
+            <h2>{NAV.find(n => n.id === page) ? navLabel(NAV.find(n => n.id === page)) : ''}</h2>
             <div className="page-subtitle">{subtitles[page]}</div>
           </div>
           {activePeriod && !NO_PERIOD_PAGES.includes(page) && (
@@ -440,7 +476,7 @@ function MainApp({ orgId, role }) {
             </div>
           )}
         </header>
-        <div className="page-body">{pageMap[page]}</div>
+        <div className="page-body"><ProjectsProvider value={projectCtx}>{pageMap[page]}</ProjectsProvider></div>
       </main>
     </div>
   );

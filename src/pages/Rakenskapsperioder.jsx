@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
 import { getYear, txsForPeriod, attachments, isValidIsoDate, fmt } from '../store';
 import { useI18n } from '../i18n';
+import { useProjects, cap } from '../ProjectsContext';
 import DateInput from '../components/DateInput';
 import { exportAnnualReport } from '../pdfExport';
 import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, buildPeriodWorkbook } from '../excelExport';
@@ -32,6 +33,7 @@ function monthsBetween(start, end) {
 function CloseYearModal({ period, transactions, categories, budget, orgName, orgId, onDone, onCancel }) {
   const { t } = useI18n();
   const reportName = t('arsrapport');   // filnamn i ZIP-filen
+  const { enabled: projOn, projects, labels } = useProjects();
   const attachDir  = t('bilagor');
   const { orgId: ctxOrgId } = useAuth();
   const resolvedOrgId = orgId || ctxOrgId;
@@ -72,7 +74,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       setProgress(t('Skapar Excel-fil…'));
       const attachmentsByTx = {};
       for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename);
-      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget: periodBudget, attachmentsByTx });
+      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget: periodBudget, attachmentsByTx, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
       zip.file(`foreningsbalans_${safePeriod}.xlsx`, await wb.xlsx.writeBuffer());
 
       // Mappa txId → verifikatnummer för läsbart mappnamn i ZIP
@@ -193,6 +195,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
 export default function Rakenskapsperioder({ fiscalPeriods, transactions, categories, budget, orgName, orgId, onSave }) {
   const { t } = useI18n()
   const { role } = useAuth()
+  const { enabled: projOn, projects, labels } = useProjects()
   const canWrite = role !== 'viewer'
   const [periods, setPeriods]   = useState(fiscalPeriods);
   const [dirty, setDirty]       = useState(false);
@@ -207,7 +210,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
     setError('');
     setExportingId(p.id);
     try {
-      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period: p, transactions, categories, budget });
+      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period: p, transactions, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
       downloadBlob(blob, filename);
     } catch (e) {
       console.error('Excel-export error:', e);

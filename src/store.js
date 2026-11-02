@@ -13,7 +13,38 @@ export const txLines = tx =>
 // Normaliserar rader från formuläret: bara rader med konto, belopp avrundat till öre.
 const cleanLines = lines => (lines || [])
   .filter(l => l.categoryId)
-  .map(l => ({ categoryId: l.categoryId, amount: Math.round((Number(l.amount) || 0) * 100) / 100 }))
+  .map(l => ({ categoryId: l.categoryId, amount: Math.round((Number(l.amount) || 0) * 100) / 100, projectId: l.projectId || null }))
+
+// Projektmärkning (projekt/sektion/event): sammanställer märkta rader över alla räkenskapsperioder.
+export function projectRows(transactions, projectId) {
+  const rows = []
+  for (const tx of transactions || []) {
+    for (const l of txLines(tx)) if (l.projectId === projectId) rows.push({ tx, line: l })
+  }
+  return rows.sort((a, b) => (a.tx.date || '').localeCompare(b.tx.date || ''))
+}
+export function projectTotals(transactions, categories, projectId) {
+  const catMap = Object.fromEntries((categories || []).map(c => [c.id, c]))
+  const byCategory = {}
+  let income = 0, expense = 0
+  const txIds = new Set()
+  for (const { tx, line } of projectRows(transactions, projectId)) {
+    const amount = Number(line.amount) || 0
+    const type = catMap[line.categoryId]?.type
+    if (type === 'income') income += amount
+    else expense += amount
+    byCategory[line.categoryId] = (byCategory[line.categoryId] || 0) + amount
+    txIds.add(tx.id)
+  }
+  return { income, expense, net: income - expense, count: txIds.size, byCategory }
+}
+
+const emptyProjectData = () => ({ allowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] })
+const projectError = e => {
+  if (e?.code === '23505') return new Error('Namnet används redan.')
+  if (e?.code === '23503') return new Error('Verifikat är märkta med detta. Stäng det i stället för att ta bort det.')
+  return e
+}
 const sumLines = lines => Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100
 
 const dbStore = {
@@ -27,6 +58,7 @@ const dbStore = {
       supabase.from('fiscal_periods').select('*').eq('org_id', orgId).order('start_date'),
       supabase.from('transaction_lines').select('*').eq('org_id', orgId).order('position'),
     ])
+    const projectData = await dbStore.getProjectData(orgId)
 
     for (const res of [orgRes, catsRes, txsRes, budgetRes, periodsRes, linesRes]) {
       if (res.error) throw res.error
@@ -34,7 +66,7 @@ const dbStore = {
 
     const linesByTx = {}
     for (const l of linesRes.data || []) {
-      (linesByTx[l.tx_id] ||= []).push({ id: l.id, categoryId: l.category_id, amount: Number(l.amount) })
+      (linesByTx[l.tx_id] ||= []).push({ id: l.id, categoryId: l.category_id, amount: Number(l.amount), projectId: l.project_id || null })
     }
 
     const budgetObj = {}
@@ -73,7 +105,78 @@ const dbStore = {
         openingBalance: Number(p.opening_balance ?? 0),
         budgetLocked:   p.budget_locked ?? false,
       })),
+      projectData,
     }
+  },
+
+  // Projekt (eller sektioner/event): inställning, namn på funktionen och projekten med kopplade medlemmar
+  async getProjectData(orgId) {
+    const [setRes, projRes, memRes, planRes] = await Promise.all([
+      supabase.from('org_settings').select('projects_enabled, project_label_singular, project_label_plural').eq('org_id', orgId).maybeSingle(),
+      supabase.from('projects').select('*').eq('org_id', orgId).order('created_at'),
+      supabase.from('project_members').select('project_id, user_id, is_lead').eq('org_id', orgId),
+      supabase.rpc('get_org_plan', { p_org: orgId }),
+    ])
+    for (const res of [setRes, projRes, memRes]) if (res.error) throw res.error
+    const membersByProject = {}
+    for (const m of memRes.data || []) (membersByProject[m.project_id] ||= []).push({ userId: m.user_id, isLead: !!m.is_lead })
+    return {
+      allowed:       !!planRes.data?.projects_allowed,
+      enabled:       !!setRes.data?.projects_enabled,
+      labelSingular: setRes.data?.project_label_singular || '',
+      labelPlural:   setRes.data?.project_label_plural || '',
+      projects: (projRes.data || []).map(p => ({
+        id: p.id, name: p.name, description: p.description || '',
+        start: p.start_date || '', end: p.end_date || '',
+        closed: !!p.closed, closedAt: p.closed_at || null,
+        members: membersByProject[p.id] || [],
+      })),
+    }
+  },
+
+  async setProjectSettings(orgId, { enabled, singular, plural }) {
+    const { error } = await supabase.from('org_settings').upsert({
+      org_id: orgId, projects_enabled: !!enabled,
+      project_label_singular: (singular || '').trim() || null,
+      project_label_plural:   (plural || '').trim() || null,
+    })
+    if (error) throw error
+  },
+
+  // Skapar eller uppdaterar ett projekt (och dess medlemmar); returnerar projektets id
+  async saveProject(orgId, project) {
+    const row = {
+      name: project.name.trim(), description: (project.description || '').trim(),
+      start_date: project.start || null, end_date: project.end || null,
+    }
+    let id = project.id
+    if (id) {
+      const { error } = await supabase.from('projects').update(row).eq('id', id).eq('org_id', orgId)
+      if (error) throw projectError(error)
+    } else {
+      const { data, error } = await supabase.from('projects').insert({ ...row, org_id: orgId }).select('id').single()
+      if (error) throw projectError(error)
+      id = data.id
+    }
+    const { error: delErr } = await supabase.from('project_members').delete().eq('project_id', id)
+    if (delErr) throw delErr
+    const members = project.members || []
+    if (members.length) {
+      const { error } = await supabase.from('project_members').insert(
+        members.map(m => ({ project_id: id, org_id: orgId, user_id: m.userId, is_lead: !!m.isLead })))
+      if (error) throw error
+    }
+    return id
+  },
+
+  async setProjectClosed(orgId, id, closed) {
+    const { error } = await supabase.from('projects').update({ closed }).eq('id', id).eq('org_id', orgId)
+    if (error) throw error
+  },
+
+  async deleteProject(orgId, id) {
+    const { error } = await supabase.from('projects').delete().eq('id', id).eq('org_id', orgId)
+    if (error) throw projectError(error)
   },
 
   async setOrgName(orgId, name) {
@@ -162,7 +265,7 @@ const dbStore = {
     }).select().single()
     if (error) throw error
     const { error: lineErr } = await supabase.from('transaction_lines').insert(
-      lines.map((l, i) => ({ tx_id: data.id, org_id: orgId, category_id: l.categoryId, amount: l.amount, position: i }))
+      lines.map((l, i) => ({ tx_id: data.id, org_id: orgId, category_id: l.categoryId, amount: l.amount, position: i, project_id: l.projectId }))
     )
     if (lineErr) {
       await supabase.from('transactions').delete().eq('id', data.id)   // inget halvfärdigt verifikat
@@ -190,7 +293,7 @@ const dbStore = {
       // Nya rader först, sedan de gamla bort: ett fel lämnar aldrig verifikatet utan rader
       const { data: old } = await supabase.from('transaction_lines').select('id').eq('tx_id', id)
       const { error: insErr } = await supabase.from('transaction_lines').insert(
-        lines.map((l, i) => ({ tx_id: id, org_id: orgId, category_id: l.categoryId, amount: l.amount, position: i }))
+        lines.map((l, i) => ({ tx_id: id, org_id: orgId, category_id: l.categoryId, amount: l.amount, position: i, project_id: l.projectId }))
       )
       if (insErr) throw insErr
       if (old?.length) await supabase.from('transaction_lines').delete().in('id', old.map(o => o.id))
@@ -292,6 +395,31 @@ const demoStore = {
   async getAll(orgId) {
     if (!demo.data) demo.data = clone(await dbStore.getAll(orgId))
     return clone(demo.data)
+  },
+  async getProjectData() { return clone(demo.data?.projectData || emptyProjectData()) },
+  async setProjectSettings(_o, { enabled, singular, plural }) {
+    Object.assign(demo.data.projectData, { enabled: !!enabled, labelSingular: (singular || '').trim(), labelPlural: (plural || '').trim() })
+  },
+  async saveProject(_o, project) {
+    const pd = demo.data.projectData
+    const name = project.name.trim()
+    if (pd.projects.some(p => p.id !== project.id && p.name.trim().toLowerCase() === name.toLowerCase())) throw new Error('Namnet används redan.')
+    const row = { name, description: (project.description || '').trim(), start: project.start || '', end: project.end || '',
+      members: (project.members || []).map(m => ({ userId: m.userId, isLead: !!m.isLead })) }
+    if (project.id) {
+      pd.projects = pd.projects.map(p => p.id === project.id ? { ...p, ...row } : p)
+      return project.id
+    }
+    const id = `demo-p-${++demo.seq}`
+    pd.projects.push({ id, closed: false, closedAt: null, ...row })
+    return id
+  },
+  async setProjectClosed(_o, id, closed) {
+    demo.data.projectData.projects = demo.data.projectData.projects.map(p => p.id === id ? { ...p, closed, closedAt: closed ? new Date().toISOString() : null } : p)
+  },
+  async deleteProject(_o, id) {
+    if (demo.data.transactions.some(t => txLines(t).some(l => l.projectId === id))) throw new Error('Verifikat är märkta med detta. Stäng det i stället för att ta bort det.')
+    demo.data.projectData.projects = demo.data.projectData.projects.filter(p => p.id !== id)
   },
   async setOrgName(_o, name)        { demo.data.orgName = name },
   async setActivePeriodId(_o, id)   { demo.data.activePeriodId = id },

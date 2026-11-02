@@ -10,8 +10,9 @@ import perioder from './en/perioder'
 import medlemmar from './en/medlemmar'
 import installningar from './en/installningar'
 import exporter from './en/exporter'
+import projekt from './en/projekt'
 
 export default {
   ...auth, ...app, ...dashboard, ...kassabok, ...budget, ...kategorier,
-  ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter,
+  ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter, ...projekt,
 }

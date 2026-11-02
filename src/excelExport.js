@@ -25,7 +25,7 @@ function styleHeader(row) {
   row.eachCell(c => { c.fill = HEAD_FILL; c.font = HEAD_FONT; c.alignment = { vertical: 'middle', wrapText: true } })
 }
 
-export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx }) {
+export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx, projects = [], projectLabel = '' }) {
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
   const txs = sortPeriodTxs(transactions)
   const opening = Number(period.openingBalance ?? 0)
@@ -38,6 +38,8 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   // ── Kassabok ──────────────────────────────────────────────
   const ws = wb.addWorksheet(tr('Kassabok'), { views: [{ state: 'frozen', ySplit: 1 }] })
   const maxAtt = Math.max(0, ...txs.map(t => (attachmentsByTx[t.id] || []).length))
+  const projectNames = Object.fromEntries(projects.map(p => [p.id, p.name]))
+  const hasProjects = txs.some(t => txLines(t).some(l => l.projectId && projectNames[l.projectId]))
   const cols = [
     { header: tr('Ver.nr'), key: 'ver', width: 8 },
     { header: tr('Datum'), key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
@@ -48,6 +50,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     { header: tr('Inkomst (kr)'), key: 'inc', width: 15, style: { numFmt: MONEY } },
     { header: tr('Utgift (kr)'), key: 'exp', width: 15, style: { numFmt: MONEY } },
     { header: tr('Saldo (kr)'), key: 'bal', width: 15, style: { numFmt: MONEY } },
+    ...(hasProjects ? [{ header: projectLabel || 'Projekt', key: 'project', width: 24 }] : []),
     { header: tr('Kommentar'), key: 'comment', width: 36 },
     { header: tr('Registrerad'), key: 'created', width: 18, style: { numFmt: 'yyyy-mm-dd hh:mm' } },
     { header: tr('Antal bilagor'), key: 'attCount', width: 13 },
@@ -87,6 +90,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
         inc: isInc ? amount : null,
         exp: !isInc ? amount : null,
         bal: balance,
+        project: projectNames[line.projectId] || '',
         comment: first ? (tx.comment || '') : '',
         created: first && tx.createdAt ? new Date(tx.createdAt) : null,
         attCount: first ? atts.length : null,
@@ -154,7 +158,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
 
 // Skapar en ZIP med Excel-filen och alla bilagor för perioden.
 // Bilagorna ligger i bilagor/VERxxx_.../ precis som i årsrapportens arkiv-ZIP.
-export async function exportPeriodZip({ orgId, orgName, period, transactions, categories, budget, onProgress = () => {} }) {
+export async function exportPeriodZip({ orgId, orgName, period, transactions, categories, budget, projects = [], projectLabel = '', onProgress = () => {} }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
 
   onProgress(tr('Hämtar bilagor…'))
@@ -164,7 +168,7 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, ca
   for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename)
 
   onProgress(tr('Skapar Excel-fil…'))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx })
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx, projects, projectLabel })
   const xlsx = await wb.xlsx.writeBuffer()
 
   onProgress(tr('Packar ihop ZIP…'))
@@ -181,10 +185,10 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, ca
   return { blob, filename: `foreningsbalans_export_${safePeriod}.zip` }
 }
 
-export async function exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget }) {
+export async function exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget, projects = [], projectLabel = '' }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
   const attachmentsByTx = await attachments.namesByTx(orgId, periodTxs.map(t => t.id))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx })
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx, projects, projectLabel })
   const buf = await wb.xlsx.writeBuffer()
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
   return {

@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Scale, Receipt } from 'lucide-react';
-import { fmt, txsForPeriod, sumByCategory, txLines } from '../store';
+import { fmt, txsForPeriod, sumByCategory, txLines, projectTotals } from '../store';
 import { useI18n } from '../i18n';
 import useIsMobile from '../hooks/useIsMobile';
+import { useProjects, lower } from '../ProjectsContext';
 
 function MonthChart({ monthly, categories, periodTxs }) {
   const { t } = useI18n();
@@ -61,6 +62,8 @@ function MonthChart({ monthly, categories, periodTxs }) {
 export default function Dashboard({ transactions, categories, budget, activePeriod }) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
+  const { enabled: projOn, labels, mine, openProject } = useProjects();
+  const myOpen = projOn ? mine.filter(p => !p.closed) : [];
   const periodTxs = useMemo(() => txsForPeriod(transactions, activePeriod), [transactions, activePeriod]);
   const actuals   = useMemo(() => sumByCategory(periodTxs, categories), [periodTxs, categories]);
 
@@ -102,6 +105,31 @@ export default function Dashboard({ transactions, categories, budget, activePeri
 
   return (
     <div>
+      {myOpen.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div className="section-title">{t('Mina {namn}', { namn: lower(labels.many) })}</div>
+          <div className="project-grid" style={{ marginBottom: 20 }}>
+            {myOpen.map(p => {
+              const tot = projectTotals(transactions, categories, p.id);
+              const span = (p.start || p.end) ? `${p.start || '…'} – ${p.end || '…'}` : '';
+              return (
+                <div key={p.id} className="project-card clickable" role="button" tabIndex={0}
+                  onClick={() => openProject(p.id)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && openProject(p.id)}>
+                  <h4 style={{ overflowWrap:'anywhere' }}>{p.name}</h4>
+                  {span && <div className="mono" style={{ fontSize:'0.75rem', color:'var(--ink-muted)' }}>{span}</div>}
+                  <div className="project-totals">
+                    <div>{t('Intäkter')}<strong style={{ color:'var(--accent)' }}>{fmt(tot.income)}</strong></div>
+                    <div>{t('Kostnader')}<strong style={{ color:'var(--red)' }}>{fmt(tot.expense)}</strong></div>
+                    <div>{t('Resultat')}<strong style={{ color: tot.net >= 0 ? 'var(--accent)' : 'var(--red)' }}>{fmt(tot.net)}</strong></div>
+                  </div>
+                  <div style={{ fontSize:'0.75rem', color:'var(--ink-muted)' }}>{t('{n} verifikat', { n: tot.count })}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="stat-grid">
         {[
           { icon:TrendingUp,   cls:'positive',                              label:t('Totala intäkter'),  val:fmt(totalIncome) },
