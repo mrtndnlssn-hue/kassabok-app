@@ -76,4 +76,5 @@ export default {
   'Liten': 'Small',
   'Medel': 'Medium',
   'Stor': 'Large',
+  'Lagring av bilagor:': 'Attachment storage:',
 }

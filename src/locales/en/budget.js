@@ -2,7 +2,9 @@
 export default {
   // Bilagor
   'Uppladdning misslyckades: {fel}': 'Upload failed: {fel}',
-  'PDF, bilder, Word, Excel – max 50 MB per fil': 'PDF, images, Word, Excel – max 50 MB per file',
+  'PDF, bilder, Word, Excel – max 10 MB per fil': 'PDF, images, Word, Excel – max 10 MB per file',
+  '{namn} är större än 10 MB och kan inte laddas upp.': '{namn} is larger than 10 MB and cannot be uploaded.',
+  'Föreningens lagringsutrymme är fullt. Radera bilagor eller välj en större plan under Inställningar.': 'The association’s storage is full. Delete attachments or choose a larger plan under Settings.',
   'Laddar upp…': 'Uploading…',
   'Inga bilagor uppladdade ännu.': 'No attachments uploaded yet.',
   'Öppna': 'Open',

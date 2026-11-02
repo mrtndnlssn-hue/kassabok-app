@@ -107,16 +107,31 @@ function Overview({ onGo }) {
     ['Föreningar', d.orgs, 'foreningar'], ['Användare', d.users, 'anvandare'], ['Betalande föreningar', d.paying_orgs, 'foreningar'],
     ['Nya beställningar', d.new_orders, 'bestallningar'], ['Öppna fakturor', d.open_invoices, 'fakturor'],
     ['Obetalt (kr)', money(d.unpaid_total), 'fakturor'], ['Betalt totalt (kr)', money(d.paid_total), 'fakturor'], ['Verifikat totalt', d.vouchers, 'foreningar'],
+    ['Fillagring (Supabase)', `${mb(d.storage_bytes)} / ${mb(d.storage_budget_bytes)}`, 'foreningar'],
+    ['Databas (Supabase)', `${mb(d.db_bytes)} / ${mb(d.db_budget_bytes)}`, 'installningar'],
   ]
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
-      {tiles.map(([label, v, tab]) => (
-        <button key={label} className="card" onClick={() => onGo(tab)} style={{ textAlign: 'left', cursor: 'pointer' }}>
-          <div style={{ fontSize: '0.74rem', color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.6rem', marginTop: 4 }}>{v}</div>
-        </button>
-      ))}
-    </div>
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 14 }}>
+        {tiles.map(([label, v, tab]) => (
+          <button key={label} className="card" onClick={() => onGo(tab)} style={{ textAlign: 'left', cursor: 'pointer' }}>
+            <div style={{ fontSize: '0.74rem', color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.6rem', marginTop: 4 }}>{v}</div>
+          </button>
+        ))}
+      </div>
+      <div className="notice notice-info" style={{ marginTop: 20, fontSize: '0.85rem', lineHeight: 1.6 }}>
+        <strong>Så hänger lagringsgränserna ihop med Supabase</strong>
+        <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+          <li><strong>Supabase gratisplan</strong> ger 1 GB fillagring, 500 MB databas och max 50 MB per fil. Trafiken (egress) är 5 GB ohämtat och 5 GB cachat per månad, delat av allt. Siffrorna är de som gällde när detta skrevs, så kontrollera dem i Supabase-kontot.</li>
+          <li><strong>Per fil:</strong> max 10 MB, satt i lagringsbucketen. Gäller alltid.</li>
+          <li><strong>Per förening:</strong> planens lagringskvot (ändras under Planer). Nya bilagor stoppas när föreningen nått kvoten. Kontrolleras före uppladdning, så en fil kan passera gränsen med högst 10 MB.</li>
+          <li><strong>Hela kontot:</strong> fillagringsbudgeten under Inställningar. När summan av alla föreningars bilagor når den stoppas nya bilagor för alla. Sätt den till ca 90 % av det kontot tillåter. Databasbudgeten är bara en varning här på översikten.</li>
+          <li>Per-förening- och kontogränserna gäller bara när <em>Verkställ planernas gränser</em> är på under Inställningar.</li>
+          <li><strong>Uppgraderar du Supabase?</strong> Höj fillagrings- och databasbudgeten under Inställningar så att den följer det nya kontot. Planernas kvoter påverkas inte.</li>
+        </ul>
+      </div>
+    </>
   )
 }
 
@@ -125,6 +140,7 @@ function Orgs({ plans }) {
   const [orgs, err, reload] = useRpc('admin_list_orgs')
   const [q, setQ] = useState('')
   const [edit, setEdit] = useState(null)
+  const planLabel = c => plans.find(p => p.code === c)?.name || c
   const list = useMemo(() => (orgs || []).filter(o => `${o.name} ${o.owner_email || ''}`.toLowerCase().includes(q.toLowerCase())), [orgs, q])
   if (err) return <Err msg={err} />
   if (!orgs) return <Busy />
@@ -138,12 +154,12 @@ function Orgs({ plans }) {
         rows={list.map(o => (
           <tr key={o.org_id}>
             <td><strong>{o.name}</strong><div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>{o.owner_email || '–'} · skapad {day(o.created_at)}</div></td>
-            <td>{o.effective_plan}{o.plan_code !== o.effective_plan && <div style={{ fontSize: '0.72rem', color: 'var(--red)' }}>({o.plan_code} har gått ut)</div>}</td>
+            <td>{planLabel(o.effective_plan)}{o.plan_code !== o.effective_plan && <div style={{ fontSize: '0.72rem', color: 'var(--red)' }}>({planLabel(o.plan_code)} har gått ut)</div>}</td>
             <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{o.plan_code === 'gratis' ? '–' : day(o.plan_valid_until)}</td>
             <td style={{ fontFamily: 'var(--font-mono)' }}>{o.members} / {o.member_limit}</td>
             <td><Bar used={o.vouchers_period} limit={o.voucher_limit} /><div style={{ fontSize: '0.7rem', color: 'var(--ink-muted)' }}>{o.vouchers_total} totalt</div></td>
             <td><Bar used={o.ai_used} limit={o.ai_limit} /></td>
-            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{mb(o.storage_bytes)}</td>
+            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}><Bar used={Math.round(o.storage_bytes / 104857.6) / 10} limit={Math.round(o.storage_limit / 1048576)} /></td>
             <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{day(o.last_activity)}</td>
             <td><button className="btn btn-secondary btn-sm" onClick={() => setEdit(o)}>Ändra plan</button></td>
           </tr>
@@ -318,7 +334,7 @@ function Plans({ plans, reload }) {
   async function save(p) {
     const { error } = await supabase.from('plans').update({
       name: p.name, description: p.description, price_incl_vat_sek: Number(p.price_incl_vat_sek),
-      voucher_limit: Number(p.voucher_limit), max_members: Number(p.max_members), ai_reads_per_month: Number(p.ai_reads_per_month), has_projects: !!p.has_projects, active: p.active,
+      voucher_limit: Number(p.voucher_limit), max_members: Number(p.max_members), storage_mb: Number(p.storage_mb), ai_reads_per_month: Number(p.ai_reads_per_month), has_projects: !!p.has_projects, active: p.active,
     }).eq('code', p.code)
     setMsg(error ? error.message : `${p.name} sparad.`)
     if (!error) reload()
@@ -327,7 +343,7 @@ function Plans({ plans, reload }) {
     <>
       <div className="notice notice-info">Priser anges inklusive moms per 12 månader. Planen Prova (gratis) är reservläget för föreningar utan betald plan och kan inte beställas. Ändringar slår på nya beställningar, inte på utfärdade fakturor. Priserna på hemsidan ligger i HTML-filen och måste ändras separat.</div>
       {msg && <div className="notice notice-success">{msg}</div>}
-      <Table head={['Kod', 'Namn', 'Pris inkl. moms (kr/år)', 'Verifikat / räkenskapsår', 'AI-läsningar / månad', 'Användare', 'Märkning (projekt)', 'Aktiv', '']}
+      <Table head={['Kod', 'Namn', 'Pris inkl. moms (kr/år)', 'Verifikat / räkenskapsår', 'AI-läsningar / månad', 'Användare', 'Lagring (MB)', 'Märkning (projekt)', 'Aktiv', '']}
         rows={rows.map(p => (
           <tr key={p.code}>
             <td style={{ fontFamily: 'var(--font-mono)' }}>{p.code}</td>
@@ -336,6 +352,7 @@ function Plans({ plans, reload }) {
             <td><input type="number" min="1" value={p.voucher_limit} onChange={e => set(p.code, 'voucher_limit', e.target.value)} /></td>
             <td><input type="number" min="0" value={p.ai_reads_per_month} onChange={e => set(p.code, 'ai_reads_per_month', e.target.value)} /></td>
             <td><input type="number" min="1" value={p.max_members} onChange={e => set(p.code, 'max_members', e.target.value)} /></td>
+            <td><input type="number" min="1" value={p.storage_mb} onChange={e => set(p.code, 'storage_mb', e.target.value)} /></td>
             <td><input type="checkbox" checked={!!p.has_projects} onChange={e => set(p.code, 'has_projects', e.target.checked)} style={{ width: 'auto' }} /></td>
             <td><input type="checkbox" checked={p.active} onChange={e => set(p.code, 'active', e.target.checked)} style={{ width: 'auto' }} /></td>
             <td><button className="btn btn-primary btn-sm" onClick={() => save(p)}>Spara</button></td>
@@ -422,6 +439,8 @@ function Settings({ settings, reload }) {
   const [vat, setVat] = useState(String(settings.vat_rate))
   const [days, setDays] = useState(String(settings.payment_terms_days))
   const [enforce, setEnforce] = useState(!!settings.enforce_limits)
+  const [storageBudget, setStorageBudget] = useState(String(settings.storage_budget_mb ?? 900))
+  const [dbBudget, setDbBudget] = useState(String(settings.db_budget_mb ?? 450))
   const [msg, setMsg] = useState('')
   const f = (k, label, extra) => <Field label={label} key={k}><input value={seller[k] || ''} onChange={e => setSeller(s => ({ ...s, [k]: e.target.value }))} {...extra} /></Field>
 
@@ -429,6 +448,7 @@ function Settings({ settings, reload }) {
     const rows = [
       { key: 'seller', value: seller }, { key: 'vat_rate', value: Number(vat) },
       { key: 'payment_terms_days', value: Number(days) }, { key: 'enforce_limits', value: enforce },
+      { key: 'storage_budget_mb', value: Number(storageBudget) }, { key: 'db_budget_mb', value: Number(dbBudget) },
     ]
     const { error } = await supabase.from('platform_settings').upsert(rows)
     setMsg(error ? error.message : 'Sparat.')
@@ -457,6 +477,14 @@ function Settings({ settings, reload }) {
           När detta är på stoppas nya verifikat över planens gräns och AI-läsningar följer planens kvot. Alla föreningar som inte har en betald plan räknas som Prova (15 verifikat per räkenskapsår, inga AI-läsningar). Kontrollera i Föreningar-fliken att ingen befintlig förening redan ligger över sin gräns innan du slår på det.
         </span></span>
       </label>
+      <h3 style={{ margin: '8px 0 12px' }}>Supabase-kontots utrymme</h3>
+      <p style={{ fontSize: '0.82rem', color: 'var(--ink-soft)', marginBottom: 12 }}>
+        Supabase gratisplan ger 1 GB fillagring och 500 MB databas, med max 50 MB per fil. Fillagringsbudgeten stoppar nya bilagor för alla föreningar när den nås (när gränserna ovan är på). Sätt den till ungefär 90 % av det kontot tillåter och höj den om du uppgraderar. Databasbudgeten visas bara på översikten.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <Field label="Fillagringsbudget (MB)"><input type="number" min="1" value={storageBudget} onChange={e => setStorageBudget(e.target.value)} /></Field>
+        <Field label="Databasbudget (MB)"><input type="number" min="1" value={dbBudget} onChange={e => setDbBudget(e.target.value)} /></Field>
+      </div>
       <button className="btn btn-primary" onClick={save}>Spara</button>
     </div>
   )

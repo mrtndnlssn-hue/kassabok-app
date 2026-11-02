@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
-import { locale } from './i18n'
+import { locale, translate } from './i18n'
+
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024 // samma som bucketens gräns i Supabase
 
 // Kategorier sorteras alltid efter kod, med siffror i talordning (U2 före U10).
 export const compareCategoryIds = (a, b) =>
@@ -340,11 +342,20 @@ const dbAttachments = {
 
   async upload(orgId, txId, files) {
     for (const file of files) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        throw new Error(translate('{namn} är större än 10 MB och kan inte laddas upp.', { namn: file.name }))
+      }
       const safeName = file.name.replace(/[^\w.\-åäöÅÄÖ]/g, '_')
       const { error } = await supabase.storage
         .from('attachments')
         .upload(`${orgId}/${txId}/${safeName}`, file, { upsert: true })
-      if (error) throw error
+      if (error) {
+        // Radnivåsäkerheten nekar när föreningens lagringsgräns (eller plattformens) är nådd
+        if (/row-level security|violates/i.test(error.message || '')) {
+          throw new Error(translate('Föreningens lagringsutrymme är fullt. Radera bilagor eller välj en större plan under Inställningar.'))
+        }
+        throw error
+      }
     }
   },
 

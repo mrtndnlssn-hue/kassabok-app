@@ -7,6 +7,8 @@ import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
 import { useI18n } from '../i18n'
 import { useProjects, defaultLabels } from '../ProjectsContext'
 
+const fmtMb = b => `${((b || 0) / 1048576).toFixed(b >= 10485760 ? 0 : 1)} MB`
+
 export default function Installningar({ orgId, orgName, onOrgNameChange, onProjectSettingsChange, hideStart, onHideStartChange }) {
   const { t } = useI18n()
   const { session, role } = useAuth()
@@ -124,6 +126,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
           <div style={{ fontSize:'0.85rem', color:'var(--ink-soft)', display:'grid', gap:4 }}>
             <div>{t('Verifikat i nuvarande räkenskapsår:')} <strong style={{ fontFamily:'var(--font-mono)' }}>{plan.vouchers_used} / {plan.voucher_limit}</strong></div>
             <div>{t('AI-avläsningar per månad:')} <strong style={{ fontFamily:'var(--font-mono)' }}>{plan.ai_limit}</strong></div>
+            <div>{t('Lagring av bilagor:')} <strong style={{ fontFamily:'var(--font-mono)' }}>{fmtMb(plan.storage_used_bytes)} / {fmtMb(plan.storage_limit_bytes)}</strong></div>
           </div>
           {plan.plan_code === 'gratis' && (
             <p style={{ fontSize:'0.82rem', color:'var(--ink-muted)', marginTop:12 }}>

@@ -118,7 +118,7 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, color:'var(--ink-muted)' }}>
               <Upload size={24} style={{ opacity:0.5 }}/>
               <span style={{ fontSize:'0.88rem', fontWeight:500 }}>{t('Dra och släpp filer här, eller klicka för att välja')}</span>
-              <span style={{ fontSize:'0.75rem' }}>{t('PDF, bilder, Word, Excel – max 50 MB per fil')}</span>
+              <span style={{ fontSize:'0.75rem' }}>{t('PDF, bilder, Word, Excel – max 10 MB per fil')}</span>
             </div>
           )}
         </div>
