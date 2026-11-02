@@ -132,6 +132,15 @@ a { color: var(--blue); }
 .sheet th:first-child, .sheet td:first-child { padding-left: 16px; }
 .sheet th:last-child, .sheet td:last-child { padding-right: 16px; }
 .sheet .open td { color: var(--ink3); font-style: italic; }
+.sheet table { table-layout: fixed; }
+.sheet th:nth-child(1) { width: 44px; }
+.sheet th:nth-child(2) { width: 96px; }
+.sheet th:nth-child(4) { width: 100px; }
+.sheet th:nth-child(5), .sheet th:nth-child(6) { width: 96px; }
+@media (max-width: 520px) { .sheet th:nth-child(2), .sheet th:nth-child(5), .sheet th:nth-child(6) { width: 84px; } }
+@media (min-width: 1141px) { .hero { grid-template-columns: .9fr 1.1fr; } }
+@media (max-width: 420px) { .sheet .hide-xs { display: none; } }
+@media (min-width: 881px) and (max-width: 1140px) { .sheet .hide-sm { display: none; } }
 @media (max-width: 520px) { .sheet .hide-sm { display: none; } .sheet table { font-size: .72rem; } .sheet th, .sheet td { padding-left: 5px; padding-right: 5px; } .sheet th:first-child, .sheet td:first-child { padding-left: 12px; } .sheet th:last-child, .sheet td:last-child { padding-right: 12px; } }
 
 .receipt { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; margin-top: 22px; padding: 14px 16px; border: 1px dashed var(--ink3); background: var(--sheet); font-size: .84rem; }
@@ -325,14 +334,14 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="sheet" aria-label="Exempel på kassabok">
           <div class="sheet-head"><strong>Björkbyns IF</strong><span class="kicker" data-en="Example · 2026">Exempel · 2026</span></div>
           <table>
-            <thead><tr><th class="hide-sm" data-en="No.">Ver.</th><th data-en="Date">Datum</th><th data-en="Description">Beskrivning</th><th class="hide-sm" data-en="Category">Kategori</th><th class="n" data-en="Amount">Belopp</th><th class="n" data-en="Balance">Saldo</th></tr></thead>
+            <thead><tr><th class="hide-sm" data-en="No.">Ver.</th><th data-en="Date">Datum</th><th data-en="Description">Beskrivning</th><th class="hide-sm" data-en="Category">Kategori</th><th class="n" data-en="Amount">Belopp</th><th class="n hide-xs" data-en="Balance">Saldo</th></tr></thead>
             <tbody>
-              <tr class="open"><td class="hide-sm"></td><td class="mono">2026-01-01</td><td data-en="Opening balance">Ingående saldo</td><td class="hide-sm"></td><td class="n"></td><td class="n">12 400,00</td></tr>
-              <tr><td class="hide-sm mono">001</td><td class="mono">2026-01-12</td><td><span data-en="Membership fees 2026">Medlemsavgifter 2026</span></td><td class="hide-sm"><span data-en="Fees">Avgifter</span></td><td class="n pos">+18 500,00</td><td class="n">30 900,00</td></tr>
-              <tr><td class="hide-sm mono">002</td><td class="mono">2026-01-20</td><td><span data-en="Rent, community hall">Hyra bygdegården</span></td><td class="hide-sm"><span data-en="Premises">Lokaler</span></td><td class="n neg">-3 200,00</td><td class="n">27 700,00</td></tr>
-              <tr><td class="hide-sm mono">003</td><td class="mono">2026-02-03</td><td><span data-en="Bank fees">Bankavgifter</span></td><td class="hide-sm"><span data-en="Bank">Bank</span></td><td class="n neg">-145,00</td><td class="n">27 555,00</td></tr>
-              <tr><td class="hide-sm mono">004</td><td class="mono">2026-03-14</td><td><span data-en="Coffee table sales">Försäljning fikabord</span></td><td class="hide-sm"><span data-en="Sales">Försäljning</span></td><td class="n pos">+2 340,00</td><td class="n">29 895,00</td></tr>
-              <tr><td class="hide-sm mono">005</td><td class="mono">2026-03-14</td><td><span data-en="Coffee and buns">Kaffe och bullar</span></td><td class="hide-sm"><span data-en="Refreshments">Fika och förtäring</span></td><td class="n neg">-612,50</td><td class="n">29 282,50</td></tr>
+              <tr class="open"><td class="hide-sm"></td><td class="mono">2026-01-01</td><td data-en="Opening balance">Ingående saldo</td><td class="hide-sm"></td><td class="n"></td><td class="n hide-xs">12 400,00</td></tr>
+              <tr><td class="hide-sm mono">001</td><td class="mono">2026-01-12</td><td><span data-en="Membership fees 2026">Medlemsavgifter 2026</span></td><td class="hide-sm"><span data-en="Fees">Avgifter</span></td><td class="n pos">+18 500,00</td><td class="n hide-xs">30 900,00</td></tr>
+              <tr><td class="hide-sm mono">002</td><td class="mono">2026-01-20</td><td><span data-en="Rent, community hall">Hyra bygdegården</span></td><td class="hide-sm"><span data-en="Premises">Lokaler</span></td><td class="n neg">-3 200,00</td><td class="n hide-xs">27 700,00</td></tr>
+              <tr><td class="hide-sm mono">003</td><td class="mono">2026-02-03</td><td><span data-en="Bank fees">Bankavgifter</span></td><td class="hide-sm"><span data-en="Bank">Bank</span></td><td class="n neg">-145,00</td><td class="n hide-xs">27 555,00</td></tr>
+              <tr><td class="hide-sm mono">004</td><td class="mono">2026-03-14</td><td><span data-en="Coffee table sales">Försäljning fikabord</span></td><td class="hide-sm"><span data-en="Sales">Försäljning</span></td><td class="n pos">+2 340,00</td><td class="n hide-xs">29 895,00</td></tr>
+              <tr><td class="hide-sm mono">005</td><td class="mono">2026-03-14</td><td><span data-en="Coffee and buns">Kaffe och bullar</span></td><td class="hide-sm"><span data-en="Refreshments">Fika och förtäring</span></td><td class="n neg">-612,50</td><td class="n hide-xs">29 282,50</td></tr>
             </tbody>
           </table>
         </div>
