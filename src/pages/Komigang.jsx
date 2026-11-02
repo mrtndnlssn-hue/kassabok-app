@@ -9,7 +9,7 @@ function loadFlags(orgId) {
   try { return JSON.parse(localStorage.getItem(flagKey(orgId)) || '{}'); } catch { return {}; }
 }
 
-export default function Komigang({ orgId, role, transactions, budget, activePeriod, onSavePeriods, fiscalPeriods, onNavigate }) {
+export default function Komigang({ orgId, role, transactions, budget, activePeriod, onSavePeriods, fiscalPeriods, onNavigate, onHide }) {
   const { t } = useI18n();
   const isOwner = role === 'main_owner' || role === 'owner';
   const [flags, setFlags]       = useState(() => loadFlags(orgId));
@@ -163,6 +163,13 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
           </div>
         ))}
       </div>
+
+      {isOwner && onHide && (
+        <div style={{ marginTop:20, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={onHide}>{t('Dölj den här sidan')}</button>
+          <span style={{ fontSize:'0.78rem', color:'var(--ink-muted)' }}>{t('Du kan slå på den igen under Inställningar.')}</span>
+        </div>
+      )}
     </div>
   );
 }

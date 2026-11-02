@@ -57,6 +57,12 @@ export default {
   'Fyll i både enkelform och flertal, eller lämna båda tomma.': 'Fill in both singular and plural, or leave both empty.',
   'Inställningarna har sparats.': 'The settings have been saved.',
 
+  // Kom igång-sidan
+  'Dölj den här sidan': 'Hide this page',
+  'Du kan slå på den igen under Inställningar.': 'You can turn it back on under Settings.',
+  'Kom igång-sidan visar några steg för att göra föreningen redo. När ni är klara kan ni dölja den.': 'The Get started page shows a few steps to get the association ready. Once you are done you can hide it.',
+  'Visa Kom igång-sidan i menyn': 'Show the Get started page in the menu',
+
   // Rapport (PDF och Excel)
   'Rapport': 'Report',
   'rapport': 'report',

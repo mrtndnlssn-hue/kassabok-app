@@ -7,7 +7,7 @@ import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
 import { useI18n } from '../i18n'
 import { useProjects, defaultLabels } from '../ProjectsContext'
 
-export default function Installningar({ orgId, orgName, onOrgNameChange, onProjectSettingsChange }) {
+export default function Installningar({ orgId, orgName, onOrgNameChange, onProjectSettingsChange, hideStart, onHideStartChange }) {
   const { t } = useI18n()
   const { session, role } = useAuth()
 
@@ -184,6 +184,19 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
             {aiUsage.enabled && <span style={{ color: 'var(--ink-muted)', fontSize: '0.78rem' }}>({t('{used}/{limit} använda denna månad', { used: aiUsage.used, limit: aiUsage.limit })})</span>}
           </label>
         ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span>}
+        {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
+      </div>
+
+      {/* Kom igång-sidan */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="section-title">{t('Kom igång')}</div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+          {t('Kom igång-sidan visar några steg för att göra föreningen redo. När ni är klara kan ni dölja den.')}
+        </p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0 }}>
+          <input type="checkbox" checked={!hideStart} disabled={!canManageAi} onChange={e => onHideStartChange?.(!e.target.checked)} style={{ width: 'auto' }} />
+          {t('Visa Kom igång-sidan i menyn')}
+        </label>
         {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
       </div>
 

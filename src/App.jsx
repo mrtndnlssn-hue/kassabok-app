@@ -93,6 +93,7 @@ function MainApp({ orgId, role }) {
   const [activePeriodId, setActivePeriodId] = useState(null);
   const [projectData, setProjectData] = useState(null);      // märkning med projekt/sektioner (plan + inställning + projekt)
   const [openProjectId, setOpenProjectId] = useState(null);
+  const [hideStart, setHideStart]   = useState(false);          // Kom igång-sidan avstängd i inställningarna
 
   const pd = projectData || { allowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] };
   const projOn = pd.allowed && pd.enabled;
@@ -112,6 +113,7 @@ function MainApp({ orgId, role }) {
       setOrgNames(prev => ({ ...prev, [orgId]: data.orgName || '' }));
       setFiscalPeriods(periods);
       setProjectData(data.projectData || null);
+      setHideStart(!!data.hideGettingStarted);
 
       const today  = todayStr();
       const active =
@@ -123,7 +125,7 @@ function MainApp({ orgId, role }) {
       // Nya föreningar utan verifikat hamnar på Kom igång första gången
       if (!routed.current) {
         routed.current = true;
-        if (canWrite && !(data.transactions || []).length && !pageFromUrl()) {
+        if (canWrite && !data.hideGettingStarted && !(data.transactions || []).length && !pageFromUrl()) {
           window.history.replaceState({ page: 'komigang' }, '', '#komigang');
           setPage('komigang');
         }
@@ -144,13 +146,19 @@ function MainApp({ orgId, role }) {
     if (id) navigate('projekt');
   }
 
-  // Sidan Projekt finns bara när funktionen är påslagen
+  // Sidan Projekt finns bara när funktionen är påslagen, och Kom igång bara om den inte stängts av
   useEffect(() => {
-    if (!loading && page === 'projekt' && !projOn) {
+    if (!loading && ((page === 'projekt' && !projOn) || (page === 'komigang' && hideStart))) {
       window.history.replaceState({ page: 'dashboard' }, '', '#dashboard');
       setPage('dashboard');
     }
-  }, [loading, page, projOn]);
+  }, [loading, page, projOn, hideStart]);
+
+  async function setStartHidden(hidden) {
+    await store.setGettingStartedHidden(orgId, hidden);
+    setHideStart(hidden);
+    if (hidden && page === 'komigang') navigate('dashboard');
+  }
 
   useEffect(() => {
     if (orgs.length <= 1) return
@@ -231,7 +239,7 @@ function MainApp({ orgId, role }) {
     openProjectId, openProject, reload: reloadProjects,
   };
   const pageMap   = {
-    komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} />,
+    komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
@@ -240,7 +248,7 @@ function MainApp({ orgId, role }) {
     arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
     medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
-    installningar: <Installningar orgId={orgId} orgName={orgName} onProjectSettingsChange={reloadProjects} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
+    installningar: <Installningar orgId={orgId} orgName={orgName} onProjectSettingsChange={reloadProjects} hideStart={hideStart} onHideStartChange={setStartHidden} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };
 
   const subtitles = {
@@ -258,7 +266,7 @@ function MainApp({ orgId, role }) {
 
   // ── Mobilvariant: toppfält, innehåll och flikmeny längst ner (Översikt, Kassabok, Nytt, Budget, Mer) ──
   if (isMobile) {
-    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn));
+    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && !(n.id === 'komigang' && hideStart));
     const moreItems = visible.filter(n => !['dashboard', 'kassabok', 'budget'].includes(n.id));
     const go  = id => { setMoreOpen(false); navigate(id); };
     const tab = (id, Icon, label) => (
@@ -384,7 +392,7 @@ function MainApp({ orgId, role }) {
         <nav className="sidebar-nav">
           {NAV_GROUPS.map((g, gi) => {
             const items = g.items.filter(n =>
-              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn));
+              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && !(n.id === 'komigang' && hideStart));
             if (!items.length) return null;
             return (
               <div key={gi}>

@@ -51,7 +51,7 @@ const dbStore = {
   async getAll(orgId) {
     const [orgRes, settingsRes, catsRes, txsRes, budgetRes, periodsRes, linesRes] = await Promise.all([
       supabase.from('organizations').select('name').eq('id', orgId).single(),
-      supabase.from('org_settings').select('active_period_id').eq('org_id', orgId).maybeSingle(),
+      supabase.from('org_settings').select('active_period_id, hide_getting_started').eq('org_id', orgId).maybeSingle(),
       supabase.from('categories').select('*').eq('org_id', orgId).order('id'),
       supabase.from('transactions').select('*').eq('org_id', orgId).order('date', { ascending: false }),
       supabase.from('budget').select('*').eq('org_id', orgId),
@@ -83,6 +83,7 @@ const dbStore = {
     return {
       orgName:        orgRes.data?.name || '',
       activePeriodId: settingsRes.data?.active_period_id || null,
+      hideGettingStarted: !!settingsRes.data?.hide_getting_started,
       categories:     sortCats(catsRes.data),
       transactions:   (txsRes.data || []).map(t => ({
         id:          t.id,
@@ -181,6 +182,11 @@ const dbStore = {
 
   async setOrgName(orgId, name) {
     const { error } = await supabase.from('organizations').update({ name }).eq('id', orgId)
+    if (error) throw error
+  },
+
+  async setGettingStartedHidden(orgId, hidden) {
+    const { error } = await supabase.from('org_settings').upsert({ org_id: orgId, hide_getting_started: !!hidden })
     if (error) throw error
   },
 
@@ -423,6 +429,7 @@ const demoStore = {
   },
   async setOrgName(_o, name)        { demo.data.orgName = name },
   async setActivePeriodId(_o, id)   { demo.data.activePeriodId = id },
+  async setGettingStartedHidden(_o, hidden) { demo.data.hideGettingStarted = !!hidden },
   async saveCategories(_o, cats) {
     demo.data.categories = sortCats(cats.map(c => ({ id: c.id, name: c.name, type: c.type, hidden: c.hidden ?? false })))
   },
