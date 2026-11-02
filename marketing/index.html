@@ -405,7 +405,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="plan-price">499 <small data-en="SEK/year">kr/år</small></div>
         <div class="plan-note" data-en="399.20 SEK excl. VAT">399,20 kr exkl. moms</div>
         <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>100</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>5</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>2</b></div></div>
-        <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('start'); return false;" data-en="Order →">Beställ →</a>
+        <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('liten'); return false;" data-en="Order →">Beställ →</a>
       </div>
       <div class="plan pick">
         <div class="plan-tag" data-en="Most common">Vanligast</div>
@@ -413,7 +413,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="plan-price">990 <small data-en="SEK/year">kr/år</small></div>
         <div class="plan-note" data-en="792 SEK excl. VAT">792 kr exkl. moms</div>
         <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>500</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>10</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>5</b></div><div class="plan-row"><span data-en="Tagging of projects and sections">Märkning av projekt och sektioner</span><b>✓</b></div></div>
-        <a class="btn btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('forening'); return false;" data-en="Order →">Beställ →</a>
+        <a class="btn btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('medel'); return false;" data-en="Order →">Beställ →</a>
       </div>
       <div class="plan ">
         <div class="plan-tag" data-en="For busy associations">För aktiva föreningar</div>
@@ -421,7 +421,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="plan-price">2 190 <small data-en="SEK/year">kr/år</small></div>
         <div class="plan-note" data-en="1 752 SEK excl. VAT">1 752 kr exkl. moms</div>
         <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>2 500</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>40</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>15</b></div><div class="plan-row"><span data-en="Tagging of projects and sections">Märkning av projekt och sektioner</span><b>✓</b></div></div>
-        <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('forening_plus'); return false;" data-en="Order →">Beställ →</a>
+        <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('stor'); return false;" data-en="Order →">Beställ →</a>
       </div>
     </div>
     <p class="plans-foot" data-en="Nearly all features are in every plan. What differs is the volume: how many vouchers, receipt readings and users you get. Tagging of projects and sections is included in Medium and Large. Prices cover 12 months and include 25% VAT. If you want to try it first, you can create an account and book up to 15 vouchers at no cost.">De flesta funktioner finns i alla planer. Det som skiljer är volymen: hur många verifikat, kvittoavläsningar och användare ni får. Märkning av projekt och sektioner ingår i Medel och Stor. Priserna gäller 12 månader och anges inklusive 25 % moms. Vill ni prova först kan ni skapa ett konto och bokföra upp till 15 verifikat utan kostnad.</p>
@@ -480,9 +480,9 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <fieldset>
           <legend data-en="1. Choose a plan">1. Välj plan</legend>
           <div class="plan-pick">
-            <label class="plan-opt"><input type="radio" name="plan_code" value="start"><span><b data-en="Small">Liten</b><small data-en="Up to 100 vouchers per financial year, 2 users, 5 receipt readings a month">Upp till 100 verifikat per räkenskapsår, 2 användare, 5 kvittoavläsningar i månaden</small></span><span class="mono">499 <span data-en="SEK/year">kr/år</span></span></label>
-            <label class="plan-opt"><input type="radio" name="plan_code" value="forening" checked><span><b data-en="Medium">Medel</b><small data-en="Up to 500 vouchers per financial year, 5 users, 10 receipt readings a month">Upp till 500 verifikat per räkenskapsår, 5 användare, 10 kvittoavläsningar i månaden</small></span><span class="mono">990 <span data-en="SEK/year">kr/år</span></span></label>
-            <label class="plan-opt"><input type="radio" name="plan_code" value="forening_plus"><span><b data-en="Large">Stor</b><small data-en="Up to 2,500 vouchers per financial year, 15 users, 40 receipt readings a month">Upp till 2 500 verifikat per räkenskapsår, 15 användare, 40 kvittoavläsningar i månaden</small></span><span class="mono">2 190 <span data-en="SEK/year">kr/år</span></span></label>
+            <label class="plan-opt"><input type="radio" name="plan_code" value="liten"><span><b data-en="Small">Liten</b><small data-en="Up to 100 vouchers per financial year, 2 users, 5 receipt readings a month">Upp till 100 verifikat per räkenskapsår, 2 användare, 5 kvittoavläsningar i månaden</small></span><span class="mono">499 <span data-en="SEK/year">kr/år</span></span></label>
+            <label class="plan-opt"><input type="radio" name="plan_code" value="medel" checked><span><b data-en="Medium">Medel</b><small data-en="Up to 500 vouchers per financial year, 5 users, 10 receipt readings a month">Upp till 500 verifikat per räkenskapsår, 5 användare, 10 kvittoavläsningar i månaden</small></span><span class="mono">990 <span data-en="SEK/year">kr/år</span></span></label>
+            <label class="plan-opt"><input type="radio" name="plan_code" value="stor"><span><b data-en="Large">Stor</b><small data-en="Up to 2,500 vouchers per financial year, 15 users, 40 receipt readings a month">Upp till 2 500 verifikat per räkenskapsår, 15 användare, 40 kvittoavläsningar i månaden</small></span><span class="mono">2 190 <span data-en="SEK/year">kr/år</span></span></label>
           </div>
           <div class="field" style="margin-top:16px;max-width:360px">
             <label for="discount_code"><span data-en="Discount code (optional)">Rabattkod (valfritt)</span></label>
@@ -719,9 +719,9 @@ const SUPABASE_URL = 'https://wolfkumocsceeemtmjrp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9gmDtAoHr7ZSPpBnLmTDZA_F785TJrG';
 const VAT = 25;
 const PLANS = {
-  start:         { sv: 'Liten',          en: 'Small',            incl: 499 },
-  forening:      { sv: 'Medel',          en: 'Medium',           incl: 990 },
-  forening_plus: { sv: 'Stor',           en: 'Large',            incl: 2190 }
+  liten:         { sv: 'Liten',          en: 'Small',            incl: 499 },
+  medel:         { sv: 'Medel',          en: 'Medium',           incl: 990 },
+  stor:          { sv: 'Stor',           en: 'Large',            incl: 2190 }
 };
 const META = {
   sv: {
@@ -775,7 +775,7 @@ const kr = n => Number(n).toLocaleString('sv-SE', { minimumFractionDigits: 2, ma
 let discount = null; // { code, percent } när en giltig kod är använd
 
 function updateSummary() {
-  const code = (document.querySelector('input[name=plan_code]:checked') || {}).value || 'forening';
+  const code = (document.querySelector('input[name=plan_code]:checked') || {}).value || 'medel';
   const p = PLANS[code];
   const pct = discount ? discount.percent : 0;
   const total = Math.round(p.incl * (100 - pct)) / 100;

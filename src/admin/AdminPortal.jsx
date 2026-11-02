@@ -155,7 +155,7 @@ function Orgs({ plans }) {
           <tr key={o.org_id}>
             <td><strong>{o.name}</strong><div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>{o.owner_email || '–'} · skapad {day(o.created_at)}</div></td>
             <td>{planLabel(o.effective_plan)}{o.plan_code !== o.effective_plan && <div style={{ fontSize: '0.72rem', color: 'var(--red)' }}>({planLabel(o.plan_code)} har gått ut)</div>}</td>
-            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{o.plan_code === 'gratis' ? '–' : day(o.plan_valid_until)}</td>
+            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{o.plan_code === 'prova' ? '–' : day(o.plan_valid_until)}</td>
             <td style={{ fontFamily: 'var(--font-mono)' }}>{o.members} / {o.member_limit}</td>
             <td><Bar used={o.vouchers_period} limit={o.voucher_limit} /><div style={{ fontSize: '0.7rem', color: 'var(--ink-muted)' }}>{o.vouchers_total} totalt</div></td>
             <td><Bar used={o.ai_used} limit={o.ai_limit} /></td>
@@ -175,14 +175,14 @@ function PlanModal({ org, plans, onClose, onSaved }) {
   const [until, setUntil] = useState(org.plan_valid_until || inAYear())
   const [err, setErr] = useState('')
   async function save() {
-    const { error } = await supabase.rpc('admin_set_org_plan', { p_org: org.org_id, p_plan: plan, p_valid_until: plan === 'gratis' ? null : until || null })
+    const { error } = await supabase.rpc('admin_set_org_plan', { p_org: org.org_id, p_plan: plan, p_valid_until: plan === 'prova' ? null : until || null })
     if (error) setErr(error.message); else onSaved()
   }
   return (
     <Modal title={`Plan – ${org.name}`} onClose={onClose}>
       <Err msg={err} />
       <Field label="Plan"><select value={plan} onChange={e => setPlan(e.target.value)}>{plans.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}</select></Field>
-      {plan !== 'gratis' && <Field label="Giltig till"><DateInput value={until} onChange={setUntil} /></Field>}
+      {plan !== 'prova' && <Field label="Giltig till"><DateInput value={until} onChange={setUntil} /></Field>}
       <div className="btn-row"><button className="btn btn-primary" onClick={save}>Spara</button><button className="btn btn-secondary" onClick={onClose}>Avbryt</button></div>
     </Modal>
   )

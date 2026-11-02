@@ -119,7 +119,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
           <div className="section-title">{t('Plan')}</div>
           <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:10 }}>
             <strong style={{ fontSize:'1.1rem' }}>{t(plan.plan_name)}</strong>
-            {plan.plan_code !== 'gratis' && plan.valid_until && (
+            {plan.plan_code !== 'prova' && plan.valid_until && (
               <span style={{ fontSize:'0.8rem', color:'var(--ink-muted)' }}>{t('Giltig till {date}', { date: plan.valid_until })}</span>
             )}
           </div>
@@ -128,7 +128,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
             <div>{t('AI-avläsningar per månad:')} <strong style={{ fontFamily:'var(--font-mono)' }}>{plan.ai_limit}</strong></div>
             <div>{t('Lagring av bilagor:')} <strong style={{ fontFamily:'var(--font-mono)' }}>{fmtMb(plan.storage_used_bytes)} / {fmtMb(plan.storage_limit_bytes)}</strong></div>
           </div>
-          {plan.plan_code === 'gratis' && (
+          {plan.plan_code === 'prova' && (
             <p style={{ fontSize:'0.82rem', color:'var(--ink-muted)', marginTop:12 }}>
               {t('Behöver ni fler verifikat? Se planerna och beställ på')} <a href="https://foreningsbalans.se/#priser">foreningsbalans.se</a>.
             </p>
