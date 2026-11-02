@@ -32,8 +32,8 @@ export default function AuthProvider({ children }) {
       .select('org_id, role')
       .eq('user_id', userId)
 
-    // Demokontot är läsare i databasen men får skriva i minnet (se store.js)
-    const list = (data || []).map(r => ({ orgId: r.org_id, role: demo ? 'member' : r.role }))
+    // Demokontot är läsare i databasen men visas som ägare och får skriva i minnet (se store.js)
+    const list = (data || []).map(r => ({ orgId: r.org_id, role: demo ? 'owner' : r.role }))
     setOrgs(list)
 
     if (list.length === 0) {
