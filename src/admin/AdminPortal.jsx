@@ -255,7 +255,7 @@ function OrderModal({ order, orgs, planName, onClose, onChanged }) {
     <Modal title={`Beställning ${order.order_no}`} onClose={onClose} wide>
       <Err msg={err} />
       <table style={{ marginBottom: 16 }}><tbody>{rows.map(([k, v]) => <tr key={k}><td style={{ color: 'var(--ink-muted)', width: 130 }}>{k}</td><td>{v}</td></tr>)}</tbody></table>
-      <Field label="Koppla till förening i appen (planen aktiveras när fakturan markeras betald)">
+      <Field label="Koppla till förening i appen (planen aktiveras direkt när beställningen kopplas)">
         <select value={orgId} onChange={e => setOrgId(e.target.value)}>
           <option value="">– ingen –</option>
           {suggested.length > 0 && <optgroup label="Förslag (samma e-post)">{suggested.map(o => <option key={o.org_id} value={o.org_id}>{o.name}</option>)}</optgroup>}
@@ -316,7 +316,7 @@ function Invoices({ settings }) {
                 <button className="btn btn-secondary btn-sm" onClick={() => pdf(i)}><FileDown size={13} /> PDF</button>
                 {i.status === 'sent' && <button className="btn btn-secondary btn-sm" disabled={sending === i.id} onClick={() => send(i)}><Mail size={13} /> {sending === i.id ? 'Skickar…' : i.sent_at ? 'Skicka igen' : 'Skicka'}</button>}
                 {i.status === 'draft' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_issue_invoice', { p_invoice: i.id }, 'Faktura utfärdad. Klicka på Skicka för att maila den till kunden, eller ladda ner PDF:en.')}>Utfärda</button>}
-                {i.status === 'sent' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_mark_invoice_paid', { p_invoice: i.id, p_paid: todayStr() }, 'Markerad som betald. Planen är aktiverad om beställningen är kopplad till en förening.')}>Markera betald</button>}
+                {i.status === 'sent' && <button className="btn btn-primary btn-sm" onClick={() => run('admin_mark_invoice_paid', { p_invoice: i.id, p_paid: todayStr() }, 'Markerad som betald.')}>Markera betald</button>}
                 {(i.status === 'draft' || i.status === 'sent') && <button className="btn btn-danger btn-sm" onClick={() => window.confirm('Makulera fakturan?') && run('admin_void_invoice', { p_invoice: i.id }, 'Fakturan är makulerad.')}>Makulera</button>}
               </div>
             </td>
