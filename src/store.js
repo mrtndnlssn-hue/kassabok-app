@@ -397,6 +397,19 @@ const dbAttachments = {
     }
     return results
   },
+
+  // Raderar alla bilagor för de givna verifikaten (frigör lagringsutrymme). Returnerar antal raderade filer.
+  async removeForPeriod(orgId, txIds) {
+    let removed = 0
+    for (const txId of txIds) {
+      const { data: files } = await supabase.storage.from('attachments').list(`${orgId}/${txId}`, { limit: 1000 })
+      if (!files?.length) continue
+      const { error } = await supabase.storage.from('attachments').remove(files.map(f => `${orgId}/${txId}/${f.name}`))
+      if (error) throw error
+      removed += files.length
+    }
+    return removed
+  },
 }
 
 // ── Demoläge ───────────────────────────────────────────────────
@@ -537,6 +550,11 @@ const demoAttachments = {
   },
   async listForPeriod(_o, txIds) {
     return txIds.flatMap(txId => (demo.files.get(txId) || []).map(f => ({ txId, filename: f.name, blob: f.file })))
+  },
+  async removeForPeriod(_o, txIds) {
+    let removed = 0
+    for (const id of txIds) { removed += (demo.files.get(id) || []).length; demo.files.delete(id) }
+    return removed
   },
 }
 

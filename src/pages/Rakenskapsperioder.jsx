@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader, FileSpreadsheet } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader, FileSpreadsheet, Paperclip } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
 import { getYear, txsForPeriod, attachments, isValidIsoDate, fmt } from '../store';
@@ -30,7 +30,7 @@ function monthsBetween(start, end) {
 }
 
 // ── Stäng verksamhetsår – modal ──────────────────────────────
-function CloseYearModal({ period, transactions, categories, budget, orgName, orgId, onDone, onCancel }) {
+function CloseYearModal({ period, transactions, categories, budget, orgName, orgId, onDone, onCancel, onClear }) {
   const { t } = useI18n();
   const reportName = t('arsrapport');   // filnamn i ZIP-filen
   const { enabled: projOn, projects, labels } = useProjects();
@@ -168,8 +168,10 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
             </div>
             <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:20 }}>
               {t('Förvara ZIP-filen på en säker plats. Du kan alltid se data i appen men inga ändringar kan göras i den låsta perioden.')}
+              {' '}{t('När ZIP-filen är nedladdad och sparad kan du ta bort bilagorna från databasen för att frigöra lagringsutrymme.')}
             </p>
             <div className="btn-row" style={{ justifyContent:'flex-end' }}>
+              {onClear && <button className="btn btn-secondary" onClick={onClear}><Trash2 size={14}/> {t('Rensa bilagor…')}</button>}
               <button className="btn btn-primary" onClick={onDone}>{t('Stäng')}</button>
             </div>
           </>
@@ -191,6 +193,115 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
   );
 }
 
+// ── Rensa bilagor – modal ────────────────────────────────────
+// Raderar uppladdade bilagor för en period för att frigöra lagringsutrymme. Verifikaten och beloppen finns kvar.
+function ClearAttachmentsModal({ period, transactions, categories, budget, orgName, orgId, onClose }) {
+  const { t } = useI18n();
+  const { enabled: projOn, projects, labels } = useProjects();
+  const txIds = txsForPeriod(transactions, period).map(x => x.id);
+  const [count, setCount]           = useState(null);   // antal bilagor, null = räknar
+  const [downloaded, setDownloaded] = useState(false);
+  const [busy, setBusy]             = useState('');     // 'zip' | 'delete' | ''
+  const [understood, setUnderstood] = useState(false);
+  const [removed, setRemoved]       = useState(null);
+  const [error, setError]           = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    attachments.namesByTx(orgId, txIds)
+      .then(r => { if (alive) setCount(Object.values(r).reduce((n, a) => n + a.length, 0)); })
+      .catch(e => { if (alive) setError(e.message || t('Okänt fel')); });
+    return () => { alive = false; };
+  }, []);
+
+  async function download() {
+    setError(''); setBusy('zip');
+    try {
+      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period, transactions, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
+      downloadBlob(blob, filename);
+      setDownloaded(true);
+    } catch (e) {
+      setError(t('Exporten misslyckades: {fel}', { fel: e.message || t('okänt fel') }));
+    } finally { setBusy(''); }
+  }
+
+  async function clear() {
+    setError(''); setBusy('delete');
+    try { setRemoved(await attachments.removeForPeriod(orgId, txIds)); }
+    catch (e) { setError(e.message || t('Okänt fel')); }
+    finally { setBusy(''); }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !busy && onClose()}>
+      <div className="modal" style={{ maxWidth: 520 }}>
+        <div className="modal-header">
+          <div className="modal-title" style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <Trash2 size={18} style={{ color:'var(--red)' }}/>
+            {t('Rensa bilagor')} – {period.label}
+          </div>
+          <button className="modal-close" onClick={onClose} disabled={!!busy}><X size={18}/></button>
+        </div>
+
+        {removed !== null ? (
+          <>
+            <div className="notice notice-success" style={{ marginBottom:20 }}>
+              ✅ {t('Bilagorna har raderats från databasen (antal: {n}).', { n: removed })}
+            </div>
+            <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:20 }}>
+              {t('Verifikaten, beloppen och rapporterna finns kvar i appen. Det är bara de uppladdade filerna som är borta.')}
+            </p>
+            <div className="btn-row" style={{ justifyContent:'flex-end' }}>
+              <button className="btn btn-primary" onClick={onClose}>{t('Stäng')}</button>
+            </div>
+          </>
+        ) : (
+          <>
+            {error && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'#f5c6cb', color:'var(--red)', marginBottom:16 }}>{error}</div>}
+            <div className="notice notice-warn" style={{ marginBottom:16 }}>
+              <strong>{t('Det här raderar data permanent.')}</strong>{' '}
+              {count === null
+                ? t('Räknar bilagor…')
+                : count === 0
+                ? t('Det finns inga uppladdade bilagor i perioden att rensa.')
+                : t('Uppladdade kvitton och fakturor i perioden ({n} st) tas bort från databasen och kan inte återställas.', { n: count })}
+            </div>
+            <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:16, lineHeight:1.7 }}>
+              {t('Ladda först ner en kopia (ZIP med Excel-fil och alla bilagor) och spara den på ett tryggt ställe. Därefter kan du rensa bilagorna för att frigöra lagringsutrymme.')}
+            </p>
+            <div style={{ marginBottom:16 }}>
+              <button className="btn btn-secondary" disabled={!!busy} onClick={download}>
+                {busy === 'zip'
+                  ? <><Loader size={14} style={{ animation:'spin 1s linear infinite' }}/> {t('Exporterar…')}</>
+                  : <><Archive size={14}/> {downloaded ? t('Ladda ner kopian igen') : t('Ladda ner kopia (ZIP)')}</>}
+              </button>
+              {downloaded && <span style={{ marginLeft:10, fontSize:'0.82rem', color:'var(--accent)' }}>✓ {t('Kopian är nedladdad')}</span>}
+            </div>
+            {!downloaded && (
+              <p style={{ fontSize:'0.82rem', color:'var(--red)', marginBottom:16 }}>
+                {t('Du har inte laddat ner någon kopia i den här rutan. Har du redan en ZIP-fil för perioden går det bra att fortsätta.')}
+              </p>
+            )}
+            <label style={{ display:'flex', gap:10, alignItems:'flex-start', justifyContent:'flex-start', fontSize:'0.88rem', fontWeight:400, textTransform:'none', letterSpacing:'normal', color:'var(--ink)', marginBottom:20, cursor:'pointer' }}>
+              <input type="checkbox" checked={understood} onChange={e => setUnderstood(e.target.checked)} style={{ width:'auto', flex:'none', marginTop:3 }}/>
+              <span>{t('Jag förstår att bilagorna raderas permanent och att det inte går att ångra.')}</span>
+            </label>
+            <div className="btn-row" style={{ justifyContent:'flex-end' }}>
+              <button className="btn btn-secondary" disabled={!!busy} onClick={onClose}>{t('Avbryt')}</button>
+              <button className="btn btn-danger" disabled={!understood || !!busy || !count} onClick={clear}>
+                {busy === 'delete'
+                  ? <><Loader size={14} style={{ animation:'spin 1s linear infinite' }}/> {t('Raderar…')}</>
+                  : <><Trash2 size={14}/> {t('Radera bilagorna')}</>}
+              </button>
+            </div>
+          </>
+        )}
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    </div>
+  );
+}
+
 // ── Huvudkomponent ───────────────────────────────────────────
 export default function Rakenskapsperioder({ fiscalPeriods, transactions, categories, budget, orgName, orgId, onSave }) {
   const { t } = useI18n()
@@ -204,6 +315,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
   const [newForm, setNewForm]   = useState({ label:'', start:'', end:'', openingBalance:'' });
   const [error, setError]       = useState('');
   const [closeModal, setCloseModal] = useState(null);
+  const [clearModal, setClearModal] = useState(null);
   const [exportingId, setExportingId] = useState(null);
 
   async function handleExcelExport(p) {
@@ -287,6 +399,8 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
     <div>
       <div className="notice notice-info">
         {t('Definiera räkenskapsperioder. Använd "Stäng år" för att skapa en ZIP-arkivfil med årsrapport och bilagor, och låsa perioden. Med "Excel" exporterar du en period som en Excel-fil med alla verifikat och bilagor, t.ex. om du vill lämna systemet med din data.')}
+        <br/>
+        {t('Excel-säkerhetskopian och ZIP-exporten finns så att du kan vara säker på att din data är säker. När du har laddat ner ZIP-filen och sparat den på ett tryggt ställe kan du ta bort bilagorna från databasen för att frigöra lagringsutrymme, till exempel för äldre år.')}
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
 
@@ -370,6 +484,10 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
                       </div>
                       {canWrite && (
                         <div className="gap-row" style={{gap:4, marginTop:4}}>
+                          <button className="btn btn-sm btn-secondary" onClick={() => setClearModal(p)}
+                            title={t('Ladda ner en kopia och radera bilagorna för att frigöra lagringsutrymme')}>
+                            <Paperclip size={12}/> {t('Rensa bilagor')}
+                          </button>
                           {!p.locked && <>
                             <button className="btn btn-sm btn-secondary" onClick={() => startEdit(globalIdx)} title={t('Redigera')}><Pencil size={12}/></button>
                             <button className="btn btn-sm btn-primary" onClick={() => setCloseModal(p)} title={t('Stäng verksamhetsår och skapa ZIP')}>
@@ -438,6 +556,19 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
           orgId={orgId}
           onDone={handleCloseYearDone}
           onCancel={() => setCloseModal(null)}
+          onClear={canWrite ? () => { const p = closeModal; handleCloseYearDone(); setClearModal(p); } : undefined}
+        />
+      )}
+
+      {clearModal && (
+        <ClearAttachmentsModal
+          period={clearModal}
+          transactions={transactions}
+          categories={categories}
+          budget={budget}
+          orgName={orgName}
+          orgId={orgId}
+          onClose={() => setClearModal(null)}
         />
       )}
     </div>
