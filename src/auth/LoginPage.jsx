@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { demoCredentials } from '../demo'
 import { useI18n } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
+import { checkPassword, passwordHint, MIN_PASSWORD_LENGTH } from '../passwordRules'
 
 export default function LoginPage() {
   const { t } = useI18n()
@@ -33,6 +34,8 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithPassword(demoCredentials(email, password) || { email, password })
       if (error) setError(error.message)
     } else if (mode === 'register') {
+      const problem = checkPassword(password, email)
+      if (problem) { setError(problem); setLoading(false); return }
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) setError(error.message)
       else setSuccess(t('Konto skapat! Kontrollera din e-post för att verifiera kontot.'))
@@ -97,7 +100,8 @@ export default function LoginPage() {
               <div className="form-row">
                 <div>
                   <label>{t('Lösenord')}</label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'register' ? 6 : undefined} placeholder={mode === 'register' ? t('Minst 6 tecken') : t('Lösenord')} />
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'register' ? MIN_PASSWORD_LENGTH : undefined} placeholder={mode === 'register' ? t('Minst 10 tecken') : t('Lösenord')} />
+                  {mode === 'register' && <div style={{ fontSize:'0.75rem', color:'var(--ink-muted)', marginTop:4 }}>{passwordHint()}</div>}
                 </div>
               </div>
             )}

@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { useAuth } from './AuthProvider'
 import { useI18n } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
+import { checkPassword, passwordHint, MIN_PASSWORD_LENGTH } from '../passwordRules'
 
 export default function SetNewPassword() {
   const { t } = useI18n()
@@ -16,6 +17,8 @@ export default function SetNewPassword() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (password !== password2) { setError(t('Lösenorden matchar inte.')); return }
+    const problem = checkPassword(password)
+    if (problem) { setError(problem); return }
     setLoading(true); setError('')
     const { error } = await supabase.auth.updateUser({ password })
     if (error) {
@@ -44,13 +47,14 @@ export default function SetNewPassword() {
             <div className="form-row">
               <div>
                 <label>{t('Nytt lösenord')}</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder={t('Minst 6 tecken')} autoFocus />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={MIN_PASSWORD_LENGTH} placeholder={t('Minst 10 tecken')} autoFocus />
+                <div style={{ fontSize:'0.75rem', color:'var(--ink-muted)', marginTop:4 }}>{passwordHint()}</div>
               </div>
             </div>
             <div className="form-row">
               <div>
                 <label>{t('Upprepa lösenord')}</label>
-                <input type="password" value={password2} onChange={e => setPassword2(e.target.value)} required minLength={6} placeholder={t('Samma lösenord igen')} />
+                <input type="password" value={password2} onChange={e => setPassword2(e.target.value)} required minLength={MIN_PASSWORD_LENGTH} placeholder={t('Samma lösenord igen')} />
               </div>
             </div>
             <button className="btn btn-primary" type="submit" disabled={loading} style={{ width:'100%', marginTop:8 }}>
