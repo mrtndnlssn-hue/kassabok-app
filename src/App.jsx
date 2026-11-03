@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings, Layers } from 'lucide-react';
-import { store, attachments, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
+import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings, Layers, Receipt } from 'lucide-react';
+import { store, attachments, expenses, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import { isDemoSession } from './demo';
@@ -18,6 +18,7 @@ import Medlemmar from './pages/Medlemmar';
 import Installningar from './pages/Installningar';
 import Komigang from './pages/Komigang';
 import Projekt from './pages/Projekt';
+import Utlagg from './pages/Utlagg';
 import { ProjectsProvider, projectLabels, cap, lower } from './ProjectsContext';
 import { useI18n } from './i18n';
 import useIsMobile from './hooks/useIsMobile';
@@ -32,6 +33,7 @@ const NAV_GROUPS = [
   ] },
   { title: 'Bokföring', items: [
     { id: 'kassabok',  label: 'Kassabok',           icon: BookOpen },
+    { id: 'utlagg',    label: 'Utlägg',             icon: Receipt, needsExpenses: true },
     { id: 'budget',    label: 'Budget & utfall',    icon: PieChart },
     { id: 'projekt',   label: 'Projekt',            icon: Layers, needsProjects: true },
   ] },
@@ -46,7 +48,7 @@ const NAV_GROUPS = [
   ] },
 ];
 const NAV = NAV_GROUPS.flatMap(g => g.items);
-const NO_PERIOD_PAGES = ['komigang', 'projekt', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
+const NO_PERIOD_PAGES = ['komigang', 'utlagg', 'projekt', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
 
 function MainApp({ orgId, role }) {
   const { t } = useI18n();
@@ -55,6 +57,7 @@ function MainApp({ orgId, role }) {
   const [addRequest, setAddRequest] = useState(false);   // "+" i flikmenyn ber Kassabok öppna nytt verifikat
   const { orgs, setOrgId: switchOrg, session } = useAuth()
   const canWrite = role !== 'viewer'
+  const canSubmitExpense = canWrite || !!orgs.find(o => o.orgId === orgId)?.canExpenses   // skrivare, eller läsare med rätt att registrera utlägg
   const isOwnerRole = role === 'main_owner' || role === 'owner';
   // Sidan ligger i adressen (#kassabok) så att webbläsarens bakåt- och framåtknappar fungerar
   const pageFromUrl = () => {
@@ -94,10 +97,13 @@ function MainApp({ orgId, role }) {
   const [projectData, setProjectData] = useState(null);      // märkning med projekt/sektioner (plan + inställning + projekt)
   const [openProjectId, setOpenProjectId] = useState(null);
   const [hideStart, setHideStart]   = useState(false);          // Kom igång-sidan avstängd i inställningarna
+  const [claims, setClaims]        = useState([]);             // utlägg (egna, eller alla för den som får godkänna)
+  const [flash, setFlash]          = useState('');             // meddelande ovanför sidan
 
   const pd = projectData || { allowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] };
   const projOn = pd.allowed && pd.enabled;
   const labels = projectLabels(pd);
+  const expensesOn = !!pd.expensesAllowed && canSubmitExpense;
   const navLabel = n => (n.id === 'projekt' ? cap(labels.many) : t(n.label));
 
   async function fetchAll() {
@@ -114,6 +120,7 @@ function MainApp({ orgId, role }) {
       setFiscalPeriods(periods);
       setProjectData(data.projectData || null);
       setHideStart(!!data.hideGettingStarted);
+      await loadClaims(!!data.projectData?.expensesAllowed && canSubmitExpense);
 
       const today  = todayStr();
       const active =
@@ -135,7 +142,20 @@ function MainApp({ orgId, role }) {
     }
   }
 
-  useEffect(() => { setOpenProjectId(null); fetchAll(); }, [orgId]);
+  useEffect(() => { setOpenProjectId(null); setFlash(''); fetchAll(); }, [orgId]);
+
+  async function loadClaims(allowed = expensesOn) {
+    if (!allowed) { setClaims([]); return; }
+    try { setClaims(await expenses.list(orgId)); } catch { setClaims([]); }
+  }
+  async function handleSubmitExpense(payload, files = []) {
+    const { claim, uploadError } = await expenses.submit(orgId, payload, files);
+    expenses.notify(claim.id);
+    await loadClaims();
+    setFlash(uploadError
+      ? t('Utlägget är inskickat, men bilagan kunde inte laddas upp: {fel}. Öppna utlägget och lägg till den igen.', { fel: uploadError.message })
+      : t('Utlägget är inskickat för godkännande. Du hittar det under Utlägg.'));
+  }
 
   // Läser om bara projekten (efter att ett projekt ändrats eller inställningen bytts)
   async function reloadProjects() {
@@ -148,11 +168,11 @@ function MainApp({ orgId, role }) {
 
   // Sidan Projekt finns bara när funktionen är påslagen, och Kom igång bara om den inte stängts av
   useEffect(() => {
-    if (!loading && ((page === 'projekt' && !projOn) || (page === 'komigang' && hideStart))) {
+    if (!loading && ((page === 'projekt' && !projOn) || (page === 'utlagg' && !expensesOn) || (page === 'komigang' && hideStart))) {
       window.history.replaceState({ page: 'dashboard' }, '', '#dashboard');
       setPage('dashboard');
     }
-  }, [loading, page, projOn, hideStart]);
+  }, [loading, page, projOn, expensesOn, hideStart]);
 
   async function setStartHidden(hidden) {
     await store.setGettingStartedHidden(orgId, hidden);
@@ -231,6 +251,16 @@ function MainApp({ orgId, role }) {
     </div>
   );
 
+  const pendingClaims = canWrite ? claims.filter(c => (c.status === 'submitted' || c.status === 'approved') && !(c.userId === session?.user?.id && role !== 'main_owner')).length : 0;
+  const navBadge = n => (n.id === 'utlagg' && pendingClaims > 0
+    ? <span style={{ marginLeft: 'auto', background: 'var(--amber)', color: '#fff', borderRadius: 99, fontSize: '0.68rem', fontWeight: 700, padding: '1px 7px' }}>{pendingClaims}</span>
+    : null);
+  const flashBar = flash && (
+    <div className="notice notice-info" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+      <span>{flash}</span>
+      <button onClick={() => setFlash('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }} aria-label={t('Stäng')}>×</button>
+    </div>
+  );
   const pageProps = { transactions, categories, budget, orgName, activePeriod, fiscalPeriods };
   const myUserId = session?.user?.id;
   const projectCtx = {
@@ -241,7 +271,8 @@ function MainApp({ orgId, role }) {
   const pageMap   = {
     komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
-    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
+    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
+    utlagg:     <Utlagg {...pageProps} orgId={orgId} claims={claims} onReload={loadClaims} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
@@ -255,6 +286,7 @@ function MainApp({ orgId, role }) {
     komigang:   t('Gör föreningen redo steg för steg'),
     dashboard:  t('Ekonomisk översikt – {period}', { period: activePeriod?.label || '–' }),
     kassabok:   t('Verifikat – {period}', { period: activePeriod?.label || '–' }),
+    utlagg:     t('Registrera, godkänn och betala ut utlägg'),
     projekt:    t('Följ {namn}: intäkter, kostnader och rapporter', { namn: lower(labels.many) }),
     budget:     t('Budget vs utfall – {period}', { period: activePeriod?.label || '–' }),
     kategorier: t('Definiera intäkts- och kostnadskategorier'),
@@ -266,7 +298,7 @@ function MainApp({ orgId, role }) {
 
   // ── Mobilvariant: toppfält, innehåll och flikmeny längst ner (Översikt, Kassabok, Nytt, Budget, Mer) ──
   if (isMobile) {
-    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && !(n.id === 'komigang' && hideStart));
+    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || expensesOn) && !(n.id === 'komigang' && hideStart));
     const moreItems = visible.filter(n => !['dashboard', 'kassabok', 'budget'].includes(n.id));
     const go  = id => { setMoreOpen(false); navigate(id); };
     const tab = (id, Icon, label) => (
@@ -293,6 +325,7 @@ function MainApp({ orgId, role }) {
             </div>
           )}
           <h2 className="m-title">{NAV.find(n => n.id === page) ? navLabel(NAV.find(n => n.id === page)) : ''}</h2>
+          {flashBar}
           <ProjectsProvider value={projectCtx}>{pageMap[page]}</ProjectsProvider>
         </main>
 
@@ -321,7 +354,7 @@ function MainApp({ orgId, role }) {
                 const Icon = n.icon;
                 return (
                   <button key={n.id} className={`m-sheet-item${page === n.id ? ' active' : ''}`} onClick={() => go(n.id)}>
-                    <Icon size={20}/> {navLabel(n)}
+                    <Icon size={20}/> {navLabel(n)}{navBadge(n)}
                   </button>
                 );
               })}
@@ -392,7 +425,7 @@ function MainApp({ orgId, role }) {
         <nav className="sidebar-nav">
           {NAV_GROUPS.map((g, gi) => {
             const items = g.items.filter(n =>
-              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && !(n.id === 'komigang' && hideStart));
+              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || expensesOn) && !(n.id === 'komigang' && hideStart));
             if (!items.length) return null;
             return (
               <div key={gi}>
@@ -403,7 +436,7 @@ function MainApp({ orgId, role }) {
                   const Icon = n.icon;
                   return (
                     <button key={n.id} className={`nav-btn${page === n.id ? ' active' : ''}`} onClick={() => navigate(n.id)}>
-                      <Icon size={16}/> {navLabel(n)}
+                      <Icon size={16}/> {navLabel(n)}{navBadge(n)}
                     </button>
                   );
                 })}
@@ -484,7 +517,7 @@ function MainApp({ orgId, role }) {
             </div>
           )}
         </header>
-        <div className="page-body"><ProjectsProvider value={projectCtx}>{pageMap[page]}</ProjectsProvider></div>
+        <div className="page-body">{flashBar}<ProjectsProvider value={projectCtx}>{pageMap[page]}</ProjectsProvider></div>
       </main>
     </div>
   );

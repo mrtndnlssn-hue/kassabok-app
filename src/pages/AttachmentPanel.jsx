@@ -16,7 +16,9 @@ function fmtSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function AttachmentPanel({ tx, verNum, onClose }) {
+// tx.id är mappen för bilagorna (verifikatets id, eller claim_<id> för ett utlägg). label ersätter VERxxx i rubriken.
+// readOnly döljer uppladdning och borttagning (t.ex. för ett utlägg som redan godkänts).
+export default function AttachmentPanel({ tx, verNum, label, readOnly = false, onClose }) {
   const { t } = useI18n();
   const { orgId } = useAuth();
   const [files, setFiles]             = useState([]);
@@ -68,7 +70,7 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
     handleUpload(e.dataTransfer.files);
   }
 
-  const verLabel = `VER${String(verNum).padStart(3, '0')}`;
+  const verLabel = label || `VER${String(verNum).padStart(3, '0')}`;
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -93,7 +95,7 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
           </div>
         )}
 
-        <div
+        {!readOnly && <div
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
@@ -122,7 +124,7 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
               <span style={{ fontSize:'0.75rem' }}>{t('Foton förminskas automatiskt (max 2000 px) för att spara utrymme.')}</span>
             </div>
           )}
-        </div>
+        </div>}
 
         {loading ? (
           <div style={{ textAlign:'center', padding:'24px', color:'var(--ink-muted)' }}>
@@ -143,11 +145,11 @@ export default function AttachmentPanel({ tx, verNum, onClose }) {
                   style={{ color:'var(--accent)', flexShrink:0, display:'flex' }}>
                   <ExternalLink size={14}/>
                 </a>
-                <button onClick={() => handleDelete(f.name)}
+                {!readOnly && <button onClick={() => handleDelete(f.name)}
                   title={deleteConfirm === f.name ? t('Klicka igen för att bekräfta') : t('Ta bort')}
                   style={{ background: deleteConfirm === f.name ? 'var(--red-soft)' : 'none', border:'none', cursor:'pointer', padding:'2px 4px', borderRadius:'var(--r)', color: deleteConfirm === f.name ? 'var(--red)' : 'var(--ink-muted)', flexShrink:0, display:'flex', transition:'all 0.15s' }}>
                   <Trash2 size={13}/>
-                </button>
+                </button>}
               </div>
             ))}
           </div>

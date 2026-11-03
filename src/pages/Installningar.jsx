@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { Check, Trash2, AlertTriangle, X } from 'lucide-react'
-import { store, attachments } from '../store'
+import { store, attachments, expenses } from '../store'
 import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
 import { useI18n } from '../i18n'
 import { useProjects, defaultLabels } from '../ProjectsContext'
@@ -57,6 +57,19 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
     } catch (e) {
       setAiError(e.message)
     }
+  }
+
+  // --- Utlägg: e-postbesked ---
+  const [expSettings, setExpSettings] = useState(null)   // { notifySubmitted, notifyDecided }
+  const [expError, setExpError]       = useState('')
+  useEffect(() => {
+    expenses.getSettings(orgId).then(setExpSettings).catch(e => setExpError(e.message))
+  }, [orgId])
+  async function toggleExpense(key, value) {
+    const next = { ...expSettings, [key]: value }
+    setExpError('')
+    try { await expenses.setSettings(orgId, next); setExpSettings(next) }
+    catch (e) { setExpError(t(e.message)) }
   }
 
   // --- Märkning med projekt/sektioner ---
@@ -202,6 +215,32 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
         </label>
         {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
       </div>
+
+      {/* Utlägg */}
+      {plan?.expenses_allowed && (
+        <div className="card" style={{ marginBottom: 24 }}>
+          <div className="section-title">{t('Utlägg')}</div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+            {t('Medlemmar kan registrera utlägg med kvitto. Ägare och medlemmar godkänner och bekräftar utbetalning. Välj vilka e-postbesked som ska skickas.')}
+          </p>
+          {expError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{expError}</div>}
+          {expSettings ? (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {[
+                ['notifySubmitted', t('E-post till de som kan godkänna när ett nytt utlägg kommer in')],
+                ['notifyDecided', t('E-post till den som lagt ut pengarna när utlägget godkänns, avslås och betalas ut')],
+              ].map(([key, label]) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
+                  <input type="checkbox" checked={expSettings[key]} disabled={!canManageAi}
+                    onChange={e => toggleExpense(key, e.target.checked)} style={{ width: 'auto', flex: 'none', marginTop: 3 }} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span>}
+          {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
+        </div>
+      )}
 
       {/* Märkning med projekt/sektioner */}
       <div className="card" style={{ marginBottom: 24 }}>

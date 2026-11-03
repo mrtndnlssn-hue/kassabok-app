@@ -42,7 +42,7 @@ export function projectTotals(transactions, categories, projectId) {
   return { income, expense, net: income - expense, count: txIds.size, byCategory }
 }
 
-const emptyProjectData = () => ({ allowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] })
+const emptyProjectData = () => ({ allowed: false, expensesAllowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] })
 const projectError = e => {
   if (e?.code === '23505') return new Error('Namnet används redan.')
   if (e?.code === '23503') return new Error('Verifikat är märkta med detta. Stäng det i stället för att ta bort det.')
@@ -126,6 +126,7 @@ const dbStore = {
     for (const m of memRes.data || []) (membersByProject[m.project_id] ||= []).push({ userId: m.user_id, isLead: !!m.is_lead })
     return {
       allowed:       !!planRes.data?.projects_allowed,
+      expensesAllowed: !!planRes.data?.expenses_allowed,
       enabled:       !!setRes.data?.projects_enabled,
       labelSingular: setRes.data?.project_label_singular || '',
       labelPlural:   setRes.data?.project_label_plural || '',
@@ -400,6 +401,18 @@ const dbAttachments = {
     return results
   },
 
+  // Flyttar alla filer från en mapp till en annan (utläggets kvitton flyttas till verifikatet när utlägget betalats ut)
+  async moveFolder(orgId, fromId, toId) {
+    const bucket = supabase.storage.from('attachments')
+    const { data: files, error } = await bucket.list(`${orgId}/${fromId}`, { limit: 1000 })
+    if (error) throw error
+    for (const f of files || []) {
+      const { error: cpErr } = await bucket.copy(`${orgId}/${fromId}/${f.name}`, `${orgId}/${toId}/${f.name}`)
+      if (cpErr) throw cpErr
+    }
+    if (files?.length) await bucket.remove(files.map(f => `${orgId}/${fromId}/${f.name}`))
+  },
+
   // Raderar alla bilagor för de givna verifikaten (frigör lagringsutrymme). Returnerar antal raderade filer.
   async removeForPeriod(orgId, txIds) {
     let removed = 0
@@ -414,10 +427,83 @@ const dbAttachments = {
   },
 }
 
+// ── Utlägg ─────────────────────────────────────────────────────
+// Den som lagt ut pengar skickar in ett utlägg. Det godkänns av någon med skrivrätt och blir ett verifikat först när
+// utbetalningen bekräftats. Kvittona ligger i mappen claim_<id> och flyttas till verifikatet vid utbetalning.
+export const claimFolder = id => `claim_${id}`
+
+const claimFromRow = r => ({
+  id: r.id, userId: r.user_id, date: r.date, description: r.description || '', comment: r.comment || '',
+  lines: (r.lines || []).map(l => ({ categoryId: l.categoryId, amount: Number(l.amount), projectId: l.projectId || null })),
+  total: Number(r.total), status: r.status, rejectReason: r.reject_reason || '',
+  createdAt: r.created_at, decidedAt: r.decided_at, paidAt: r.paid_at, paidDate: r.paid_date, txId: r.tx_id || null,
+})
+
+const dbExpenses = {
+  async list(orgId) {
+    const { data, error } = await supabase.from('expense_claims').select('*').eq('org_id', orgId).order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(claimFromRow)
+  },
+
+  // Skickar in ett nytt utlägg (eller uppdaterar ett befintligt när claim.id finns). Returnerar { claim, uploadError }.
+  async submit(orgId, claim, files = []) {
+    const id = claim.id || crypto.randomUUID()
+    const { data, error } = await supabase.rpc('submit_expense_claim', {
+      p_id: id, p_org: orgId, p_date: claim.date, p_description: claim.description || '', p_comment: claim.comment || '',
+      p_lines: cleanLines(claim.lines),
+    })
+    if (error) throw error
+    let uploadError = null
+    if (files.length) {
+      try { await dbAttachments.upload(orgId, claimFolder(id), files) } catch (e) { uploadError = e }
+    }
+    return { claim: claimFromRow(data), uploadError }
+  },
+
+  async decide(_orgId, id, approve, reason = '') {
+    const { data, error } = await supabase.rpc('decide_expense_claim', { p_id: id, p_approve: !!approve, p_reason: reason })
+    if (error) throw error
+    return claimFromRow(data)
+  },
+
+  // Bekräftar utbetalning: skapar verifikatet och flyttar kvittona dit. Returnerar verifikatets id.
+  async pay(orgId, id, paidDate) {
+    const { data: txId, error } = await supabase.rpc('pay_expense_claim', { p_id: id, p_paid_date: paidDate })
+    if (error) throw error
+    try { await dbAttachments.moveFolder(orgId, claimFolder(id), txId) }
+    catch (e) { console.warn('Kvittona kunde inte flyttas till verifikatet', e) }   // ligger kvar på utlägget
+    return txId
+  },
+
+  async remove(orgId, id) {
+    const { data: files } = await supabase.storage.from('attachments').list(`${orgId}/${claimFolder(id)}`)
+    if (files?.length) await supabase.storage.from('attachments').remove(files.map(f => `${orgId}/${claimFolder(id)}/${f.name}`))
+    const { error } = await supabase.rpc('delete_expense_claim', { p_id: id })
+    if (error) throw error
+  },
+
+  // Mejlbesked om utlägget (godkännare vid nytt utlägg, den som lagt ut pengarna vid beslut). Fel ignoreras.
+  async notify(id) {
+    try { await supabase.functions.invoke('notify-expense', { body: { claimId: id } }) } catch { /* ignoreras */ }
+  },
+
+  async getSettings(orgId) {
+    const { data, error } = await supabase.from('org_settings').select('notify_expense_submitted, notify_expense_decided').eq('org_id', orgId).maybeSingle()
+    if (error) throw error
+    return { notifySubmitted: data?.notify_expense_submitted ?? true, notifyDecided: data?.notify_expense_decided ?? true }
+  },
+  async setSettings(orgId, { notifySubmitted, notifyDecided }) {
+    const { error } = await supabase.from('org_settings').upsert({
+      org_id: orgId, notify_expense_submitted: !!notifySubmitted, notify_expense_decided: !!notifyDecided })
+    if (error) throw error
+  },
+}
+
 // ── Demoläge ───────────────────────────────────────────────────
 // Demokontot läser riktig data men all skrivning sker i minnet och försvinner vid omladdning.
-let demo = null // { data, files: Map<txId, [{name, file}]>, seq }
-export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0 } : null }
+let demo = null // { data, files: Map<txId, [{name, file}]>, seq, claims }
+export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [] } : null }
 export const isDemoMode = () => !!demo
 
 const clone = v => structuredClone(v)
@@ -559,6 +645,55 @@ const demoAttachments = {
     for (const id of txIds) { removed += (demo.files.get(id) || []).length; demo.files.delete(id) }
     return removed
   },
+  async moveFolder(_o, fromId, toId) {
+    demo.files.set(toId, [...(demo.files.get(toId) || []), ...(demo.files.get(fromId) || [])])
+    demo.files.delete(fromId)
+  },
+}
+
+// Utlägg i demoläget: allt sker i minnet. Demoanvändaren är ensam, så reglerna om att inte få godkänna eget utlägg gäller inte här.
+const demoUserId = async () => (await supabase.auth.getUser()).data.user?.id
+const demoExpenses = {
+  async list() { return clone(demo.claims).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) },
+  async submit(orgId, claim, files = []) {
+    const lines = cleanLines(claim.lines)
+    if (!lines.length) throw new Error('Välj konto och ange belopp.')
+    const existing = claim.id && demo.claims.find(c => c.id === claim.id)
+    const base = { date: claim.date, description: claim.description || '', comment: claim.comment || '', lines, total: sumLines(lines) }
+    let saved
+    if (existing) {
+      Object.assign(existing, base, { status: 'submitted', rejectReason: '' })
+      saved = existing
+    } else {
+      saved = { id: `demo-c-${++demo.seq}`, userId: await demoUserId(), ...base, status: 'submitted', rejectReason: '',
+        createdAt: new Date().toISOString(), decidedAt: null, paidAt: null, paidDate: null, txId: null }
+      demo.claims.push(saved)
+    }
+    if (files.length) await demoAttachments.upload(orgId, claimFolder(saved.id), files)
+    return { claim: clone(saved), uploadError: null }
+  },
+  async decide(_o, id, approve, reason = '') {
+    const c = demo.claims.find(x => x.id === id)
+    if (!c || c.status !== 'submitted') throw new Error('Utlägget är redan hanterat.')
+    if (!approve && !reason.trim()) throw new Error('Ange en anledning till avslaget.')
+    Object.assign(c, { status: approve ? 'approved' : 'rejected', rejectReason: approve ? '' : reason.trim(), decidedAt: new Date().toISOString() })
+    return clone(c)
+  },
+  async pay(orgId, id, paidDate) {
+    const c = demo.claims.find(x => x.id === id)
+    if (!c || c.status !== 'approved') throw new Error('Bara godkända utlägg kan markeras som utbetalda.')
+    const added = await demoStore.addTransaction(orgId, { date: paidDate, description: c.description, comment: c.comment, lines: c.lines })
+    await demoAttachments.moveFolder(orgId, claimFolder(id), added.id)
+    Object.assign(c, { status: 'paid', paidAt: new Date().toISOString(), paidDate, txId: added.id })
+    return added.id
+  },
+  async remove(_o, id) {
+    demo.claims = demo.claims.filter(c => c.id !== id)
+    demo.files.delete(claimFolder(id))
+  },
+  async notify() {},
+  async getSettings() { return { notifySubmitted: true, notifyDecided: true } },
+  async setSettings() {},
 }
 
 const withDemo = (real, fake) => new Proxy(real, {
@@ -566,6 +701,7 @@ const withDemo = (real, fake) => new Proxy(real, {
 })
 export const store = withDemo(dbStore, demoStore)
 export const attachments = withDemo(dbAttachments, demoAttachments)
+export const expenses = withDemo(dbExpenses, demoExpenses)
 
 // ── Formatering ────────────────────────────────────────────────
 export function fmt(amount) {

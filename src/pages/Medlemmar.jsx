@@ -36,8 +36,12 @@ export default function Medlemmar({ orgId, orgName }) {
 
   const [members, setMembers] = useState([])
   const [maxMembers, setMaxMembers] = useState(15)
+  const [expensesAllowed, setExpensesAllowed] = useState(false)   // utlägg ingår i planen
   useEffect(() => {
-    supabase.rpc('get_org_plan', { p_org: orgId }).then(({ data }) => { if (data?.member_limit) setMaxMembers(data.member_limit) })
+    supabase.rpc('get_org_plan', { p_org: orgId }).then(({ data }) => {
+      if (data?.member_limit) setMaxMembers(data.member_limit)
+      setExpensesAllowed(!!data?.expenses_allowed)
+    })
   }, [orgId])
   const [invites, setInvites] = useState([])
   const [loading, setLoading] = useState(true)
@@ -45,6 +49,7 @@ export default function Medlemmar({ orgId, orgName }) {
   const [error, setError]     = useState('')
   const [newRole, setNewRole]     = useState('member')
   const [newNickname, setNewNickname] = useState('')
+  const [newExpenses, setNewExpenses] = useState(false)   // ny läsare får registrera utlägg
   const [transferTo, setTransferTo] = useState(null)
   const [newestCode, setNewestCode] = useState(null) // code of most recently created invite
 
@@ -56,7 +61,7 @@ export default function Medlemmar({ orgId, orgName }) {
         supabase.rpc('get_org_members_with_email', { p_org_id: orgId }),
         supabase
           .from('org_invites')
-          .select('code, invited_role, nickname, expires_at, created_at')
+          .select('code, invited_role, nickname, expires_at, created_at, can_submit_expenses')
           .eq('org_id', orgId)
           .gt('expires_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
@@ -69,6 +74,7 @@ export default function Medlemmar({ orgId, orgName }) {
         role:   m.role,
         email:  m.email,
         nickname: m.nickname || '',
+        canExpenses: !!m.can_submit_expenses,
         isMe:  m.user_id === session.user.id,
       })))
       const fetchedInvites = invitesRes.data || []
@@ -96,11 +102,21 @@ export default function Medlemmar({ orgId, orgName }) {
     }
     const { error } = await supabase
       .from('organization_members')
-      .update({ role: newRole })
+      .update({ role: newRole, ...(newRole !== 'viewer' ? { can_submit_expenses: false } : {}) })   // rättigheten gäller bara läsare
       .eq('org_id', orgId)
       .eq('user_id', userId)
     if (error) { setError(error.message); return }
-    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole } : m))
+    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole, canExpenses: newRole === 'viewer' && m.canExpenses } : m))
+  }
+
+  async function setCanExpenses(userId, value) {
+    const { error } = await supabase
+      .from('organization_members')
+      .update({ can_submit_expenses: value })
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+    if (error) { setError(error.message); return }
+    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, canExpenses: value } : m))
   }
 
   async function editNickname(userId) {
@@ -167,9 +183,10 @@ export default function Medlemmar({ orgId, orgName }) {
     }
     const { error } = await supabase
       .from('org_invites')
-      .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole, nickname: newNickname.trim() || null })
+      .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole, nickname: newNickname.trim() || null, can_submit_expenses: newRole === 'viewer' && newExpenses })
     if (error) { setError(error.message); return }
     setNewNickname('')
+    setNewExpenses(false)
     const fetched = await fetchAll()
     if (fetched?.length) setNewestCode(fetched[0].code) // sorted desc, so [0] is newest
   }
@@ -259,6 +276,15 @@ export default function Medlemmar({ orgId, orgName }) {
                       <option value="viewer">{t('Läsare')}</option>
                     </select>
                   )}
+                  {m.role === 'viewer' && expensesAllowed && (canManage ? (
+                    <label title={t('Läsaren kan registrera egna utlägg som ska godkännas av en ägare eller medlem')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.75rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={m.canExpenses} onChange={e => setCanExpenses(m.userId, e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
+                      {t('Får registrera utlägg')}
+                    </label>
+                  ) : m.canExpenses && (
+                    <div style={{ marginTop: 4, fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{t('Får registrera utlägg')}</div>
+                  ))}
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display:'flex', gap:4, justifyContent:'flex-end' }}>
@@ -313,6 +339,12 @@ export default function Medlemmar({ orgId, orgName }) {
                 <option value="viewer">{t('Läsare (skrivskyddad)')}</option>
                 <option value="owner">{t('Ägare')}</option>
               </select>
+              {newRole === 'viewer' && expensesAllowed && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={newExpenses} onChange={e => setNewExpenses(e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
+                  {t('Får registrera utlägg')}
+                </label>
+              )}
               <button className="btn btn-primary btn-sm" onClick={createInvite} disabled={members.length >= maxMembers}
                 title={members.length >= maxMembers ? t('Max {max} användare per förening', { max: maxMembers }) : undefined}>
                 + {t('Ny inbjudan')}
@@ -339,6 +371,7 @@ export default function Medlemmar({ orgId, orgName }) {
                     <div style={{ display:'flex', alignItems:'center', gap:6, fontSize: '0.72rem', color: 'var(--ink-muted)', flexWrap: 'wrap' }}>
                       {inv.nickname && <strong style={{ color: 'var(--ink)' }}>{inv.nickname} ·</strong>}
                       {ROLE_LABEL[inv.invited_role] ? t(ROLE_LABEL[inv.invited_role]) : inv.invited_role}
+                      {inv.can_submit_expenses && <> · {t('Får registrera utlägg')}</>}
                       · {t('Skapad')} {isoDateTime(new Date(inv.created_at))}
                       · {t('Går ut')} {fmtDate(inv.expires_at)}
                       {inv.code === newestCode && (

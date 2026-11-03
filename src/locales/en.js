@@ -11,8 +11,9 @@ import medlemmar from './en/medlemmar'
 import installningar from './en/installningar'
 import exporter from './en/exporter'
 import projekt from './en/projekt'
+import utlagg from './en/utlagg'
 
 export default {
   ...auth, ...app, ...dashboard, ...kassabok, ...budget, ...kategorier,
-  ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter, ...projekt,
+  ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter, ...projekt, ...utlagg,
 }

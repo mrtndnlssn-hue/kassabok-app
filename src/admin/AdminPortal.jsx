@@ -334,7 +334,7 @@ function Plans({ plans, reload }) {
   async function save(p) {
     const { error } = await supabase.from('plans').update({
       name: p.name, description: p.description, price_incl_vat_sek: Number(p.price_incl_vat_sek),
-      voucher_limit: Number(p.voucher_limit), max_members: Number(p.max_members), storage_mb: Number(p.storage_mb), ai_reads_per_month: Number(p.ai_reads_per_month), has_projects: !!p.has_projects, active: p.active,
+      voucher_limit: Number(p.voucher_limit), max_members: Number(p.max_members), storage_mb: Number(p.storage_mb), ai_reads_per_month: Number(p.ai_reads_per_month), has_projects: !!p.has_projects, has_expenses: !!p.has_expenses, active: p.active,
     }).eq('code', p.code)
     setMsg(error ? error.message : `${p.name} sparad.`)
     if (!error) reload()
@@ -343,7 +343,7 @@ function Plans({ plans, reload }) {
     <>
       <div className="notice notice-info">Priser anges inklusive moms per 12 månader. Planen Prova (gratis) är reservläget för föreningar utan betald plan och kan inte beställas. Ändringar slår på nya beställningar, inte på utfärdade fakturor. Priserna på hemsidan ligger i HTML-filen och måste ändras separat.</div>
       {msg && <div className="notice notice-success">{msg}</div>}
-      <Table head={['Kod', 'Namn', 'Pris inkl. moms (kr/år)', 'Verifikat / räkenskapsår', 'AI-läsningar / månad', 'Användare', 'Lagring (MB)', 'Märkning (projekt)', 'Aktiv', '']}
+      <Table head={['Kod', 'Namn', 'Pris inkl. moms (kr/år)', 'Verifikat / räkenskapsår', 'AI-läsningar / månad', 'Användare', 'Lagring (MB)', 'Märkning (projekt)', 'Utlägg', 'Aktiv', '']}
         rows={rows.map(p => (
           <tr key={p.code}>
             <td style={{ fontFamily: 'var(--font-mono)' }}>{p.code}</td>
@@ -354,6 +354,7 @@ function Plans({ plans, reload }) {
             <td><input type="number" min="1" value={p.max_members} onChange={e => set(p.code, 'max_members', e.target.value)} /></td>
             <td><input type="number" min="1" value={p.storage_mb} onChange={e => set(p.code, 'storage_mb', e.target.value)} /></td>
             <td><input type="checkbox" checked={!!p.has_projects} onChange={e => set(p.code, 'has_projects', e.target.checked)} style={{ width: 'auto' }} /></td>
+            <td><input type="checkbox" checked={!!p.has_expenses} onChange={e => set(p.code, 'has_expenses', e.target.checked)} style={{ width: 'auto' }} /></td>
             <td><input type="checkbox" checked={p.active} onChange={e => set(p.code, 'active', e.target.checked)} style={{ width: 'auto' }} /></td>
             <td><button className="btn btn-primary btn-sm" onClick={() => save(p)}>Spara</button></td>
           </tr>

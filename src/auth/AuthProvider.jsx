@@ -29,11 +29,11 @@ export default function AuthProvider({ children }) {
   async function loadOrgs(userId, demo = false) {
     const { data } = await supabase
       .from('organization_members')
-      .select('org_id, role')
+      .select('org_id, role, can_submit_expenses')
       .eq('user_id', userId)
 
     // Demokontot är läsare i databasen men visas som ägare och får skriva i minnet (se store.js)
-    const list = (data || []).map(r => ({ orgId: r.org_id, role: demo ? 'owner' : r.role }))
+    const list = (data || []).map(r => ({ orgId: r.org_id, role: demo ? 'owner' : r.role, canExpenses: !!r.can_submit_expenses }))
     setOrgs(list)
 
     if (list.length === 0) {
