@@ -18,6 +18,9 @@ export default function AuthProvider({ children }) {
   const [orgs, setOrgs]       = useState([])        // [{orgId, role}]
   const [orgId, setOrgIdState] = useState(null)
   const [role, setRole]        = useState(null)
+  // Sant först när användarens föreningar hämtats. Utan detta ser appen en inloggad användare utan förening
+  // en kort stund och visar "skapa förening" innan listan hunnit komma.
+  const [orgsLoaded, setOrgsLoaded] = useState(false)
 
   function setOrgId(id) {
     const membership = orgs.find(o => o.orgId === id)
@@ -27,6 +30,14 @@ export default function AuthProvider({ children }) {
   }
 
   async function loadOrgs(userId, demo = false) {
+    try {
+      await fetchOrgs(userId, demo)
+    } finally {
+      setOrgsLoaded(true)
+    }
+  }
+
+  async function fetchOrgs(userId, demo) {
     const { data } = await supabase
       .from('organization_members')
       .select('org_id, role, can_submit_expenses')
@@ -85,7 +96,7 @@ export default function AuthProvider({ children }) {
       setSession(session)
       if (session) loadOrgs(session.user.id, demo)
       else {
-        setSession(null); setOrgs([]); setOrgIdState(null); setRole(null)
+        setSession(null); setOrgs([]); setOrgIdState(null); setRole(null); setOrgsLoaded(false)
         try { sessionStorage.removeItem('orgPicked') } catch {}
       }
     })
@@ -93,7 +104,7 @@ export default function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ session, orgs, orgId, setOrgId, addOrg, role, setRole, loading: session === undefined, recoveryMode, setRecoveryMode }}>
+    <AuthContext.Provider value={{ session, orgs, orgId, setOrgId, addOrg, role, setRole, loading: session === undefined || (!!session && !orgsLoaded), recoveryMode, setRecoveryMode }}>
       {children}
     </AuthContext.Provider>
   )

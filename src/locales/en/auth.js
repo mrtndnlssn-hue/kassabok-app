@@ -79,4 +79,5 @@ export default {
   'Ogiltig kategorilista.': 'Invalid category list.',
   'Ogiltig kategori i listan.': 'Invalid category in the list.',
   'Kategorikoderna måste vara unika.': 'The category codes must be unique.',
+  'Hantera plattformen: föreningar, beställningar och planer': 'Manage the platform: associations, orders and plans',
 }

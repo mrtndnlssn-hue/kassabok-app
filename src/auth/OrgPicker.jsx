@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from './AuthProvider'
-import { LogOut, Plus, ArrowRight } from 'lucide-react'
+import { LogOut, Plus, ArrowRight, Shield } from 'lucide-react'
 import { useI18n } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
 
@@ -24,17 +24,18 @@ export default function OrgPicker({ onCreateNew, onPick }) {
   const { orgs } = useAuth()
   const [orgNames, setOrgNames] = useState({})
   const [loading, setLoading]   = useState(true)
+  const [isAdmin, setIsAdmin]   = useState(false)   // plattformsadministratör: adminportalen visas som ett val bland föreningarna
 
   useEffect(() => {
     if (!orgs.length) { setLoading(false); return }
-    supabase
-      .from('organizations')
-      .select('id, name')
-      .in('id', orgs.map(o => o.orgId))
-      .then(({ data }) => {
-        if (data) setOrgNames(Object.fromEntries(data.map(r => [r.id, r.name])))
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from('organizations').select('id, name').in('id', orgs.map(o => o.orgId)),
+      supabase.rpc('is_platform_admin'),
+    ]).then(([{ data }, { data: admin }]) => {
+      if (data) setOrgNames(Object.fromEntries(data.map(r => [r.id, r.name])))
+      setIsAdmin(!!admin)
+      setLoading(false)
+    })
   }, [orgs])
 
   if (loading) return (
@@ -52,6 +53,27 @@ export default function OrgPicker({ onCreateNew, onPick }) {
           <h1 style={{ fontFamily:'var(--font-display)', fontStyle:'italic', fontSize:'2rem', color:'var(--ink)', marginBottom:4, display:'flex', alignItems:'center', gap:10 }}><a href="https://foreningsbalans.se" title={t('Till startsidan')} style={{ display:'flex', alignItems:'center', gap:10, color:'inherit', textDecoration:'none' }}><img src="/favicon.svg" alt="" width="38" height="38" />Föreningsbalans</a></h1>
           <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>{t('Välj en förening eller skapa ny')}</p>
         </div>
+
+        {isAdmin && (
+          <button
+            onClick={() => { window.location.hash = '#admin' }}
+            style={{
+              display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%',
+              background:'var(--ink)', color:'#fff', border:'1px solid var(--ink)',
+              borderRadius:'var(--r-lg)', padding:'16px 20px', marginBottom:16,
+              cursor:'pointer', textAlign:'left',
+            }}
+          >
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <Shield size={20} />
+              <div>
+                <div style={{ fontWeight:600, fontSize:'1rem' }}>Adminportal</div>
+                <div style={{ fontSize:'0.78rem', color:'rgba(255,255,255,0.65)' }}>{t('Hantera plattformen: föreningar, beställningar och planer')}</div>
+              </div>
+            </div>
+            <ArrowRight size={18} style={{ flexShrink:0, opacity:0.7 }}/>
+          </button>
+        )}
 
         {/* Org list */}
         <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
