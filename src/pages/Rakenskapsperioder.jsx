@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader, FileSpreadsheet, Paperclip } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 import JSZip from 'jszip';
-import { getYear, txsForPeriod, attachments, isValidIsoDate, fmt } from '../store';
+import { getYear, txsForPeriod, attachments, isValidIsoDate, fmt, previousPeriod, periodSummary, nextPeriodDates, unpaidAtEnd, reportExtras } from '../store';
 import { useI18n } from '../i18n';
 import { useProjects, cap } from '../ProjectsContext';
 import DateInput from '../components/DateInput';
@@ -30,7 +30,7 @@ function monthsBetween(start, end) {
 }
 
 // ── Stäng verksamhetsår – modal ──────────────────────────────
-function CloseYearModal({ period, transactions, voidedTxs = [], categories, budget, orgName, orgId, onDone, onCancel, onClear }) {
+function CloseYearModal({ period, periods = [], claims = [], outInvoices = [], transactions, voidedTxs = [], categories, budget, orgName, orgId, onDone, onCancel, onClear, onSetOpening, onCreateNext, canWrite = true }) {
   const { t } = useI18n();
   const reportName = t('arsrapport');   // filnamn i ZIP-filen
   const { enabled: projOn, projects, labels } = useProjects();
@@ -45,6 +45,14 @@ function CloseYearModal({ period, transactions, voidedTxs = [], categories, budg
   const periodVoided = txsForPeriod(voidedTxs, period);
   const periodBudget = budget[period.id] || {};
 
+  // Kontroller före avslut: obetalda poster, utgående saldo och ingående saldo nästa år
+  const summary = periodSummary(transactions, categories, period);
+  const unpaid = unpaidAtEnd({ period, claims, outInvoices });
+  const unpaidCount = unpaid.receivables.length + unpaid.payables.length;
+  const nextP = [...periods].filter(p => p.start > period.end).sort((a, b) => a.start.localeCompare(b.start))[0] || null;
+  const nextSuggestion = nextPeriodDates(period);
+  const extras = reportExtras({ periods, period, transactions, categories, claims, outInvoices });
+
   async function handleExport() {
     setStep('exporting');
     try {
@@ -56,6 +64,7 @@ function CloseYearModal({ period, transactions, voidedTxs = [], categories, budg
         voided: periodVoided,
         categories,
         budget: periodBudget,
+        extras,
       });
       const pdfBlob = doc.output('blob');
 
@@ -76,7 +85,7 @@ function CloseYearModal({ period, transactions, voidedTxs = [], categories, budg
       setProgress(t('Skapar Excel-fil…'));
       const attachmentsByTx = {};
       for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename);
-      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget: periodBudget, attachmentsByTx, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
+      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget: periodBudget, attachmentsByTx, projects: projOn ? projects : [], projectLabel: cap(labels.one), extras });
       zip.file(`foreningsbalans_${safePeriod}.xlsx`, await wb.xlsx.writeBuffer());
 
       // Mappa txId → verifikatnummer för läsbart mappnamn i ZIP
@@ -125,6 +134,35 @@ function CloseYearModal({ period, transactions, voidedTxs = [], categories, budg
 
         {step === 'confirm' && (
           <>
+            <div style={{ display:'grid', gap:8, marginBottom:16, fontSize:'0.85rem' }}>
+              <div className="section-title" style={{ marginBottom:0 }}>{t('Kontrollera innan ni stänger året')}</div>
+              {unpaidCount === 0 ? (
+                <div className="notice notice-success" style={{ margin:0 }}>✅ {t('Inga obetalda fakturor eller utlägg vid periodens slut.')}</div>
+              ) : (
+                <div className="notice notice-warn" style={{ margin:0 }}>
+                  ⚠️ <strong>{t('{n} poster är inte betalda vid periodens slut.', { n: unpaidCount })}</strong>{' '}
+                  {t('Att få in: {a}. Att betala: {b}. De redovisas som upplysning i årsrapporten och bokförs när de betalas.', { a: fmt(unpaid.recvTotal), b: fmt(unpaid.payTotal) })}
+                </div>
+              )}
+              <div className="notice notice-info" style={{ margin:0 }}>
+                {t('Utgående saldo')}: <strong className="mono">{fmt(summary.closing)}</strong>
+              </div>
+              {nextP ? (
+                Math.abs(Number(nextP.openingBalance || 0) - summary.closing) < 0.005 ? (
+                  <div className="notice notice-success" style={{ margin:0 }}>✅ {t('Ingående saldo i {label} stämmer med utgående saldo här.', { label: nextP.label })}</div>
+                ) : (
+                  <div className="notice notice-warn" style={{ margin:0, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap' }}>
+                    <span>⚠️ {t('Ingående saldo i {label} är {a}, men utgående saldo här är {b}.', { label: nextP.label, a: fmt(Number(nextP.openingBalance || 0)), b: fmt(summary.closing) })}</span>
+                    {canWrite && onSetOpening && !nextP.locked && <button className="btn btn-sm btn-secondary" onClick={() => onSetOpening(nextP.id, summary.closing)}>{t('Sätt ingående saldo till {b}', { b: fmt(summary.closing) })}</button>}
+                  </div>
+                )
+              ) : (
+                <div className="notice notice-info" style={{ margin:0, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap' }}>
+                  <span>{t('Det finns ingen period efter den här.')}</span>
+                  {canWrite && onCreateNext && <button className="btn btn-sm btn-secondary" onClick={() => onCreateNext(period, summary.closing)}>{t('Skapa {label} med ingående saldo {b}', { label: nextSuggestion.label, b: fmt(summary.closing) })}</button>}
+                </div>
+              )}
+            </div>
             <div className="notice notice-info" style={{ marginBottom:20 }}>
               {t('Skapar en ZIP-fil med årsrapporten (PDF), Excel-filen och alla bilagor för perioden')} <strong>{period.label}</strong> ({period.start} – {period.end}). {t('Perioden låses sedan mot redigering.')}
             </div>
@@ -310,7 +348,7 @@ function ClearAttachmentsModal({ period, transactions, voidedTxs = [], categorie
 }
 
 // ── Huvudkomponent ───────────────────────────────────────────
-export default function Rakenskapsperioder({ fiscalPeriods, transactions, voidedTxs = [], categories, budget, orgName, orgId, onSave }) {
+export default function Rakenskapsperioder({ fiscalPeriods, transactions, voidedTxs = [], categories, budget, orgName, orgId, onSave, claims = [], outInvoices = [] }) {
   const { t } = useI18n()
   const { role } = useAuth()
   const { enabled: projOn, projects, labels } = useProjects()
@@ -329,7 +367,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, voided
     setError('');
     setExportingId(p.id);
     try {
-      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period: p, transactions, voidedTxs, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
+      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period: p, transactions, voidedTxs, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one), extras: reportExtras({ periods, period: p, transactions, categories, claims, outInvoices }) });
       downloadBlob(blob, filename);
     } catch (e) {
       console.error('Excel-export error:', e);
@@ -397,7 +435,26 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, voided
   function save() { onSave(periods); setDirty(false); }
 
   function handleNewStart(val) {
-    setNewForm(f => ({ ...f, start:val, ...(isValidIsoDate(val) ? { label: f.label || val.slice(0,4), end: f.end || `${val.slice(0,4)}-12-31` } : {}) }));
+    // Förslag på ingående saldo: utgående saldo i perioden som slutar närmast före
+    const before = isValidIsoDate(val) ? previousPeriod(periods, { start: val }) : null;
+    const suggested = before ? periodSummary(transactions, categories, before).closing : null;
+    setNewForm(f => ({ ...f, start:val, ...(suggested !== null && (f.openingBalance === '' || f.openingBalance === undefined) ? { openingBalance: String(Math.round(suggested * 100) / 100) } : {}), ...(isValidIsoDate(val) ? { label: f.label || val.slice(0,4), end: f.end || `${val.slice(0,4)}-12-31` } : {}) }));
+  }
+
+  function setOpening(id, value) {
+    setPeriods(prev => prev.map(p => p.id === id ? { ...p, openingBalance: Math.round(value * 100) / 100 } : p));
+    setDirty(true);
+  }
+
+  // Skapar perioden efter en annan, med utgående saldo som ingående
+  function createNextPeriod(p, opening) {
+    setError('');
+    const n = nextPeriodDates(p);
+    if (findOverlaps(periods, n.start, n.end).length > 0) { setError(t('Nästa period kan inte skapas eftersom den skulle överlappa en annan period.')); return; }
+    const baseId = n.label.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,20) || Date.now().toString();
+    const id = periods.find(x => x.id === baseId) ? `${baseId}_${Date.now()}` : baseId;
+    setPeriods(prev => [...prev, { id, label: n.label, start: n.start, end: n.end, openingBalance: Math.round(opening * 100) / 100 }].sort((a,b) => a.start.localeCompare(b.start)));
+    setDirty(true);
   }
 
   const sorted = [...periods].sort((a,b) => a.start.localeCompare(b.start));
@@ -462,6 +519,18 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, voided
                     <td className="mono">{p.end}</td>
                     <td className="mono" style={{textAlign:'right',fontSize:'0.82rem'}}>
                       {p.openingBalance ? fmt(p.openingBalance) : <span style={{color:'var(--ink-muted)'}}>–</span>}
+                      {(() => {
+                        const before = previousPeriod(periods, p);
+                        if (!before) return null;
+                        const expected = periodSummary(transactions, categories, before).closing;
+                        if (Math.abs(expected - Number(p.openingBalance || 0)) < 0.005) return null;
+                        return (
+                          <div style={{ fontFamily:'var(--font-body)', fontSize:'0.72rem', color:'var(--amber)', marginTop:3 }}>
+                            ⚠ {t('Utgående saldo {label}: {x}', { label: before.label, x: fmt(expected) })}
+                            {canWrite && !p.locked && <> · <button type="button" onClick={() => setOpening(p.id, expected)} style={{ background:'none', border:'none', padding:0, cursor:'pointer', color:'var(--blue)', textDecoration:'underline', fontSize:'inherit' }}>{t('Använd')}</button></>}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td style={{textAlign:'center'}}>
                       <span style={{
@@ -556,6 +625,12 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, voided
       {closeModal && (
         <CloseYearModal
           period={closeModal}
+          periods={periods}
+          claims={claims}
+          outInvoices={outInvoices}
+          canWrite={canWrite}
+          onSetOpening={setOpening}
+          onCreateNext={createNextPeriod}
           transactions={transactions}
           voidedTxs={voidedTxs}
           categories={categories}

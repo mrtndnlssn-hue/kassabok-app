@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { FileDown, FileSpreadsheet, Archive, Loader } from 'lucide-react';
-import { fmt, txsForPeriod, sumByCategory } from '../store';
+import { fmt, txsForPeriod, sumByCategory, reportExtras } from '../store';
 import { exportAnnualReport, exportBudget } from '../pdfExport';
 import { exportPeriodExcel, exportPeriodVouchers, downloadBlob } from '../excelExport';
 import { useI18n } from '../i18n';
 import { useProjects, cap } from '../ProjectsContext';
 
-export default function Arsrapport({ transactions, voidedTxs = [], categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod }) {
+export default function Arsrapport({ transactions, voidedTxs = [], categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod, claims = [], outInvoices = [] }) {
   const { t } = useI18n();
   const { enabled: projOn, projects, labels } = useProjects();
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
@@ -28,11 +28,15 @@ export default function Arsrapport({ transactions, voidedTxs = [], categories, b
   const net            = totalInc - totalExp;
   const openingBalance = Number(period?.openingBalance ?? 0);
   const closingBalance = openingBalance + net;
+  // Föregående år att jämföra med, och poster som inte betalats vid periodens slut
+  const extras = period ? reportExtras({ periods: fiscalPeriods, period, transactions, categories, claims, outInvoices }) : null;
+  const unpaid = extras?.unpaid;
+  const unpaidCount = unpaid ? unpaid.receivables.length + unpaid.payables.length : 0;
 
   async function handleExport() {
     setLoading(true); setDone(false);
     await new Promise(r => setTimeout(r, 400));
-    exportAnnualReport({ orgName, period, transactions: periodTxs, voided: txsForPeriod(voidedTxs, period), categories, budget: periodBudget });
+    exportAnnualReport({ orgName, period, transactions: periodTxs, voided: txsForPeriod(voidedTxs, period), categories, budget: periodBudget, extras });
     setLoading(false); setDone(true);
     setTimeout(() => setDone(false), 4000);
   }
@@ -50,7 +54,7 @@ export default function Arsrapport({ transactions, voidedTxs = [], categories, b
     }
   }
 
-  const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, voidedTxs, categories, budget: periodBudget, projects: projOn ? projects : [], projectLabel: cap(labels.one) }));
+  const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, voidedTxs, categories, budget: periodBudget, projects: projOn ? projects : [], projectLabel: cap(labels.one), extras }));
   const handleVouchers = () => runDownload('vouchers', () => exportPeriodVouchers({ orgId, period, transactions, voidedTxs }));
 
   async function handleBudgetExport() {
@@ -103,6 +107,18 @@ export default function Arsrapport({ transactions, voidedTxs = [], categories, b
             </div>
           ))}
         </div>
+
+        {extras?.prev && (
+          <div className="notice notice-info" style={{ marginBottom:16, fontSize:'0.85rem' }}>
+            {t('Föregående år ({label}): intäkter {inc}, kostnader {exp}, resultat {net}. Jämförelsen finns med i PDF och Excel.', { label: extras.prev.label, inc: fmt(extras.prev.income), exp: fmt(extras.prev.expense), net: fmt(extras.prev.net) })}
+          </div>
+        )}
+        {unpaidCount > 0 && (
+          <div className="notice notice-warn" style={{ marginBottom:16, fontSize:'0.85rem' }}>
+            <strong>{t('{n} poster är inte betalda vid periodens slut.', { n: unpaidCount })}</strong>{' '}
+            {t('Att få in: {a}. Att betala: {b}. De ingår inte i kassarapporten men redovisas som upplysning i PDF och Excel, och bokförs när de betalas.', { a: fmt(unpaid.recvTotal), b: fmt(unpaid.payTotal) })}
+          </div>
+        )}
 
         {/* Mini preview table */}
         <div className="table-wrap" style={{ marginBottom:20 }}>

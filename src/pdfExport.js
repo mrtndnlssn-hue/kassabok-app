@@ -201,7 +201,7 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   doc.save(`budget_${(period?.label || '').replace(/[^a-zA-Z0-9]/g, '_')}_${orgName.replace(/\s+/g, '_')}.pdf`);
 }
 
-export function exportAnnualReport({ orgName, period, transactions, voided = [], categories, budget, doc: existingDoc } = {}) {
+export function exportAnnualReport({ orgName, period, transactions, voided = [], categories, budget, extras = null, doc: existingDoc } = {}) {
   const openingBalance = Number(period?.openingBalance ?? 0);
   const doc = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
@@ -218,6 +218,12 @@ export function exportAnnualReport({ orgName, period, transactions, voided = [],
 
   const budgetIncome  = incCats.reduce((s, c) => s + (budget[c.id] || 0), 0);
   const budgetExpense = expCats.reduce((s, c) => s + (budget[c.id] || 0), 0);
+
+  // Föregående år som jämförelse, och poster som inte betalats vid periodens slut
+  const prev = extras?.prev || null;
+  const prevAct = prev?.actuals || {};
+  const unpaid = extras?.unpaid || null;
+  const ncol = prev ? 5 : 4;
 
   const DARK   = [26, 26, 46];
   const GREEN  = [45, 106, 79];
@@ -293,8 +299,8 @@ export function exportAnnualReport({ orgName, period, transactions, voided = [],
   // ── Resultaträkning ───────────────────────────────────────
   sectionHeader(t('Resultaträkning'));
 
-  const buildRows = (cats, type) => cats
-    .filter(c => (actuals[c.id] || 0) !== 0 || (budget[c.id] || 0) !== 0)
+  const buildRows = (cats) => cats
+    .filter(c => (actuals[c.id] || 0) !== 0 || (budget[c.id] || 0) !== 0 || (prevAct[c.id] || 0) !== 0)
     .map(c => {
       const act = actuals[c.id] || 0;
       const bud = budget[c.id] || 0;
@@ -304,37 +310,42 @@ export function exportAnnualReport({ orgName, period, transactions, voided = [],
         bud !== 0 ? fmt(bud) : '–',
         fmt(act),
         bud !== 0 ? fmt(dev) : '–',
+        ...(prev ? [(prevAct[c.id] || 0) !== 0 ? fmt(prevAct[c.id]) : '–'] : []),
       ];
     });
 
-  const incRows = buildRows(incCats, 'income');
-  const expRows = buildRows(expCats, 'expense');
+  const incRows = buildRows(incCats);
+  const expRows = buildRows(expCats);
+  const prevNet = prev ? prev.income - prev.expense : 0;
+  const bold = { fontStyle: 'bold' };
 
   autoTable(doc, {
     startY: y,
-    head: [[t('Kategori'), t('Budget'), t('Utfall'), t('Avvikelse')]],
+    head: [[t('Kategori'), t('Budget'), t('Utfall'), t('Avvikelse'), ...(prev ? [`${t('Föreg. år')} ${prev.label}`] : [])]],
     body: [
-      [{ content: t('INTÄKTER'), colSpan: 4, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
+      [{ content: t('INTÄKTER'), colSpan: ncol, styles: { fillColor: [216, 243, 220], textColor: GREEN, fontStyle: 'bold', fontSize: 8 } }],
       ...incRows,
-      [{ content: t('Summa intäkter'), styles: { fontStyle: 'bold' } }, budgetIncome ? fmt(budgetIncome) : '–', fmt(totalIncome), budgetIncome ? fmt(totalIncome - budgetIncome) : '–'],
-      [{ content: t('KOSTNADER'), colSpan: 4, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
+      [{ content: t('Summa intäkter'), styles: bold }, budgetIncome ? fmt(budgetIncome) : '–', fmt(totalIncome), budgetIncome ? fmt(totalIncome - budgetIncome) : '–', ...(prev ? [fmt(prev.income)] : [])],
+      [{ content: t('KOSTNADER'), colSpan: ncol, styles: { fillColor: [253, 232, 234], textColor: RED, fontStyle: 'bold', fontSize: 8 } }],
       ...expRows,
-      [{ content: t('Summa kostnader'), styles: { fontStyle: 'bold' } }, budgetExpense ? fmt(budgetExpense) : '–', fmt(totalExpense), budgetExpense ? fmt(totalExpense - budgetExpense) : '–'],
+      [{ content: t('Summa kostnader'), styles: bold }, budgetExpense ? fmt(budgetExpense) : '–', fmt(totalExpense), budgetExpense ? fmt(totalExpense - budgetExpense) : '–', ...(prev ? [fmt(prev.expense)] : [])],
     ],
     foot: [[
-      { content: t('NETTORESULTAT'), styles: { fontStyle: 'bold' } },
-      { content: (budgetIncome || budgetExpense) ? fmt(budgetIncome - budgetExpense) : '–', styles: { fontStyle: 'bold' } },
+      { content: t('NETTORESULTAT'), styles: bold },
+      { content: (budgetIncome || budgetExpense) ? fmt(budgetIncome - budgetExpense) : '–', styles: bold },
       { content: fmt(netResult), styles: { fontStyle: 'bold', textColor: netResult >= 0 ? GREEN : RED } },
-      { content: (budgetIncome || budgetExpense) ? fmt(netResult - (budgetIncome - budgetExpense)) : '–', styles: { fontStyle: 'bold' } },
+      { content: (budgetIncome || budgetExpense) ? fmt(netResult - (budgetIncome - budgetExpense)) : '–', styles: bold },
+      ...(prev ? [{ content: fmt(prevNet), styles: bold }] : []),
     ]],
     headStyles: { fillColor: DARK, fontSize: 8, fontStyle: 'bold' },
     footStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 9 },
     showFoot: 'lastPage',
     columnStyles: {
-      0: { cellWidth: 80 },
+      0: { cellWidth: prev ? 62 : 80 },
       1: { halign: 'right', font: 'courier' },
       2: { halign: 'right', font: 'courier' },
       3: { halign: 'right', font: 'courier' },
+      4: { halign: 'right', font: 'courier' },
     },
     styles: { fontSize: 8, cellPadding: 1.8 },
     alternateRowStyles: { fillColor: PAPER },
@@ -381,6 +392,34 @@ export function exportAnnualReport({ orgName, period, transactions, voided = [],
     alternateRowStyles: { fillColor: PAPER },
     margin: { left: 18, right: 18 },
   });
+
+  // ── Poster som inte betalats vid periodens slut: ingår inte i kassarapporten (kontantmetoden) men redovisas som upplysning ──
+  if (unpaid && (unpaid.receivables.length || unpaid.payables.length)) {
+    y = doc.lastAutoTable.finalY + 12;
+    if (y > 200) { doc.addPage(); y = 18; }
+    sectionHeader(t('Poster som inte betalats vid periodens slut'));
+    const kindLabel = i => `${i.kind === 'expense' ? t('Utlägg') : t('Faktura')}${i.no ? ' ' + i.no : ''}${i.party ? ' · ' + i.party : ''}`;
+    const group = (title, items, total, fill, color) => items.length ? [
+      [{ content: title, colSpan: 4, styles: { fillColor: fill, textColor: color, fontStyle: 'bold', fontSize: 8 } }],
+      ...items.map(i => [i.date, kindLabel(i), i.due || '–', fmt(i.amount)]),
+      [{ content: t('Summa'), colSpan: 3, styles: { fontStyle: 'bold' } }, { content: fmt(total), styles: { fontStyle: 'bold' } }],
+    ] : [];
+    autoTable(doc, {
+      startY: y,
+      head: [[t('Datum'), t('Avser'), t('Förfaller'), t('Belopp')]],
+      body: [
+        ...group(t('Att få in (utgående fakturor)'), unpaid.receivables, unpaid.recvTotal, [216, 243, 220], GREEN),
+        ...group(t('Att betala (fakturor och utlägg)'), unpaid.payables, unpaid.payTotal, [253, 232, 234], RED),
+      ],
+      foot: [[{ content: t('Posterna ingår inte i kassarapporten, som bygger på in- och utbetalningar. De bokförs när de betalas.'), colSpan: 4, styles: { fontStyle: 'italic', fontSize: 7.5 } }]],
+      headStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 8 },
+      footStyles: { fillColor: [255, 255, 255], textColor: [110, 110, 135] },
+      columnStyles: { 3: { halign: 'right', font: 'courier' } },
+      styles: { fontSize: 8, cellPadding: 2 },
+      alternateRowStyles: { fillColor: PAPER },
+      margin: { left: 18, right: 18 },
+    });
+  }
 
   // ── Makulerade verifikat: ingår inte i summorna men redovisas, så att verifikationskedjan är obruten ──
   if (voided.length) {

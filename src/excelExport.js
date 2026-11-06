@@ -32,7 +32,7 @@ export function verNumbers(transactions, voided = []) {
 }
 const pad3 = n => String(n).padStart(3, '0')
 
-export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx, projects = [], projectLabel = '', voided = [] }) {
+export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx, projects = [], projectLabel = '', voided = [], extras = null }) {
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
   const txs = sortPeriodTxs(transactions)
   const voidedTxs = sortPeriodTxs(voided)
@@ -144,6 +144,19 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     sum.addRow([tr('Antal makulerade verifikat'), voidedTxs.length])
     sum.addRow([tr('Makulerade verifikat ingår inte i summorna. De redovisas på bladet Makulerade verifikat.')])
   }
+  const moneyRows = []
+  if (extras?.prev) {
+    sum.addRow([])
+    moneyRows.push(sum.addRow([`${tr('Nettoresultat föregående år')} (${extras.prev.label}) (kr)`, extras.prev.net]).number)
+  }
+  const un = extras?.unpaid
+  if (un && (un.receivables.length || un.payables.length)) {
+    sum.addRow([])
+    moneyRows.push(sum.addRow([tr('Fakturor att få in vid periodens slut (kr)'), un.recvTotal]).number)
+    moneyRows.push(sum.addRow([tr('Fakturor och utlägg att betala vid periodens slut (kr)'), un.payTotal]).number)
+    sum.addRow([tr('Posterna ingår inte i kassarapporten (in- och utbetalningar) och bokförs när de betalas. De listas på bladet Obetalda poster.')])
+  }
+  moneyRows.forEach(r => { sum.getCell(`B${r}`).numFmt = MONEY })
   sum.getColumn(1).font = { bold: true }
   sum.getColumn(2).alignment = { horizontal: 'left' }
 
@@ -156,6 +169,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     { header: tr('Utfall (kr)'), key: 'actual', width: 16, style: { numFmt: MONEY } },
     { header: tr('Budget (kr)'), key: 'budget', width: 16, style: { numFmt: MONEY } },
     { header: tr('Avvikelse (kr)'), key: 'diff', width: 16, style: { numFmt: MONEY } },
+    ...(extras?.prev ? [{ header: `${tr('Föregående år')} ${extras.prev.label} (kr)`, key: 'prev', width: 20, style: { numFmt: MONEY } }] : []),
   ]
   styleHeader(cs.getRow(1))
   const periodBudget = budget?.[period.id] || {}
@@ -164,8 +178,25 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   for (const c of [...categories].sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
     const actual = actuals[c.id] || 0
     const bud = periodBudget[c.id] || 0
-    if (!actual && !bud) continue
-    cs.addRow({ id: c.id, name: c.name, type: c.type === 'income' ? tr('Inkomst') : tr('Utgift'), actual, budget: bud, diff: actual - bud })
+    const prevAmt = extras?.prev?.actuals?.[c.id] || 0
+    if (!actual && !bud && !prevAmt) continue
+    cs.addRow({ id: c.id, name: c.name, type: c.type === 'income' ? tr('Inkomst') : tr('Utgift'), actual, budget: bud, diff: actual - bud, prev: extras?.prev ? prevAmt : undefined })
+  }
+
+  // ── Obetalda poster vid periodens slut (upplysning) ──
+  if (un && (un.receivables.length || un.payables.length)) {
+    const us = wb.addWorksheet(tr('Obetalda poster'), { views: [{ state: 'frozen', ySplit: 1 }] })
+    us.columns = [
+      { header: tr('Typ'), key: 'type', width: 26 },
+      { header: tr('Datum'), key: 'date', width: 12 },
+      { header: tr('Avser'), key: 'what', width: 40 },
+      { header: tr('Förfaller'), key: 'due', width: 12 },
+      { header: tr('Belopp (kr)'), key: 'amount', width: 16, style: { numFmt: MONEY } },
+    ]
+    styleHeader(us.getRow(1))
+    const kind = i => (i.kind === 'expense' ? tr('Utlägg') : tr('Faktura'))
+    for (const i of un.receivables) us.addRow({ type: tr('Att få in'), date: i.date, what: `${kind(i)}${i.no ? ' ' + i.no : ''}${i.party ? ' · ' + i.party : ''}`, due: i.due || '', amount: i.amount })
+    for (const i of un.payables) us.addRow({ type: tr('Att betala'), date: i.date, what: `${kind(i)}${i.no ? ' ' + i.no : ''}${i.party ? ' · ' + i.party : ''}`, due: i.due || '', amount: i.amount })
   }
 
   // ── Makulerade verifikat: redovisas separat och ingår inte i summorna ──
@@ -203,7 +234,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
 
 // Skapar en ZIP med Excel-filen och alla bilagor för perioden.
 // Bilagorna ligger i bilagor/VERxxx_.../ precis som i årsrapportens arkiv-ZIP.
-export async function exportPeriodZip({ orgId, orgName, period, transactions, voidedTxs = [], categories, budget, projects = [], projectLabel = '', onProgress = () => {} }) {
+export async function exportPeriodZip({ orgId, orgName, period, transactions, voidedTxs = [], categories, budget, projects = [], projectLabel = '', extras = null, onProgress = () => {} }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
   const periodVoided = sortPeriodTxs(txsForPeriod(voidedTxs, period))
   const verNo = verNumbers(periodTxs, periodVoided)
@@ -215,7 +246,7 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, vo
   for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename)
 
   onProgress(tr('Skapar Excel-fil…'))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel })
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel, extras })
   const xlsx = await wb.xlsx.writeBuffer()
 
   onProgress(tr('Packar ihop ZIP…'))
@@ -232,11 +263,11 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, vo
   return { blob, filename: `foreningsbalans_export_${safePeriod}.zip` }
 }
 
-export async function exportPeriodExcel({ orgId, orgName, period, transactions, voidedTxs = [], categories, budget, projects = [], projectLabel = '' }) {
+export async function exportPeriodExcel({ orgId, orgName, period, transactions, voidedTxs = [], categories, budget, projects = [], projectLabel = '', extras = null }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
   const periodVoided = sortPeriodTxs(txsForPeriod(voidedTxs, period))
   const attachmentsByTx = await attachments.namesByTx(orgId, [...periodTxs, ...periodVoided].map(t => t.id))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel })
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel, extras })
   const buf = await wb.xlsx.writeBuffer()
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
   return {

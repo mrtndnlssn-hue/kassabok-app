@@ -1138,3 +1138,53 @@ export function sumByCategory(txs, categories) {
   }
   return result
 }
+
+// ── Årsskifte och jämförelse mellan år ───────────────────────────
+// Perioden som slutar närmast före att en annan börjar
+export function previousPeriod(periods, period) {
+  if (!period?.start) return null
+  return (periods || []).filter(p => p.end < period.start).sort((a, b) => b.end.localeCompare(a.end))[0] || null
+}
+
+// Intäkter, kostnader, resultat och saldon för en period (makulerade verifikat ingår inte i txs)
+export function periodSummary(txs, categories, period) {
+  const actuals = sumByCategory(txsForPeriod(txs, period), categories)
+  let income = 0, expense = 0
+  for (const c of categories) { const v = actuals[c.id] || 0; if (c.type === 'income') income += v; else expense += v }
+  const opening = Number(period?.openingBalance ?? 0)
+  return { actuals, income, expense, net: income - expense, opening, closing: opening + income - expense }
+}
+
+const addDaysIso = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+
+// Förslag på nästa period: börjar dagen efter och är lika lång som ett år
+export function nextPeriodDates(period) {
+  const start = addDaysIso(period.end, 1)
+  const d = new Date(`${start}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() + 1)
+  const end = addDaysIso(d.toISOString().slice(0, 10), -1)
+  const y = start.slice(0, 4)
+  return { start, end, label: start.slice(5) === '01-01' ? y : `${y}/${Number(y) + 1}` }
+}
+
+// Fakturor och utlägg som inte var betalda när perioden slutade. De ingår inte i kassarapporten (kontantmetoden)
+// och bokförs när de betalas, men en läsare av årsrapporten bör veta att de finns.
+export function unpaidAtEnd({ period, claims = [], outInvoices = [] }) {
+  const end = period?.end
+  const none = { receivables: [], payables: [], recvTotal: 0, payTotal: 0 }
+  if (!end) return none
+  const receivables = (outInvoices || [])
+    .filter(i => i.invoiceDate && i.invoiceDate <= end && (i.status === 'issued' || (i.status === 'paid' && i.paidDate && i.paidDate > end)))
+    .map(i => ({ kind: 'invoice-out', no: i.invoiceNo || '', party: i.customer?.name || '', date: i.invoiceDate, due: i.dueDate || null, amount: Number(i.total) || 0 }))
+  const payables = (claims || [])
+    .filter(c => c.status !== 'rejected' && c.date && c.date <= end && (c.status !== 'paid' || (c.paidDate && c.paidDate > end)))
+    .map(c => ({ kind: c.kind === 'invoice' ? 'invoice-in' : 'expense', no: c.invoiceNo || '', party: c.kind === 'invoice' ? (c.supplier || '') : (c.description || ''), date: c.date, due: c.dueDate || null, amount: Number(c.total) || 0 }))
+  const sum = a => a.reduce((s, x) => s + x.amount, 0)
+  return { receivables, payables, recvTotal: sum(receivables), payTotal: sum(payables) }
+}
+
+// Det som tillkommer i årsrapport och Excel: föregående år att jämföra med, och poster som inte betalats vid periodens slut
+export function reportExtras({ periods, period, transactions, categories, claims = [], outInvoices = [] }) {
+  const prevP = previousPeriod(periods, period)
+  const prev = prevP ? { label: prevP.label, ...periodSummary(transactions, categories, prevP) } : null
+  return { prev: prev && (prev.income !== 0 || prev.expense !== 0) ? prev : null, unpaid: unpaidAtEnd({ period, claims, outInvoices }) }
+}

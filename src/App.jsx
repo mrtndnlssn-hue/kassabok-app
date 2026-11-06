@@ -304,8 +304,8 @@ function MainApp({ orgId, role, onChangeOrg }) {
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
-    arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
-    perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} voidedTxs={voidedTxs} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
+    arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} claims={claims} outInvoices={outInvoices} />,
+    perioder:   <Rakenskapsperioder claims={claims} outInvoices={outInvoices} fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} voidedTxs={voidedTxs} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
     medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} features={features} />,
     installningar: <Installningar orgId={orgId} orgName={orgName} features={features} onFeaturesChange={reloadFeatures} onProjectSettingsChange={reloadProjects} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };

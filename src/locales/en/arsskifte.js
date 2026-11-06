@@ -1,0 +1,40 @@
+// Engelska översättningar: årsskifte, jämförelse med föregående år och poster som inte betalats vid periodens slut
+export default {
+  // Excel och PDF
+  'Nettoresultat föregående år': 'Net result previous year',
+  'Fakturor att få in vid periodens slut (kr)': 'Invoices to receive at period end (SEK)',
+  'Fakturor och utlägg att betala vid periodens slut (kr)': 'Invoices and expenses to pay at period end (SEK)',
+  'Posterna ingår inte i kassarapporten (in- och utbetalningar) och bokförs när de betalas. De listas på bladet Obetalda poster.': 'The items are not part of the cash report (payments in and out) and are booked when they are paid. They are listed on the sheet Unpaid items.',
+  'Föregående år': 'Previous year',
+  'Föreg. år': 'Prev. year',
+  'Obetalda poster': 'Unpaid items',
+  'Avser': 'Concerns',
+  'Att få in': 'To receive',
+  'Poster som inte betalats vid periodens slut': 'Items not paid at the end of the period',
+  'Att få in (utgående fakturor)': 'To receive (outgoing invoices)',
+  'Att betala (fakturor och utlägg)': 'To pay (invoices and expenses)',
+  'Posterna ingår inte i kassarapporten, som bygger på in- och utbetalningar. De bokförs när de betalas.': 'The items are not part of the cash report, which is based on payments in and out. They are booked when they are paid.',
+  // Årsrapport
+  'Föregående år ({label}): intäkter {inc}, kostnader {exp}, resultat {net}. Jämförelsen finns med i PDF och Excel.': 'Previous year ({label}): income {inc}, expenses {exp}, result {net}. The comparison is included in the PDF and Excel.',
+  '{n} poster är inte betalda vid periodens slut.': '{n} items are not paid at the end of the period.',
+  'Att få in: {a}. Att betala: {b}. De ingår inte i kassarapporten men redovisas som upplysning i PDF och Excel, och bokförs när de betalas.': 'To receive: {a}. To pay: {b}. They are not part of the cash report but are shown as information in the PDF and Excel, and are booked when they are paid.',
+  // Budget
+  'Visa föregående års utfall ({label}) som jämförelse': 'Show last year\'s actuals ({label}) as a comparison',
+  'Fyll i {n} tomma budgetposter utifrån förra årets utfall, med uppräkning på': 'Fill in {n} empty budget lines based on last year\'s actuals, with an increase of',
+  'Uppräkning i procent': 'Increase in percent',
+  'Fyller i…': 'Filling in…',
+  'Fyll i': 'Fill in',
+  'Befintliga belopp ändras inte. Beloppen avrundas till tiotal.': 'Existing amounts are not changed. Amounts are rounded to the nearest ten.',
+  // Räkenskapsperioder och Stäng år
+  'Kontrollera innan ni stänger året': 'Check before you close the year',
+  'Inga obetalda fakturor eller utlägg vid periodens slut.': 'No unpaid invoices or expenses at the end of the period.',
+  'Att få in: {a}. Att betala: {b}. De redovisas som upplysning i årsrapporten och bokförs när de betalas.': 'To receive: {a}. To pay: {b}. They are shown as information in the annual report and are booked when they are paid.',
+  'Ingående saldo i {label} stämmer med utgående saldo här.': 'The opening balance in {label} matches the closing balance here.',
+  'Ingående saldo i {label} är {a}, men utgående saldo här är {b}.': 'The opening balance in {label} is {a}, but the closing balance here is {b}.',
+  'Sätt ingående saldo till {b}': 'Set opening balance to {b}',
+  'Det finns ingen period efter den här.': 'There is no period after this one.',
+  'Skapa {label} med ingående saldo {b}': 'Create {label} with opening balance {b}',
+  'Nästa period kan inte skapas eftersom den skulle överlappa en annan period.': 'The next period cannot be created because it would overlap another period.',
+  'Utgående saldo {label}: {x}': 'Closing balance {label}: {x}',
+  'Använd': 'Use',
+}
