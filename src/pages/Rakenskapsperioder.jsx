@@ -272,6 +272,10 @@ function ClearAttachmentsModal({ period, transactions, voidedTxs = [], categorie
             <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:16, lineHeight:1.7 }}>
               {t('Ladda först ner en kopia (ZIP med Excel-fil och alla bilagor) och spara den på ett tryggt ställe. Därefter kan du rensa bilagorna för att frigöra lagringsutrymme.')}
             </p>
+            <p style={{ fontSize:'0.85rem', color:'var(--ink-soft)', marginBottom:16, lineHeight:1.7, background:'var(--amber-soft)', border:'1px solid var(--amber)', borderRadius:'var(--r)', padding:'10px 12px' }}>
+              <strong>{t('Bokföringslagen kräver att verifikat och underlag sparas i sju år.')}</strong>{' '}
+              {t('Det går bra att ha dem utanför appen, men ZIP-kopian ska då finnas kvar, vara läsbar och kunna visas för revisor och Skatteverket under hela tiden.')}
+            </p>
             <div style={{ marginBottom:16 }}>
               <button className="btn btn-secondary" disabled={!!busy} onClick={download}>
                 {busy === 'zip'

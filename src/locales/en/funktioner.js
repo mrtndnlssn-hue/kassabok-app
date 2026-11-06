@@ -1,5 +1,10 @@
 // Engelska översättningar: funktioner (reglage i Inställningar)
 export default {
+  '{namn} har en filtyp som inte kan laddas upp. Använd PDF, bild, Word, Excel eller textfil.': '{namn} has a file type that cannot be uploaded. Use a PDF, image, Word, Excel or text file.',
+  'Bokföringslagen kräver att verifikat och underlag sparas i sju år.': 'The Swedish Bookkeeping Act requires vouchers and supporting documents to be kept for seven years.',
+  'Det går bra att ha dem utanför appen, men ZIP-kopian ska då finnas kvar, vara läsbar och kunna visas för revisor och Skatteverket under hela tiden.': 'It is fine to keep them outside the app, but the ZIP copy must then be kept, stay readable and be available to the auditor and the Swedish Tax Agency throughout that time.',
+  'Bilagan måste vara en PDF-fil.': 'The attachment must be a PDF file.',
+  'Föreningen har nått dygnsgränsen på 20 utskick. Försök igen i morgon, eller skicka fakturan på annat sätt.': 'The association has reached the daily limit of 20 sent emails. Try again tomorrow, or send the invoice another way.',
   'Välj vad ni vill använda (valfritt)': 'Choose what you want to use (optional)',
   'Utlägg, fakturor, projekt och AI-avläsning slår ni på själva när ni behöver dem, under Inställningar → Funktioner. Allt som är avstängt är bara dolt.': 'Expenses, invoices, projects and AI reading are turned on by you when you need them, under Settings → Features. Anything turned off is only hidden.',
   'Öppna Funktioner': 'Open Features',
