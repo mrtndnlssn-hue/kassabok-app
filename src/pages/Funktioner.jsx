@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Receipt, Inbox, FileText, Sparkles, Layers, Rocket, Puzzle, Check } from 'lucide-react'
+import { Receipt, Inbox, FileText, Sparkles, Layers, Rocket, Puzzle, Check, Route } from 'lucide-react'
 import { useAuth, isAdminRole } from '../auth/AuthProvider'
 import { useI18n } from '../i18n'
 import { useProjects, defaultLabels } from '../ProjectsContext'
@@ -9,6 +9,7 @@ import { getReceiptUsage } from '../receiptAi'
 // Texter och ikoner per funktion. Funktioner som saknas här (nya i registret) visas ändå, med bara sitt namn.
 const META = {
   expenses:        { icon: Receipt,  desc: 'Medlemmar som lagt ut egna pengar begär ersättning med kvitto. Bokförs när utbetalningen bekräftas.' },
+  trips:           { icon: Route,    desc: 'Medlemmar registrerar körda resor och får ersättning per mil. Hanteras som utlägg: godkänns, betalas ut och bokförs.' },
   invoice_inbox:   { icon: Inbox,    desc: 'Ladda upp inkommande fakturor. De bokförs först när kassören har betalat dem.' },
   invoicing:       { icon: FileText, desc: 'Kundregister och fakturor från föreningen, med PDF och utskick. Bara administratörer kan skapa och skicka. Ingen moms.' },
   ai_receipts:     { icon: Sparkles, desc: 'En uppladdad PDF eller bild läses av med AI, som föreslår datum, belopp, beskrivning och kategori. Förslaget tar hänsyn till hur liknande poster bokförts tidigare.' },
@@ -142,6 +143,60 @@ function ProjectSettings({ orgId, canManage, onChanged }) {
   )
 }
 
+// Resor och körersättning: ersättning per mil, vad det heter, vilka områden som finns och vilket konto det bokförs på
+function TripSettings({ orgId, canManage, categories }) {
+  const { t } = useI18n()
+  const [s, setS] = useState(null)
+  const [areasText, setAreasText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => { expenses.getTripSettings(orgId).then(x => { setS({ ...x, rate: String(x.rate).replace('.', ',') }); setAreasText((x.areas || []).join('\n')) }).catch(e => setError(t(e.message))) }, [orgId])
+  const expCats = (categories || []).filter(c => c.type === 'expense' && !c.hidden)
+  async function save(e) {
+    e.preventDefault()
+    setError(''); setDone(false)
+    const rate = Number(String(s.rate).replace(',', '.'))
+    if (!(rate > 0)) { setError(t('Ange en ersättning per mil.')); return }
+    setSaving(true)
+    try {
+      await expenses.setTripSettings(orgId, { rate, label: s.label.trim(), areas: areasText.split('\n').map(x => x.trim()).filter(Boolean), categoryId: s.categoryId || '', note: s.note })
+      setDone(true); setTimeout(() => setDone(false), 3000)
+    } catch (err) { setError(t(err.message)) } finally { setSaving(false) }
+  }
+  if (!s) return error ? <div className="notice" style={errBox}>{error}</div> : null
+  const set = (k, v) => { setS(x => ({ ...x, [k]: v })); setDone(false) }
+  return (
+    <form onSubmit={save}>
+      {error && <div className="notice" style={{ ...errBox, marginBottom: 12 }}>{error}</div>}
+      {done && <div className="notice notice-success" style={{ marginBottom: 12 }}>{t('Inställningarna har sparats.')}</div>}
+      {!s.categoryId && <div className="notice" style={{ background: 'var(--amber-soft)', borderColor: 'var(--amber)', color: 'var(--ink)', marginBottom: 12, fontSize: '0.82rem' }}>{t('Välj ett konto nedan, annars går det inte att registrera resor.')}</div>}
+      <fieldset disabled={!canManage} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <div className="form-row form-row-cols">
+          <div><label>{t('Ersättning per mil (kr)')}</label><input type="text" inputMode="decimal" value={s.rate} onChange={e => set('rate', e.target.value)} /></div>
+          <div><label>{t('Vad ersättningen heter')}</label><input type="text" maxLength={40} value={s.label} placeholder="Körersättning" onChange={e => set('label', e.target.value)} /></div>
+        </div>
+        <div className="form-row"><div>
+          <label>{t('Bokförs på konto')}</label>
+          <select value={s.categoryId || ''} onChange={e => set('categoryId', e.target.value)}>
+            <option value="">{t('Välj…')}</option>
+            {expCats.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
+          </select>
+        </div></div>
+        <div className="form-row"><div>
+          <label>{t('Områden (ett per rad, valfritt)')}</label>
+          <textarea rows={3} style={{ width: '100%' }} value={areasText} placeholder={'Område 1\nOmråde 2'} onChange={e => { setAreasText(e.target.value); setDone(false) }} />
+        </div></div>
+        <div className="form-row"><div>
+          <label>{t('Information som visas när man registrerar (valfritt)')}</label>
+          <textarea rows={2} maxLength={500} style={{ width: '100%' }} value={s.note} onChange={e => set('note', e.target.value)} />
+        </div></div>
+      </fieldset>
+      {canManage && <button className="btn btn-primary" type="submit" disabled={saving} style={{ marginTop: 8 }}><Check size={14} /> {saving ? t('Sparar…') : t('Spara')}</button>}
+    </form>
+  )
+}
+
 // Förbrukning och sekretess för AI-avläsning
 function AiInfo({ orgId }) {
   const { t } = useI18n()
@@ -155,7 +210,7 @@ function AiInfo({ orgId }) {
   )
 }
 
-export default function Funktioner({ orgId, features, onFeaturesChange, onProjectSettingsChange }) {
+export default function Funktioner({ orgId, features, categories = [], onFeaturesChange, onProjectSettingsChange }) {
   const { t } = useI18n()
   const { role } = useAuth()
   const canManage = isAdminRole(role)
@@ -166,6 +221,7 @@ export default function Funktioner({ orgId, features, onFeaturesChange, onProjec
 
   const blockerText = (f, b) => {
     if (b.code === 'open_expenses') return t('Det finns {n} utlägg som väntar på hantering. Godkänn, avslå eller betala ut dem först.', { n: b.n })
+    if (b.code === 'open_trips') return t('Det finns {n} reseersättningar som väntar på hantering. Godkänn, avslå eller betala ut dem först.', { n: b.n })
     if (b.code === 'open_invoices') return t('Det finns {n} fakturor i inkorgen som väntar på betalning. Betala eller avvisa dem först.', { n: b.n })
     if (b.code === 'open_outgoing') return t('Det finns {n} fakturor som är utkast eller obetalda. Markera dem som betalda, makulera eller ta bort dem först.', { n: b.n })
     if (b.code === 'dependents') return t('Stäng av {namn} först, den kräver {denna}.', { namn: nameOf(b.by), denna: nameOf(f.key) })
@@ -196,6 +252,7 @@ export default function Funktioner({ orgId, features, onFeaturesChange, onProjec
     if (f.key === 'invoicing') return <InvoicingSettings orgId={orgId} canManage={canManage} onChanged={onProjectSettingsChange} />
     if (f.key === 'projects') return <ProjectSettings orgId={orgId} canManage={canManage} onChanged={onProjectSettingsChange} />
     if (f.key === 'ai_receipts') return <AiInfo orgId={orgId} />
+    if (f.key === 'trips') return <TripSettings orgId={orgId} canManage={canManage} categories={categories} />
     if (f.key === mailOwner) return <ExpenseMail orgId={orgId} canManage={canManage} />
     return null
   }

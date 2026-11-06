@@ -57,6 +57,12 @@ const projectError = e => {
   return e
 }
 const sumLines = lines => Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100
+// Resor (körersättning): rader med datum, område, minuter och mil. Mil kan skrivas med komma.
+const cleanTripRows = rows => (rows || []).map(r => ({
+  date: r.date, area: (r.area || '').trim(), minutes: r.minutes === '' || r.minutes == null ? null : Number(r.minutes),
+  miles: Number(String(r.miles ?? '').replace(',', '.')),
+}))
+const tripSettingsFromJson = j => ({ rate: Number(j?.rate) || 90, label: j?.label || 'Körersättning', areas: j?.areas || [], categoryId: j?.categoryId || null, note: j?.note || '' })
 
 // Funktioner som föreningen kan slå på och av. Servern avgör vad paketet tillåter, vad som är påslaget och vad som hindrar en avstängning.
 const dbFeatures = {
@@ -510,6 +516,7 @@ const claimFromRow = r => ({
   total: Number(r.total), status: r.status, rejectReason: r.reject_reason || '',
   kind: r.kind || 'expense', supplier: r.supplier || '', invoiceNo: r.invoice_no || '', dueDate: r.due_date || null, paymentRef: r.payment_ref || '',
   createdAt: r.created_at, decidedAt: r.decided_at, paidAt: r.paid_at, paidDate: r.paid_date, txId: r.tx_id || null,
+  trips: r.trips ? { rate: Number(r.trips.rate), rows: (r.trips.rows || []).map(x => ({ date: x.date, area: x.area || '', minutes: x.minutes ?? null, miles: Number(x.miles) })) } : null,
 })
 
 const dbExpenses = {
@@ -539,6 +546,23 @@ const dbExpenses = {
       try { await dbAttachments.upload(orgId, claimFolder(id), files) } catch (e) { uploadError = e }
     }
     return { claim: claimFromRow(data), uploadError }
+  },
+
+  // Registrerar (eller ändrar) resor. Beloppet räknas ut i databasen: mil x ersättning per mil. Därefter hanteras kravet som ett utlägg.
+  async submitTrips(orgId, { id, rows, comment }) {
+    const { data, error } = await supabase.rpc('submit_trip_claim', { p_id: id || crypto.randomUUID(), p_org: orgId, p_rows: cleanTripRows(rows), p_comment: comment || '' })
+    if (error) throw error
+    return { claim: claimFromRow(data) }
+  },
+  async getTripSettings(orgId) {
+    const { data, error } = await supabase.rpc('get_trip_settings', { p_org: orgId })
+    if (error) throw error
+    return tripSettingsFromJson(data)
+  },
+  async setTripSettings(orgId, s) {
+    const { data, error } = await supabase.rpc('set_trip_settings', { p_org: orgId, p_rate: s.rate, p_label: s.label || '', p_areas: s.areas || [], p_category: s.categoryId || '', p_note: s.note || '' })
+    if (error) throw error
+    return tripSettingsFromJson(data)
   },
 
   async decide(_orgId, id, approve, reason = '') {
@@ -578,6 +602,23 @@ const dbExpenses = {
       org_id: orgId, notify_expense_submitted: !!notifySubmitted, notify_expense_decided: !!notifyDecided })
     if (error) throw error
   },
+}
+
+// Rader till milersättningsrapporten: en rad per resa. Avslagna resor räknas inte. Perioden gäller reseradens datum.
+export function tripReportRows({ claims, names = {}, unknownName = '', period = null, onlyPaid = false, userId = null }) {
+  const round2 = n => Math.round(n * 100) / 100
+  const rows = []
+  for (const c of claims) {
+    if (!c.trips || c.status === 'rejected') continue
+    if (onlyPaid && c.status !== 'paid') continue
+    if (userId && c.userId !== userId) continue
+    for (const r of c.trips.rows) {
+      if (period && (r.date < period.start || r.date > period.end)) continue
+      rows.push({ userId: c.userId, name: names[c.userId] || unknownName, date: r.date, area: r.area || '', minutes: r.minutes ?? null, miles: r.miles,
+        rate: c.trips.rate, amount: round2(r.miles * c.trips.rate), status: c.status, paidDate: c.paidDate || null })
+    }
+  }
+  return rows.sort((a, b) => a.name.localeCompare(b.name, 'sv') || a.date.localeCompare(b.date))
 }
 
 // ── Fakturering: kundregister och utgående fakturor ────────────
@@ -683,7 +724,7 @@ const dbInvoicing = {
 // ── Demoläge ───────────────────────────────────────────────────
 // Demokontot läser riktig data men all skrivning sker i minnet och försvinner vid omladdning.
 let demo = null // { data, files: Map<txId, [{name, file}]>, seq, claims, customers, invoices, invSeq }
-export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0, aiReads: 0, reviews: [], remarks: [] } : null }
+export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0, aiReads: 0, reviews: [], remarks: [], tripSettings: { rate: 90, label: 'Körersättning', areas: [], categoryId: null, note: '' } } : null }
 export const isDemoMode = () => !!demo
 // Demoläget tillåter en AI-avläsning per session (nollställs när man loggar in på demon igen)
 export const DEMO_AI_LIMIT = 1
@@ -702,6 +743,7 @@ async function seedDemo() {
   if (!exp.length || !inc.length) return
   const me = await demoUserId()
   const pd = demo.data.projectData
+  demo.tripSettings.categoryId = exp[0].id
   demo.data.features = (demo.data.features || []).map(f => ({ ...f, enabled: true, allowed: true }))
   Object.assign(pd, { expensesAllowed: true, invoicingAllowed: true, invoicingEnabled: true, invoiceDetails: {
     address: 'Björkvägen 4', zip: '123 45', city: 'Björkby', org_number: '802400-0000', email: 'kassor@bjorkbyif.example', phone: '070-123 45 67',
@@ -946,6 +988,30 @@ const demoExpenses = {
     if (files.length) await demoAttachments.upload(orgId, claimFolder(saved.id), files)
     return { claim: clone(saved), uploadError: null }
   },
+  async submitTrips(_o, { id, rows, comment }) {
+    const st = demo.tripSettings
+    if (!st.categoryId) throw new Error('En administratör måste först välja konto för körersättning under Inställningar → Funktioner.')
+    const clean = cleanTripRows(rows)
+    if (!clean.length) throw new Error('Lägg till minst en resa.')
+    for (const r of clean) {
+      if (!(r.miles > 0)) throw new Error('Ogiltigt antal mil.')
+      if (st.areas.length && !st.areas.includes(r.area)) throw new Error('Välj ett område i listan.')
+    }
+    const total = Math.round(clean.reduce((a, r) => a + r.miles, 0) * st.rate * 100) / 100
+    const base = { date: clean.map(r => r.date).sort().pop(), description: st.label, comment: comment || '', counterparty: '', lines: [{ categoryId: st.categoryId, amount: total, projectId: null }], total,
+      trips: { rate: st.rate, rows: clean } }
+    const existing = id && demo.claims.find(c => c.id === id)
+    let saved
+    if (existing) { Object.assign(existing, base, { status: 'submitted', rejectReason: '' }); saved = existing }
+    else {
+      saved = { id: `demo-c-${++demo.seq}`, userId: await demoUserId(), kind: 'expense', supplier: '', invoiceNo: '', dueDate: null, paymentRef: '', ...base, status: 'submitted', rejectReason: '',
+        createdAt: new Date().toISOString(), decidedAt: null, paidAt: null, paidDate: null, txId: null }
+      demo.claims.push(saved)
+    }
+    return { claim: clone(saved) }
+  },
+  async getTripSettings() { return clone(demo.tripSettings) },
+  async setTripSettings(_o, st) { demo.tripSettings = tripSettingsFromJson({ ...st, rate: st.rate }); return clone(demo.tripSettings) },
   async decide(_o, id, approve, reason = '') {
     const c = demo.claims.find(x => x.id === id)
     if (!c || c.status !== 'submitted') throw new Error('Utlägget är redan hanterat.')
@@ -959,7 +1025,8 @@ const demoExpenses = {
     if (!c || c.status !== (c.kind === 'invoice' ? 'submitted' : 'approved')) throw new Error(c?.kind === 'invoice' ? 'Bara fakturor i inkorgen kan markeras som betalda.' : 'Bara godkända utlägg kan markeras som utbetalda.')
     const added = await demoStore.addTransaction(orgId, {
       date: paidDate, description: c.kind === 'invoice' ? (c.description || c.supplier) : c.description,
-      comment: c.kind === 'invoice' ? `Faktura från ${c.supplier}${c.invoiceNo ? ` (nr ${c.invoiceNo})` : ''}${c.comment ? ` – ${c.comment}` : ''}` : c.comment,
+      comment: c.kind === 'invoice' ? `Faktura från ${c.supplier}${c.invoiceNo ? ` (nr ${c.invoiceNo})` : ''}${c.comment ? ` – ${c.comment}` : ''}`
+        : c.trips ? `Körersättning – ${Math.round(c.trips.rows.reduce((a, r) => a + r.miles, 0) * 100) / 100} mil à ${c.trips.rate} kr${c.comment ? ` – ${c.comment}` : ''}` : c.comment,
       counterparty: c.kind === 'invoice' ? c.supplier : c.counterparty,
       lines: c.lines })
     await demoAttachments.moveFolder(orgId, claimFolder(id), added.id)
@@ -1052,6 +1119,7 @@ const demoInvoicing = {
 const demoFeatureBlocker = key => {
   const open = arr => arr.length
   if (key === 'expenses') { const n = open(demo.claims.filter(c => c.kind === 'expense' && (c.status === 'submitted' || c.status === 'approved'))); if (n) return { code: 'open_expenses', n } }
+  if (key === 'trips') { const n = open(demo.claims.filter(c => c.trips && (c.status === 'submitted' || c.status === 'approved'))); if (n) return { code: 'open_trips', n } }
   if (key === 'invoice_inbox') { const n = open(demo.claims.filter(c => c.kind === 'invoice' && c.status === 'submitted')); if (n) return { code: 'open_invoices', n } }
   if (key === 'invoicing') { const n = open(demo.invoices.filter(i => i.status === 'draft' || i.status === 'issued')); if (n) return { code: 'open_outgoing', n } }
   const dep = demo.data.features.find(f => f.enabled && f.requires.includes(key))

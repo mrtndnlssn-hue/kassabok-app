@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Check, X, Paperclip, Loader, Wallet } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X, Paperclip, Loader, Wallet, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useAuth, isReadOnlyRole, isAdminRole, isPrimaryRole } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
 import { fmt, todayStr, isValidIsoDate, expenses, claimFolder, isDemoMode } from '../store';
 import DateInput from '../components/DateInput';
 import VoucherModal from '../components/VoucherModal';
+import TripModal from '../components/TripModal';
+import TripReportModal from '../components/TripReportModal';
 import AttachmentPanel from './AttachmentPanel';
 import Utgaende from './Utgaende';
 
@@ -22,7 +24,7 @@ const STATUS_INVOICE = {
   paid:      { label: 'Betald',     bg: 'var(--accent-3)',   color: 'var(--accent)' },
 };
 
-export default function Utlagg({ orgId, orgName, claims, transactions, categories, fiscalPeriods, expensesOn, invoiceInboxOn, invoicingOn, outInvoices = [], invoiceDetails, addRequest, onAddHandled, onReload, onReloadInvoices, onTransactionsChanged, onFlash }) {
+export default function Utlagg({ orgId, orgName, claims, transactions, categories, fiscalPeriods, expensesOn, tripsOn, invoiceInboxOn, invoicingOn, outInvoices = [], invoiceDetails, addRequest, onAddHandled, onReload, onReloadInvoices, onTransactionsChanged, onFlash }) {
   const { t } = useI18n();
   const { session, role } = useAuth();
   const myId = session?.user?.id;
@@ -34,10 +36,11 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
   const catMap = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories]);
 
   const [names, setNames]       = useState({});
-  const [view, setView]         = useState('overview');   // 'overview' | 'expense' (utlägg) | 'invoice' (inkommande fakturor) | 'outgoing' (utgående fakturor)
+  const [view, setView]         = useState('overview');   // 'overview' | 'expense' (utlägg) | 'trip' (resor, körersättning) | 'invoice' (inkommande fakturor) | 'outgoing' (utgående fakturor)
   const [tab, setTab]           = useState(null);
   const [modal, setModal]       = useState(null);     // { claim } (claim saknas vid nytt utlägg)
   const [attach, setAttach]     = useState(null);     // { claim, readOnly }
+  const [tripReport, setTripReport] = useState(false);   // milersättningsrapporten
   const [rejecting, setRejecting] = useState(null);   // claim
   const [reason, setReason]     = useState('');
   const [paying, setPaying]     = useState(null);     // claim
@@ -61,19 +64,25 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
 
   const nameOf = c => names[c.userId] || t('Tidigare medlem');
   const isInv = view === 'invoice';
-  const list = claims.filter(c => (c.kind || 'expense') === view);
+  const isTrip = view === 'trip';
+  // Resor är utläggskrav med reseuppgifter (c.trips) och hanteras på samma sätt som utlägg
+  const viewOf = c => (c.kind === 'invoice' ? 'invoice' : c.trips ? 'trip' : 'expense');
+  const milText = n => String(Math.round(n * 100) / 100).replace('.', ',');
+  const list = claims.filter(c => viewOf(c) === view);
   const mine = list.filter(c => c.userId === myId || c.registeredBy === myId);
   // Fakturor sorteras på förfallodatum så att den som snart förfaller hamnar överst
   const byDue = (a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
   const toHandle = list.filter(c => (isInv ? c.status === 'submitted' : (c.status === 'submitted' || c.status === 'approved'))).sort(isInv ? byDue : () => 0);
   const rejectedList = list.filter(c => c.status === 'rejected');
   const invoicesToPay = canSeeAll && invoiceInboxOn ? claims.filter(c => c.kind === 'invoice' && c.status === 'submitted').length : 0;
+  const mineLabel = isInv ? t('Mina fakturor') : isTrip ? t('Mina resor') : t('Mina utlägg');
+  const allLabel = isInv ? t('Alla fakturor') : isTrip ? t('Alla resor') : t('Alla utlägg');
   const tabs = canSeeAll
     ? [['handle', isAuditor ? t('Väntande') : (isInv ? t('Att betala') : t('Att hantera')), toHandle.length],
-       ...(isWriter ? [['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null]] : []),
+       ...(isWriter ? [['mine', mineLabel, null]] : []),
        ['rejected', isInv ? t('Avvisade') : t('Avslagna'), rejectedList.length],
-       ['all', isInv ? t('Alla fakturor') : t('Alla utlägg'), null]]
-    : [['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null]];
+       ['all', allLabel, null]]
+    : [['mine', mineLabel, null]];
   const activeTab = tab || (canSeeAll && toHandle.length ? 'handle' : isWriter ? 'mine' : canSeeAll ? 'all' : 'mine');
   const shown = activeTab === 'handle' ? toHandle : activeTab === 'mine' ? mine : activeTab === 'rejected' ? rejectedList : list;
   const switchView = v => { setView(v); setTab(null); setError(''); };
@@ -96,6 +105,13 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
     expenses.notify(saved.id);
     await onReload();
     if (uploadError) onFlash(t('{vad} är inskickad, men bilagan kunde inte laddas upp: {fel}. Öppna posten och lägg till den igen.', { vad: payload.invoice ? t('Fakturan') : t('Utlägget'), fel: uploadError.message }));
+    setTab('mine');
+  }
+
+  async function submitTrips(payload, claim) {
+    const { claim: saved } = await expenses.submitTrips(orgId, { ...payload, id: claim?.id });
+    expenses.notify(saved.id);
+    await onReload();
     setTab('mine');
   }
 
@@ -136,7 +152,9 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
 
   // ── Översikt över allt oredovisat: utlägg, inkommande och utgående fakturor på samma ställe ──
   const sum = arr => arr.reduce((acc, c) => acc + Number(c.total), 0);
-  const expToHandle = claims.filter(c => c.kind !== 'invoice' && (canSeeAll ? (c.status === 'submitted' || c.status === 'approved') && !ownBlocked(c) : c.userId === myId && (c.status === 'submitted' || c.status === 'approved')));
+  const claimToHandle = c => (canSeeAll ? (c.status === 'submitted' || c.status === 'approved') && !ownBlocked(c) : c.userId === myId && (c.status === 'submitted' || c.status === 'approved'));
+  const expToHandle = claims.filter(c => c.kind !== 'invoice' && !c.trips && claimToHandle(c));
+  const tripToHandle = claims.filter(c => !!c.trips && claimToHandle(c));
   const invToPay = claims.filter(c => c.kind === 'invoice' && c.status === 'submitted');
   const outUnpaid = outInvoices.filter(i => i.status === 'issued');
   const outDrafts = outInvoices.filter(i => i.status === 'draft');
@@ -149,6 +167,9 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
       <button className={`btn ${view === 'overview' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('overview')}>{t('Översikt')}</button>
       {expensesOn && <button className={`btn ${view === 'expense' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('expense')}>
         {t('Utlägg')}{canSeeAll && expToHandle.length > 0 ? ` (${expToHandle.length})` : ''}
+      </button>}
+      {tripsOn && <button className={`btn ${view === 'trip' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('trip')}>
+        {t('Resor')}{canSeeAll && tripToHandle.length > 0 ? ` (${tripToHandle.length})` : ''}
       </button>}
       {invoiceInboxOn && <button className={`btn ${view === 'invoice' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('invoice')}>
         {t('Inkommande fakturor')}{invoicesToPay > 0 ? ` (${invoicesToPay})` : ''}
@@ -181,6 +202,8 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               {expensesOn && overviewCard(isAuditor ? t('Utlägg som väntar') : isWriter ? t('Utlägg att hantera') : t('Dina utlägg som väntar'), expToHandle.length, sum(expToHandle),
                 [], 'expense', t('Öppna utlägg'))}
+              {tripsOn && overviewCard(isAuditor ? t('Resor som väntar') : isWriter ? t('Resor att hantera') : t('Dina resor som väntar'), tripToHandle.length, sum(tripToHandle),
+                [], 'trip', t('Öppna resor'))}
               {invoiceInboxOn && overviewCard(t('Fakturor att betala'), invToPay.length, sum(invToPay),
                 [overdueIn > 0 && { text: t('{n} har förfallit', { n: overdueIn }), red: true }], 'invoice', t('Öppna inkorgen'))}
               {invoicingOn && overviewCard(t('Obetalda utgående fakturor'), outUnpaid.length, sum(outUnpaid),
@@ -203,6 +226,8 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
       <div className="notice notice-info" style={{ marginBottom: 16 }}>
         {isInv
           ? t('Här lägger du upp fakturor som föreningen ska betala. Ladda upp fakturan och fyll i uppgifterna, så hamnar den i inkorgen. Fakturan bokförs inte förrän kassören har betalat den och bekräftat det här.')
+          : isTrip
+          ? t('Här registrerar du körda resor, till exempel sladdning, med datum, tid och antal mil. Ersättningen räknas ut per mil. När någon i föreningen har godkänt och betalat ut pengarna får du besked, och ersättningen bokförs i kassaboken.')
           : t('Här registrerar du utlägg, alltså pengar du själv har lagt ut för föreningen. Ladda upp kvittot, välj kategori och skicka in. När någon i föreningen har godkänt utlägget och betalat ut pengarna får du besked, och utlägget bokförs i kassaboken.')}
       </div>
 
@@ -220,16 +245,21 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
             </button>
           ))}
         </div>
-        {!isAuditor && <button className="btn btn-primary" onClick={() => setModal({})}><Plus size={15} /> {isInv ? t('Lägg upp faktura') : t('Registrera utlägg')}</button>}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {isTrip && <button className="btn btn-secondary" onClick={() => setTripReport(true)}><FileSpreadsheet size={15} /> {t('Exportera rapport')}</button>}
+          {!isAuditor && <button className="btn btn-primary" onClick={() => setModal({})}><Plus size={15} /> {isInv ? t('Lägg upp faktura') : isTrip ? t('Registrera resor') : t('Registrera utlägg')}</button>}
+        </div>
       </div>
 
       {shown.length === 0 ? (
-        <div className="empty-state"><p>{activeTab === 'handle' ? (isInv ? t('Inga fakturor väntar på betalning.') : t('Inga utlägg väntar på dig.')) : activeTab === 'rejected' ? (isInv ? t('Inga avvisade fakturor.') : t('Inga avslagna utlägg.')) : (isInv ? t('Inga fakturor att visa.') : t('Inga utlägg att visa.'))}</p></div>
+        <div className="empty-state"><p>{activeTab === 'handle' ? (isInv ? t('Inga fakturor väntar på betalning.') : isTrip ? t('Inga resor väntar på dig.') : t('Inga utlägg väntar på dig.')) : activeTab === 'rejected' ? (isInv ? t('Inga avvisade fakturor.') : isTrip ? t('Inga avslagna resor.') : t('Inga avslagna utlägg.')) : (isInv ? t('Inga fakturor att visa.') : isTrip ? t('Inga resor att visa.') : t('Inga utlägg att visa.'))}</p></div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {shown.map(c => {
             const st = statusOf(c);
             const invoice = c.kind === 'invoice';
+            const trip = !!c.trips;
+            const tripMiles = trip ? c.trips.rows.reduce((a, r) => a + r.miles, 0) : 0;
             const overdue = invoice && c.status === 'submitted' && c.dueDate && c.dueDate < today;
             const own = c.userId === myId;
             return (
@@ -239,7 +269,9 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
                     <div style={{ fontWeight: 600 }}>
                       {invoice
                         ? <>{c.supplier}{c.invoiceNo ? <span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}> · {t('nr')} {c.invoiceNo}</span> : null}</>
-                        : (c.description || <em style={{ color: 'var(--ink-muted)' }}>{t('Utan beskrivning')}</em>)}
+                        : trip
+                          ? <>{c.description}<span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}> · {milText(tripMiles)} {t('mil')} × {fmt(c.trips.rate)}</span></>
+                          : (c.description || <em style={{ color: 'var(--ink-muted)' }}>{t('Utan beskrivning')}</em>)}
                     </div>
                     {invoice && c.description && <div style={{ fontSize: '0.85rem', color: 'var(--ink-soft)' }}>{c.description}</div>}
                     <div style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginTop: 2 }}>
@@ -251,6 +283,13 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
                           {t('Förfaller')} <span className="mono">{c.dueDate}</span>{overdue ? ` (${t('förfallen')})` : ''}
                         </span>}
                         {c.paymentRef && <span style={{ color: 'var(--ink-soft)' }}>{t('Betala till')}: <span className="mono">{c.paymentRef}</span></span>}
+                      </div>
+                    )}
+                    {trip && (
+                      <div style={{ marginTop: 6, display: 'grid', gap: 2, fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
+                        {c.trips.rows.map((r, i) => (
+                          <div key={i}><span className="mono">{r.date}</span>{r.area ? ` · ${r.area}` : ''}{r.minutes != null ? ` · ${r.minutes} ${t('min')}` : ''} · {milText(r.miles)} {t('mil')}</div>
+                        ))}
                       </div>
                     )}
                     <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -280,9 +319,9 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
                 )}
 
                 <div className="btn-row" style={{ marginTop: 12, gap: 6, flexWrap: 'wrap' }}>
-                  <button {...btnProps} className="btn btn-sm btn-secondary" onClick={() => setAttach({ claim: c, readOnly: !editable(c) })}>
+                  {!trip && <button {...btnProps} className="btn btn-sm btn-secondary" onClick={() => setAttach({ claim: c, readOnly: !editable(c) })}>
                     <Paperclip size={12} /> {invoice ? t('Faktura') : t('Kvitton')}
-                  </button>
+                  </button>}
                   {editable(c) && (
                     <button {...btnProps} className="btn btn-sm btn-secondary" onClick={() => setModal({ claim: c })}>
                       <Pencil size={12} /> {c.status === 'rejected' ? (invoice ? t('Ändra och lägg upp igen') : t('Ändra och skicka in igen')) : t('Redigera')}
@@ -330,7 +369,11 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
         </div>
       )}
 
-      {modal && (
+      {modal && (modal.claim ? !!modal.claim.trips : isTrip) && (
+        <TripModal orgId={orgId} claim={modal.claim} onSubmit={payload => submitTrips(payload, modal.claim)} onClose={() => setModal(null)} />
+      )}
+
+      {modal && !(modal.claim ? !!modal.claim.trips : isTrip) && (
         <VoucherModal
           orgId={orgId}
           categories={categories}
@@ -351,6 +394,10 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
         />
       )}
 
+      {tripReport && (
+        <TripReportModal claims={claims} names={names} fiscalPeriods={fiscalPeriods} orgName={orgName} canSeeAll={canSeeAll} myId={myId} onClose={() => setTripReport(false)} />
+      )}
+
       {attach && (
         <AttachmentPanel
           tx={{ id: claimFolder(attach.claim.id), date: attach.claim.date, description: attach.claim.description }}
@@ -362,7 +409,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
 
       {rejecting && overlay(() => setRejecting(null), <>
         <div className="modal-header">
-          <div className="modal-title">{rejecting.kind === 'invoice' ? t('Avvisa faktura') : t('Avslå utlägg')}</div>
+          <div className="modal-title">{rejecting.kind === 'invoice' ? t('Avvisa faktura') : rejecting.trips ? t('Avslå resor') : t('Avslå utlägg')}</div>
           <button className="modal-close" onClick={() => setRejecting(null)} disabled={busy}><X size={18} /></button>
         </div>
         <p style={{ fontSize: '0.88rem', marginBottom: 12 }}>
@@ -373,7 +420,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
         <div className="btn-row" style={{ marginTop: 16, justifyContent: 'flex-end' }}>
           <button className="btn btn-secondary" onClick={() => setRejecting(null)} disabled={busy}>{t('Avbryt')}</button>
           <button className="btn btn-danger" onClick={reject} disabled={busy || !reason.trim()}>
-            {busy ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={14} />} {rejecting.kind === 'invoice' ? t('Avvisa fakturan') : t('Avslå utlägget')}
+            {busy ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={14} />} {rejecting.kind === 'invoice' ? t('Avvisa fakturan') : rejecting.trips ? t('Avslå resorna') : t('Avslå utlägget')}
           </button>
         </div>
       </>)}
@@ -386,7 +433,9 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
         <p style={{ fontSize: '0.9rem', marginBottom: 12, lineHeight: 1.6 }}>
           {paying.kind === 'invoice'
             ? t('Bekräfta att du har betalat fakturan från {namn} på {belopp}. Den bokförs då som ett verifikat i kassaboken, med fakturan som bilaga.', { namn: paying.supplier, belopp: fmt(paying.total) })
-            : t('Bekräfta att du har betalat ut {belopp} till {namn}. Utlägget bokförs då som ett verifikat i kassaboken, med kvittot som bilaga.', { belopp: fmt(paying.total), namn: nameOf(paying) })}
+            : paying.trips
+              ? t('Bekräfta att du har betalat ut {belopp} till {namn}. Ersättningen bokförs då som ett verifikat i kassaboken.', { belopp: fmt(paying.total), namn: nameOf(paying) })
+              : t('Bekräfta att du har betalat ut {belopp} till {namn}. Utlägget bokförs då som ett verifikat i kassaboken, med kvittot som bilaga.', { belopp: fmt(paying.total), namn: nameOf(paying) })}
         </p>
         {paying.kind === 'invoice' && paying.paymentRef && (
           <p style={{ fontSize: '0.85rem', color: 'var(--ink-soft)', marginBottom: 12 }}>{t('Betala till')}: <span className="mono">{paying.paymentRef}</span></p>

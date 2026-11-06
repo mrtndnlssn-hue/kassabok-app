@@ -111,6 +111,7 @@ function MainApp({ orgId, role, onChangeOrg }) {
   const canSeeClaims = canSubmitExpense || role === 'auditor';
   const expensesOn = featOn(features, 'expenses') && canSeeClaims;               // utlägg
   const invoiceInboxOn = featOn(features, 'invoice_inbox') && canSeeClaims;      // inkommande fakturor
+  const tripsOn = featOn(features, 'trips') && canSeeClaims;                      // resor (körersättning), hanteras som utlägg
   const invoicingOn = featOn(features, 'invoicing');                              // utgående fakturering
   const inboxOn = expensesOn || invoiceInboxOn || invoicingOn;                    // sidan Utlägg & fakturor finns om något av dem är på
   const hideStart = features.length > 0 && !featOn(features, 'getting_started');  // Kom igång-sidan avstängd
@@ -308,14 +309,14 @@ function MainApp({ orgId, role, onChangeOrg }) {
     komigang:   <Komigang {...pageProps} features={features} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} reviewData={reviewData} canReview={role === 'auditor' || isDemoMode()} canRemark={role === 'auditor' || canWrite} onReview={afterReview(reviewsApi.review)} onAddRemark={afterReview(reviewsApi.addRemark)} onResolveRemark={afterReview(reviewsApi.resolveRemark)} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} claims={claims} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
-    utlagg:     <Utlagg {...pageProps} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoiceInboxOn={invoiceInboxOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
+    utlagg:     <Utlagg {...pageProps} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} tripsOn={tripsOn} invoiceInboxOn={invoiceInboxOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} reviewData={reviewData} budgetComments={budgetComments} orgId={orgId} claims={claims} outInvoices={outInvoices} />,
     perioder:   <Rakenskapsperioder claims={claims} outInvoices={outInvoices} fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} voidedTxs={voidedTxs} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
     medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
-    installningar: <Installningar orgId={orgId} orgName={orgName} features={features} onFeaturesChange={reloadFeatures} onProjectSettingsChange={reloadProjects} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
+    installningar: <Installningar orgId={orgId} orgName={orgName} features={features} categories={categories} onFeaturesChange={reloadFeatures} onProjectSettingsChange={reloadProjects} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };
 
   const subtitles = {

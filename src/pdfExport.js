@@ -575,3 +575,100 @@ export function exportVoucherList({ orgName, period, transactions, voided = [], 
   doc.save(`${t('verifikationslista')}_${(period?.label || '').replace(/[^a-zA-Z0-9]/g, '_')}_${String(orgName || '').replace(/\s+/g, '_')}.pdf`);
   return doc;
 }
+
+// Milersättningsrapport: sammanställning per person och sedan en tabell per person i samma form som blanketten
+// (datum, område, tid, mil, ersättning). Rader är de som tripReportRows ger.
+export function exportTripReport({ orgName, periodLabel, rows, onlyPaid = false } = {}) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const DARK = [26, 26, 46], PAPER = [250, 249, 246], BORDER = [213, 208, 197];
+  const round2 = n => Math.round(n * 100) / 100;
+  const mil = n => String(round2(n)).replace('.', ',');
+  const STATUS = { submitted: t('Väntar på godkännande'), approved: t('Godkänt, ej utbetalt'), paid: t('Utbetalt') };
+
+  doc.setFillColor(...DARK);
+  doc.rect(0, 0, W, 32, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('times', 'bolditalic');
+  doc.setFontSize(21);
+  doc.text(t('Milersättning'), 18, 15);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(180, 180, 210);
+  doc.text(String(orgName || '').toUpperCase(), 18, 23);
+  doc.setFont('times', 'italic');
+  doc.setFontSize(15);
+  doc.setTextColor(255, 255, 255);
+  doc.text(String(periodLabel || ''), W - 18, 15, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 190);
+  doc.text(t('Genererad {datum}', { datum: isoDate() }), W - 18, 22, { align: 'right' });
+  if (onlyPaid) doc.text(t('Bara utbetalda resor'), W - 18, 27, { align: 'right' });
+
+  const people = new Map();
+  for (const r of rows) {
+    const g = people.get(r.userId) || { name: r.name || '–', rows: [], miles: 0, amount: 0, paid: 0, minutes: 0 };
+    g.rows.push(r); g.miles = round2(g.miles + r.miles); g.amount = round2(g.amount + r.amount); g.minutes += r.minutes || 0;
+    if (r.status === 'paid') g.paid = round2(g.paid + r.amount);
+    people.set(r.userId, g);
+  }
+  const list = [...people.values()];
+  const totMiles = round2(list.reduce((a, g) => a + g.miles, 0));
+  const totAmount = round2(list.reduce((a, g) => a + g.amount, 0));
+  const totPaid = round2(list.reduce((a, g) => a + g.paid, 0));
+
+  doc.setTextColor(...DARK);
+  doc.setFont('times', 'bolditalic');
+  doc.setFontSize(12);
+  doc.text(t('Sammanställning'), 18, 42);
+  autoTable(doc, {
+    startY: 45,
+    head: [[t('Namn'), t('Resor'), t('Mil'), t('Ersättning'), t('Varav utbetalt')]],
+    body: [...list.map(g => [g.name, String(g.rows.length), mil(g.miles), fmt(g.amount), fmt(g.paid)]),
+      [{ content: t('TOTALT'), styles: { fontStyle: 'bold' } }, { content: String(rows.length), styles: { fontStyle: 'bold' } }, { content: mil(totMiles), styles: { fontStyle: 'bold' } },
+       { content: fmt(totAmount), styles: { fontStyle: 'bold' } }, { content: fmt(totPaid), styles: { fontStyle: 'bold' } }]],
+    headStyles: { fillColor: DARK, fontSize: 8 },
+    columnStyles: { 1: { halign: 'right', cellWidth: 18 }, 2: { halign: 'right', cellWidth: 22 }, 3: { halign: 'right', font: 'courier', cellWidth: 36 }, 4: { halign: 'right', font: 'courier', cellWidth: 36 } },
+    styles: { fontSize: 8.5, cellPadding: 1.8 },
+    alternateRowStyles: { fillColor: PAPER },
+    margin: { left: 18, right: 18 },
+  });
+
+  const hasArea = rows.some(r => r.area);
+  for (const g of list) {
+    let y = doc.lastAutoTable.finalY + 12;
+    if (y > 235) { doc.addPage(); y = 20; }
+    doc.setFont('times', 'bolditalic');
+    doc.setFontSize(12);
+    doc.setTextColor(...DARK);
+    doc.text(g.name, 18, y);
+    autoTable(doc, {
+      startY: y + 3,
+      head: [[t('Datum'), ...(hasArea ? [t('Område')] : []), t('Tid (min)'), t('Mil'), t('Kr per mil'), t('Ersättning'), t('Status')]],
+      body: [...g.rows.map(r => [r.date, ...(hasArea ? [r.area || ''] : []), r.minutes != null ? String(r.minutes) : '', mil(r.miles), fmt(r.rate), fmt(r.amount), STATUS[r.status] || r.status]),
+        [{ content: t('Summa'), styles: { fontStyle: 'bold' } }, ...(hasArea ? [''] : []), { content: String(g.minutes || ''), styles: { fontStyle: 'bold' } }, { content: mil(g.miles), styles: { fontStyle: 'bold' } }, '',
+         { content: fmt(g.amount), styles: { fontStyle: 'bold' } }, '']],
+      headStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 1.6 },
+      columnStyles: hasArea ? { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right', font: 'courier' }, 5: { halign: 'right', font: 'courier' } }
+                            : { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right', font: 'courier' }, 4: { halign: 'right', font: 'courier' } },
+      alternateRowStyles: { fillColor: PAPER },
+      margin: { left: 18, right: 18 },
+    });
+  }
+
+  const pages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(160, 160, 180);
+    doc.text(`${orgName} · ${periodLabel || ''}`, 18, 291);
+    doc.text(t('Sida {p} av {n}', { p, n: pages }), W - 18, 291, { align: 'right' });
+    doc.setDrawColor(...BORDER);
+    doc.line(18, 288, W - 18, 288);
+  }
+  doc.save(`${t('milersattning')}_${String(periodLabel || '').replace(/[^a-zA-Z0-9]/g, '_')}_${String(orgName || '').replace(/\s+/g, '_')}.pdf`);
+  return doc;
+}

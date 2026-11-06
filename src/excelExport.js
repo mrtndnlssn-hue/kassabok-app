@@ -334,6 +334,73 @@ export async function exportPeriodExcel({ orgId, orgName, period, transactions, 
   }
 }
 
+// Milersättningsrapport som Excel: sammanställning per person, alla resor och (om områden används) per område.
+export async function exportTripReportExcel({ orgName, periodLabel, rows }) {
+  const { default: ExcelJS } = await import('exceljs')
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'Föreningsbalans'
+  wb.created = new Date()
+  const round2 = n => Math.round(n * 100) / 100
+  const STATUS = { submitted: tr('Väntar på godkännande'), approved: tr('Godkänt, ej utbetalt'), paid: tr('Utbetalt') }
+  const group = key => {
+    const m = new Map()
+    for (const r of rows) {
+      const g = m.get(r[key]) || { name: r[key], trips: 0, minutes: 0, miles: 0, amount: 0, paid: 0 }
+      g.trips++; g.minutes += r.minutes || 0; g.miles = round2(g.miles + r.miles); g.amount = round2(g.amount + r.amount)
+      if (r.status === 'paid') g.paid = round2(g.paid + r.amount)
+      m.set(r[key], g)
+    }
+    return [...m.values()]
+  }
+  const sumSheet = (title, firstHeader, groups) => {
+    const ws = wb.addWorksheet(title, { views: [{ state: 'frozen', ySplit: 1 }] })
+    ws.columns = [
+      { header: firstHeader, key: 'name', width: 30 },
+      { header: tr('Antal resor'), key: 'trips', width: 12 },
+      { header: tr('Tid (minuter)'), key: 'minutes', width: 14 },
+      { header: tr('Mil'), key: 'miles', width: 10 },
+      { header: tr('Ersättning (kr)'), key: 'amount', width: 17, style: { numFmt: MONEY } },
+      { header: tr('Varav utbetalt (kr)'), key: 'paid', width: 19, style: { numFmt: MONEY } },
+      { header: tr('Varav ej utbetalt (kr)'), key: 'unpaid', width: 21, style: { numFmt: MONEY } },
+    ]
+    styleHeader(ws.getRow(1))
+    groups.forEach(g => ws.addRow({ ...g, name: g.name || '–', unpaid: round2(g.amount - g.paid) }))
+    const tot = groups.reduce((a, g) => ({ trips: a.trips + g.trips, minutes: a.minutes + g.minutes, miles: round2(a.miles + g.miles), amount: round2(a.amount + g.amount), paid: round2(a.paid + g.paid) }), { trips: 0, minutes: 0, miles: 0, amount: 0, paid: 0 })
+    const tr1 = ws.addRow({ name: tr('TOTALT'), ...tot, unpaid: round2(tot.amount - tot.paid) })
+    tr1.font = { bold: true }
+    tr1.eachCell({ includeEmpty: true }, c => { c.border = { top: { style: 'thin' } } })
+    return ws
+  }
+  const s1 = sumSheet(tr('Sammanställning'), tr('Namn'), group('name'))
+  s1.addRow({}); s1.addRow({ name: tr('Förening'), trips: orgName }); s1.addRow({ name: tr('Period'), trips: periodLabel })
+  if (rows.some(r => r.area)) sumSheet(tr('Per område'), tr('Område'), group('area'))
+
+  const ws = wb.addWorksheet(tr('Resor'), { views: [{ state: 'frozen', ySplit: 1 }] })
+  ws.columns = [
+    { header: tr('Namn'), key: 'name', width: 26 },
+    { header: tr('Datum'), key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
+    { header: tr('Område'), key: 'area', width: 18 },
+    { header: tr('Tid (minuter)'), key: 'minutes', width: 14 },
+    { header: tr('Mil'), key: 'miles', width: 10 },
+    { header: tr('Kr per mil'), key: 'rate', width: 12, style: { numFmt: MONEY } },
+    { header: tr('Ersättning (kr)'), key: 'amount', width: 17, style: { numFmt: MONEY } },
+    { header: tr('Status'), key: 'status', width: 22 },
+    { header: tr('Utbetalt'), key: 'paidDate', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
+  ]
+  styleHeader(ws.getRow(1))
+  rows.forEach(r => ws.addRow({ ...r, name: r.name || '–', date: toDate(r.date), status: STATUS[r.status] || r.status, paidDate: r.paidDate ? toDate(r.paidDate) : null }))
+  const t2 = ws.addRow({ name: tr('TOTALT'), minutes: rows.reduce((a, r) => a + (r.minutes || 0), 0), miles: round2(rows.reduce((a, r) => a + r.miles, 0)), amount: round2(rows.reduce((a, r) => a + r.amount, 0)) })
+  t2.font = { bold: true }
+  t2.eachCell({ includeEmpty: true }, c => { c.border = { top: { style: 'thin' } } })
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } }
+
+  const buf = await wb.xlsx.writeBuffer()
+  return {
+    blob: new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    filename: `${tr('milersattning')}_${String(periodLabel).replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`,
+  }
+}
+
 export async function exportPeriodVouchers({ orgId, period, transactions, voidedTxs = [], onProgress = () => {} }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
   const periodVoided = sortPeriodTxs(txsForPeriod(voidedTxs, period))

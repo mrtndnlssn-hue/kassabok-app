@@ -8,7 +8,7 @@ import { useI18n } from '../i18n'
 
 const fmtMb = b => `${((b || 0) / 1048576).toFixed(b >= 10485760 ? 0 : 1)} MB`
 
-export default function Installningar({ orgId, orgName, features = [], onFeaturesChange, onOrgNameChange, onProjectSettingsChange }) {
+export default function Installningar({ orgId, orgName, features = [], categories = [], onFeaturesChange, onOrgNameChange, onProjectSettingsChange }) {
   const { t } = useI18n()
   const { session, role } = useAuth()
   const [tab, setTab] = useState(() => {
@@ -78,7 +78,7 @@ export default function Installningar({ orgId, orgName, features = [], onFeature
       </div>
 
       {tab === 'funktioner' && (
-        <Funktioner orgId={orgId} features={features} onFeaturesChange={onFeaturesChange} onProjectSettingsChange={onProjectSettingsChange} />
+        <Funktioner orgId={orgId} features={features} categories={categories} onFeaturesChange={onFeaturesChange} onProjectSettingsChange={onProjectSettingsChange} />
       )}
 
       {tab === 'allmant' && (<>
