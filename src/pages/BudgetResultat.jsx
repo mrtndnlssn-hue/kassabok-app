@@ -1,14 +1,15 @@
-import { useState, useMemo } from 'react';
-import { fmt, txsForPeriod, sumByCategory } from '../store';
+import { useState, useMemo, useEffect } from 'react';
+import { fmt, txsForPeriod, sumByCategory, previousPeriod, periodSummary } from '../store';
 import { useAuth } from '../auth/AuthProvider';
 import { Lock, Unlock } from 'lucide-react';
 import { useI18n } from '../i18n';
 import useIsMobile from '../hooks/useIsMobile';
 
-function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite }) {
+function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite, showPrev, prevActual }) {
   const { t } = useI18n();
   const [localVal, setLocalVal] = useState(budgetValue > 0 ? String(budgetValue) : '');
   const [localComment, setLocalComment] = useState(comment || '');
+  useEffect(() => { setLocalVal(budgetValue > 0 ? String(budgetValue) : ''); }, [budgetValue]);
 
   function handleCommentBlur() {
     const text = localComment.trim();
@@ -48,6 +49,11 @@ function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentCh
       <td className={`text-right mono ${dev>0?'positive':dev<0?'negative':''}`}>
         {bud>0||act!==0 ? (dev>0?'+':'')+fmt(dev) : <span style={{color:'var(--ink-muted)'}}>–</span>}
       </td>
+      {showPrev && (
+        <td className="text-right mono" style={{ color:'var(--ink-soft)' }}>
+          {prevActual ? fmt(prevActual) : <span style={{color:'var(--ink-muted)'}}>–</span>}
+        </td>
+      )}
       <td style={{ width:120 }}>
         {bud>0 && (
           <>
@@ -71,10 +77,11 @@ function CatRow({ cat, budgetValue, actual, comment, onBudgetChange, onCommentCh
   );
 }
 
-function CatCard({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite }) {
+function CatCard({ cat, budgetValue, actual, comment, onBudgetChange, onCommentChange, canWrite, showPrev, prevActual }) {
   const { t } = useI18n();
   const [localVal, setLocalVal] = useState(budgetValue > 0 ? String(budgetValue) : '');
   const [localComment, setLocalComment] = useState(comment || '');
+  useEffect(() => { setLocalVal(budgetValue > 0 ? String(budgetValue) : ''); }, [budgetValue]);
   const act = actual || 0;
   const bud = budgetValue || 0;
   const dev = act - bud;
@@ -118,6 +125,7 @@ function CatCard({ cat, budgetValue, actual, comment, onBudgetChange, onCommentC
           </div>
         </div>
       </div>
+      {showPrev && prevActual ? <div style={{ fontSize:'0.78rem', color:'var(--ink-muted)', marginTop:6 }}>{t('Föregående år')}: <span className="mono">{fmt(prevActual)}</span></div> : null}
       {(canWrite || localComment) && (
         <input type="text" value={localComment} placeholder={canWrite ? t('Kommentar…') : ''} style={{ marginTop:8 }}
           onChange={e => canWrite && setLocalComment(e.target.value)} onBlur={canWrite ? handleCommentBlur : undefined} readOnly={!canWrite} />
@@ -126,7 +134,7 @@ function CatCard({ cat, budgetValue, actual, comment, onBudgetChange, onCommentC
   );
 }
 
-function SectionTotal({ label, budgetTotal, actualTotal }) {
+function SectionTotal({ label, budgetTotal, actualTotal, showPrev, prevTotal }) {
   const { t } = useI18n();
   const dev = actualTotal - budgetTotal;
   return (
@@ -135,12 +143,13 @@ function SectionTotal({ label, budgetTotal, actualTotal }) {
       <td className="text-right mono">{fmt(budgetTotal)}</td>
       <td className="text-right mono">{fmt(actualTotal)}</td>
       <td className={`text-right mono ${dev>=0?'positive':'negative'}`}>{(dev>0?'+':'')+fmt(dev)}</td>
+      {showPrev && <td className="text-right mono">{fmt(prevTotal)}</td>}
       <td/><td/>
     </tr>
   );
 }
 
-export default function BudgetResultat({ transactions, categories, budget, budgetComments = {}, onBudgetChange, onCommentChange, onLockChange, activePeriod }) {
+export default function BudgetResultat({ transactions, categories, budget, budgetComments = {}, onBudgetChange, onCommentChange, onLockChange, activePeriod, fiscalPeriods = [] }) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const { role } = useAuth()
@@ -159,6 +168,16 @@ export default function BudgetResultat({ transactions, categories, budget, budge
   const periodBudget = budget[activePeriod?.id] || {};
   const periodComments = budgetComments[activePeriod?.id] || {};
 
+  // Föregående års utfall som jämförelse och som underlag för ett budgetförslag
+  const prevP = useMemo(() => previousPeriod(fiscalPeriods, activePeriod), [fiscalPeriods, activePeriod]);
+  const prevSum = useMemo(() => (prevP ? periodSummary(transactions, categories, prevP) : null), [transactions, categories, prevP]);
+  const prevActuals = prevSum?.actuals || {};
+  const hasPrev = !!prevSum && (prevSum.income !== 0 || prevSum.expense !== 0);
+  const [showPrev, setShowPrev] = useState(true);
+  const prevOn = hasPrev && showPrev;
+  const [pct, setPct] = useState('0');
+  const [filling, setFilling] = useState(false);
+
   const incCats = categories.filter(c => c.type === 'income' && !c.hidden);
   const expCats = categories.filter(c => c.type === 'expense' && !c.hidden);
   const totalBudgetInc = incCats.reduce((s,c) => s+(periodBudget[c.id]||0), 0);
@@ -167,6 +186,22 @@ export default function BudgetResultat({ transactions, categories, budget, budge
   const totalActualExp = expCats.reduce((s,c) => s+(actuals[c.id]||0), 0);
   const netBudget = totalBudgetInc - totalBudgetExp;
   const netActual = totalActualInc - totalActualExp;
+  const prevTotalInc = incCats.reduce((s,c) => s+(prevActuals[c.id]||0), 0);
+  const prevTotalExp = expCats.reduce((s,c) => s+(prevActuals[c.id]||0), 0);
+  const cols = 7 + (prevOn ? 1 : 0);
+
+  // Kategorier som saknar budget men hade utfall förra året
+  const fillable = [...incCats, ...expCats].filter(c => (periodBudget[c.id]||0) === 0 && (prevActuals[c.id]||0) > 0);
+  async function fillFromPrev() {
+    const factor = 1 + (parseFloat(String(pct).replace(',', '.')) || 0) / 100;
+    setFilling(true);
+    try {
+      for (const c of fillable) {
+        const amount = Math.round((prevActuals[c.id] * factor) / 10) * 10;
+        if (amount > 0) await onBudgetChange(activePeriod.id, c.id, amount);
+      }
+    } finally { setFilling(false); }
+  }
 
   const label = activePeriod?.label || '–';
   const span  = activePeriod ? `${activePeriod.start} – ${activePeriod.end}` : '';
@@ -188,6 +223,24 @@ export default function BudgetResultat({ transactions, categories, budget, budge
         )}
       </div>
       {lockError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:16 }}>{lockError}</div>}
+
+      {hasPrev && (
+        <div className="card" style={{ marginBottom:20, padding:'14px 18px' }}>
+          <label style={{ display:'flex', alignItems:'center', gap:10, textTransform:'none', letterSpacing:0, fontWeight:600, fontSize:'0.9rem', margin:0, width:'auto' }}>
+            <input type="checkbox" checked={showPrev} onChange={e => setShowPrev(e.target.checked)} style={{ width:'auto' }} />
+            {t('Visa föregående års utfall ({label}) som jämförelse', { label: prevP.label })}
+          </label>
+          {canWrite && fillable.length > 0 && (
+            <div style={{ marginTop:12, display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', fontSize:'0.85rem', color:'var(--ink-soft)' }}>
+              <span>{t('Fyll i {n} tomma budgetposter utifrån förra årets utfall, med uppräkning på', { n: fillable.length })}</span>
+              <input type="number" value={pct} onChange={e => setPct(e.target.value)} step="1" aria-label={t('Uppräkning i procent')} style={{ width:80, textAlign:'right' }} />
+              <span>%</span>
+              <button className="btn btn-sm btn-secondary" onClick={fillFromPrev} disabled={filling}>{filling ? t('Fyller i…') : t('Fyll i')}</button>
+              <span style={{ fontSize:'0.78rem', color:'var(--ink-muted)' }}>{t('Befintliga belopp ändras inte. Beloppen avrundas till tiotal.')}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="budget-stats" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
         {[
@@ -212,6 +265,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
               {cats.map(cat => (
                 <CatCard key={`${activePeriod.id}-${cat.id}`} cat={cat}
                   budgetValue={periodBudget[cat.id]||0} actual={actuals[cat.id]||0} comment={periodComments[cat.id]||''} canWrite={canWrite}
+                  showPrev={prevOn} prevActual={prevActuals[cat.id]||0}
                   onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
                   onCommentChange={(catId, text) => onCommentChange(activePeriod.id, catId, text)} />
               ))}
@@ -232,36 +286,39 @@ export default function BudgetResultat({ transactions, categories, budget, budge
               <th className="text-right">{t('Budget {label} (kr)', { label })}</th>
               <th className="text-right">{t('Utfall (kr)')}</th>
               <th className="text-right">{t('Avvikelse (kr)')}</th>
+              {prevOn && <th className="text-right">{t('Föregående år')} {prevP.label}</th>}
               <th>{t('Nyttjandegrad')}</th>
               <th>{t('Kommentar')}</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colSpan={7} style={{ background:'var(--accent)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>{t('Intäkter')}</td></tr>
+            <tr><td colSpan={cols} style={{ background:'var(--accent)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>{t('Intäkter')}</td></tr>
             {incCats.map(cat => (
               <CatRow key={`${activePeriod.id}-${cat.id}`} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
                 actual={actuals[cat.id]||0}
                 comment={periodComments[cat.id]||''}
                 canWrite={canWrite}
+                showPrev={prevOn} prevActual={prevActuals[cat.id]||0}
                 onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
                 onCommentChange={(catId, text) => onCommentChange(activePeriod.id, catId, text)}
               />
             ))}
-            <SectionTotal label="Summa intäkter" budgetTotal={totalBudgetInc} actualTotal={totalActualInc}/>
+            <SectionTotal label="Summa intäkter" budgetTotal={totalBudgetInc} actualTotal={totalActualInc} showPrev={prevOn} prevTotal={prevTotalInc}/>
 
-            <tr><td colSpan={7} style={{ background:'var(--red)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>{t('Kostnader')}</td></tr>
+            <tr><td colSpan={cols} style={{ background:'var(--red)', color:'#fff', fontWeight:700, fontSize:'0.75rem', letterSpacing:'0.08em', textTransform:'uppercase', padding:'7px 14px' }}>{t('Kostnader')}</td></tr>
             {expCats.map(cat => (
               <CatRow key={`${activePeriod.id}-${cat.id}`} cat={cat}
                 budgetValue={periodBudget[cat.id]||0}
                 actual={actuals[cat.id]||0}
                 comment={periodComments[cat.id]||''}
                 canWrite={canWrite}
+                showPrev={prevOn} prevActual={prevActuals[cat.id]||0}
                 onBudgetChange={(catId, amount) => onBudgetChange(activePeriod.id, catId, amount)}
                 onCommentChange={(catId, text) => onCommentChange(activePeriod.id, catId, text)}
               />
             ))}
-            <SectionTotal label="Summa kostnader" budgetTotal={totalBudgetExp} actualTotal={totalActualExp}/>
+            <SectionTotal label="Summa kostnader" budgetTotal={totalBudgetExp} actualTotal={totalActualExp} showPrev={prevOn} prevTotal={prevTotalExp}/>
           </tbody>
           <tfoot>
             <tr>
@@ -269,6 +326,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
               <td className="text-right">{fmt(netBudget)}</td>
               <td className={`text-right ${netActual>=0?'positive':'negative'}`}>{fmt(netActual)}</td>
               <td className={`text-right ${(netActual-netBudget)>=0?'positive':'negative'}`}>{((netActual-netBudget)>0?'+':'')+fmt(netActual-netBudget)}</td>
+              {prevOn && <td className="text-right">{fmt(prevTotalInc-prevTotalExp)}</td>}
               <td/><td/>
             </tr>
           </tfoot>
