@@ -96,7 +96,7 @@ export default {
   'Öppna fakturor': 'Open invoices',
   // Felmeddelanden
   'Ange kundens namn.': 'Enter the customer\'s name.',
-  'Bara ägare kan skapa fakturor.': 'Only owners can create invoices.',
+  'Bara administratörer kan skapa fakturor.': 'Only administrators can create invoices.',
   'Fakturering är inte aktiverad för föreningen.': 'Invoicing is not enabled for the association.',
   'Ogiltigt antal betalningsdagar.': 'Invalid number of payment days.',
   'Lägg till minst en fakturarad.': 'Add at least one invoice line.',
@@ -111,7 +111,7 @@ export default {
   'Bara utfärdade, obetalda fakturor kan makuleras.': 'Only issued, unpaid invoices can be voided.',
   'Bara fakturautkast kan tas bort.': 'Only invoice drafts can be deleted.',
   'Fakturanumret kan inte ändras.': 'The invoice number cannot be changed.',
-  'Bara ägare kan skicka fakturor.': 'Only owners can send invoices.',
+  'Bara ägare kan skicka fakturor.': 'Only administrators can send invoices.',
   'Bara utfärdade, obetalda fakturor kan skickas.': 'Only issued, unpaid invoices can be sent.',
   'Fakturan hittades inte.': 'The invoice was not found.',
   'Tjänsten för att skicka fakturor kunde inte nås.': 'The invoice sending service could not be reached.',

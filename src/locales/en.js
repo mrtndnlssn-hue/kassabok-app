@@ -17,9 +17,10 @@ import fakturor from './en/fakturor'
 import fakturering from './en/fakturering'
 import funktioner from './en/funktioner'
 import arsskifte from './en/arsskifte'
+import granskning from './en/granskning'
 
 export default {
-  ...arsskifte, ...funktioner,   // först: redan översatta texter i övriga filer går före
+  ...granskning, ...arsskifte, ...funktioner,   // först: redan översatta texter i övriga filer går före
   ...auth, ...app, ...dashboard, ...kassabok, ...budget, ...kategorier,
   ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter, ...projekt, ...utlagg, ...verifikat, ...fakturor, ...fakturering,
 }

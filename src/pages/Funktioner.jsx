@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Receipt, Inbox, FileText, Sparkles, Layers, Rocket, Puzzle, Check } from 'lucide-react'
-import { useAuth } from '../auth/AuthProvider'
+import { useAuth, isAdminRole } from '../auth/AuthProvider'
 import { useI18n } from '../i18n'
 import { useProjects, defaultLabels } from '../ProjectsContext'
 import { store, expenses, invoicing, orgFeatures } from '../store'
@@ -10,7 +10,7 @@ import { getReceiptUsage } from '../receiptAi'
 const META = {
   expenses:        { icon: Receipt,  desc: 'Medlemmar som lagt ut egna pengar begär ersättning med kvitto. Bokförs när utbetalningen bekräftas.' },
   invoice_inbox:   { icon: Inbox,    desc: 'Ladda upp inkommande fakturor. De bokförs först när kassören har betalat dem.' },
-  invoicing:       { icon: FileText, desc: 'Kundregister och fakturor från föreningen, med PDF och utskick. Bara ägare kan skapa och skicka. Ingen moms.' },
+  invoicing:       { icon: FileText, desc: 'Kundregister och fakturor från föreningen, med PDF och utskick. Bara administratörer kan skapa och skicka. Ingen moms.' },
   ai_receipts:     { icon: Sparkles, desc: 'En uppladdad PDF eller bild läses av med AI, som föreslår datum, belopp, beskrivning och kategori. Förslaget tar hänsyn till hur liknande poster bokförts tidigare.' },
   projects:        { icon: Layers,   desc: 'Följ projekt, sektioner eller event genom att märka inkomster och utgifter. Du får en egen rapport per märkning.' },
   getting_started: { icon: Rocket,   desc: 'Kom igång-sidan visar några steg för att göra föreningen redo. När ni är klara kan ni dölja den.' },
@@ -158,7 +158,7 @@ function AiInfo({ orgId }) {
 export default function Funktioner({ orgId, features, onFeaturesChange, onProjectSettingsChange }) {
   const { t } = useI18n()
   const { role } = useAuth()
-  const canManage = role === 'main_owner' || role === 'owner'
+  const canManage = isAdminRole(role)
   const [busy, setBusy] = useState('')
   const [notes, setNotes] = useState({})   // { [key]: { text, kind: 'warn' | 'info' | 'error' } }
   const nameOf = key => t(features.find(f => f.key === key)?.name || key)
@@ -205,7 +205,7 @@ export default function Funktioner({ orgId, features, onFeaturesChange, onProjec
       <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', margin: '0 0 8px', lineHeight: 1.6 }}>
         {t('Slå på det ni behöver. Det som är avstängt döljs bara: ingen data försvinner, och allt finns kvar om ni slår på det igen.')}
       </p>
-      {!canManage && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', margin: '0 0 12px' }}>{t('Bara ägare kan ändra detta.')}</p>}
+      {!canManage && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', margin: '0 0 12px' }}>{t('Bara administratörer kan ändra detta.')}</p>}
 
       <div className="card" style={{ marginBottom: 24, padding: '14px 18px' }}>
         <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 4 }}>{t('Ingår alltid')}</div>

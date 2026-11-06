@@ -12,7 +12,7 @@ export default {
     'When the feature is used, the selected file is sent to Anthropic for reading. The file may contain personal data, so only enable it if the association is comfortable with that.',
   'Aktivera AI-avläsning för {namn}': 'Enable AI reading for {namn}',
   '{used}/{limit} använda denna månad': '{used}/{limit} used this month',
-  'Bara ägare kan ändra detta.': 'Only owners can change this.',
+  'Bara administratörer kan ändra detta.': 'Only administrators can change this.',
   'Farlig zon': 'Danger zone',
   'Att ta bort föreningen raderar permanent all data – verifikat, kategorier, perioder och alla medlemmar.': 'Deleting the association permanently erases all data – vouchers, categories, periods and all members.',
   'Ta bort förening…': 'Delete association…',
@@ -64,7 +64,7 @@ export default {
   // Datumfält
   'Välj i kalender': 'Pick from calendar',
   'Datum på formatet YYYY-MM-DD, t.ex. 2026-03-31': 'Date in the format YYYY-MM-DD, e.g. 2026-03-31',
-  'Bara huvudägaren kan ta bort föreningen.': 'Only the main owner can delete the association.',
+  'Bara huvudansvarig kan ta bort föreningen.': 'Only the primary administrator can delete the association.',
   // Plan
   'Plan': 'Plan',
   'Giltig till {date}': 'Valid until {date}',

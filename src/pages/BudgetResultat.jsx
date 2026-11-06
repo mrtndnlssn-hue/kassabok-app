@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { fmt, txsForPeriod, sumByCategory, previousPeriod, periodSummary } from '../store';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth, isReadOnlyRole } from '../auth/AuthProvider';
 import { Lock, Unlock } from 'lucide-react';
 import { useI18n } from '../i18n';
 import useIsMobile from '../hooks/useIsMobile';
@@ -153,7 +153,7 @@ export default function BudgetResultat({ transactions, categories, budget, budge
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const { role } = useAuth()
-  const isMember = role !== 'viewer'
+  const isMember = !isReadOnlyRole(role)
   const budgetLocked = !!activePeriod?.budgetLocked
   const canWrite = isMember && !budgetLocked
   const [lockError, setLockError] = useState('')

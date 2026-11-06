@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings, Layers, Receipt } from 'lucide-react';
-import { store, attachments, expenses, invoicing, orgFeatures, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
-import { useAuth, hasChosenOrg } from './auth/AuthProvider';
+import { store, attachments, expenses, invoicing, orgFeatures, reviews as reviewsApi, isDemoMode, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
+import { useAuth, hasChosenOrg, isReadOnlyRole, isAdminRole, canSubmitClaimsRole } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import { isDemoSession } from './demo';
 import LoginPage from './auth/LoginPage';
@@ -56,9 +56,9 @@ function MainApp({ orgId, role, onChangeOrg }) {
   const [moreOpen, setMoreOpen]     = useState(false);
   const [addRequest, setAddRequest] = useState(false);   // "+" i flikmenyn ber Kassabok öppna nytt verifikat
   const { orgs, setOrgId: switchOrg, session } = useAuth()
-  const canWrite = role !== 'viewer'
-  const canSubmitExpense = canWrite || !!orgs.find(o => o.orgId === orgId)?.canExpenses   // skrivare, eller läsare med rätt att registrera utlägg
-  const isOwnerRole = role === 'main_owner' || role === 'owner';
+  const canWrite = !isReadOnlyRole(role)
+  const canSubmitExpense = canSubmitClaimsRole(role)   // alla utom revisorn får lämna in utlägg
+  const isOwnerRole = isAdminRole(role);
   // Sidan ligger i adressen (#kassabok) så att webbläsarens bakåt- och framåtknappar fungerar
   const pageFromUrl = () => {
     const id = window.location.hash.replace('#', '');
@@ -99,6 +99,7 @@ function MainApp({ orgId, role, onChangeOrg }) {
   const [openProjectId, setOpenProjectId] = useState(null);
   const [features, setFeatures]     = useState([]);             // funktioner: vad paketet tillåter och vad föreningen slagit på
   const [outInvoices, setOutInvoices] = useState([]);          // utgående fakturor (fakturering)
+  const [reviewData, setReviewData] = useState({ reviews: [], remarks: [] });   // revisorns granskning och anmärkningar
   const [claims, setClaims]        = useState([]);             // utlägg (egna, eller alla för den som får godkänna)
   const [flash, setFlash]          = useState('');             // meddelande ovanför sidan
 
@@ -106,8 +107,10 @@ function MainApp({ orgId, role, onChangeOrg }) {
   const featOn = (list, key) => list.some(f => f.key === key && f.effective);
   const projOn = featOn(features, 'projects');
   const labels = projectLabels(pd);
-  const expensesOn = featOn(features, 'expenses') && canSubmitExpense;            // utlägg: den som får registrera
-  const invoiceInboxOn = featOn(features, 'invoice_inbox') && canSubmitExpense;   // inkommande fakturor
+  // Den som får registrera utlägg och fakturor, och revisorn (som bara läser), ser dem
+  const canSeeClaims = canSubmitExpense || role === 'auditor';
+  const expensesOn = featOn(features, 'expenses') && canSeeClaims;               // utlägg
+  const invoiceInboxOn = featOn(features, 'invoice_inbox') && canSeeClaims;      // inkommande fakturor
   const invoicingOn = featOn(features, 'invoicing');                              // utgående fakturering
   const inboxOn = expensesOn || invoiceInboxOn || invoicingOn;                    // sidan Utlägg & fakturor finns om något av dem är på
   const hideStart = features.length > 0 && !featOn(features, 'getting_started');  // Kom igång-sidan avstängd
@@ -131,8 +134,9 @@ function MainApp({ orgId, role, onChangeOrg }) {
       setProjectData(data.projectData || null);
       const feats = data.features || [];
       setFeatures(feats);
-      await loadClaims((featOn(feats, 'expenses') || featOn(feats, 'invoice_inbox')) && canSubmitExpense);
+      await loadClaims((featOn(feats, 'expenses') || featOn(feats, 'invoice_inbox')) && canSeeClaims);
       await loadOutInvoices(featOn(feats, 'invoicing'));
+      await loadReviews();
 
       const today  = todayStr();
       const active =
@@ -160,6 +164,10 @@ function MainApp({ orgId, role, onChangeOrg }) {
     if (!allowed) { setClaims([]); return; }
     try { setClaims(await expenses.list(orgId)); } catch { setClaims([]); }
   }
+  async function loadReviews() {
+    try { setReviewData(await reviewsApi.list(orgId)); } catch { setReviewData({ reviews: [], remarks: [] }); }
+  }
+  const afterReview = fn => async (...args) => { await fn(orgId, ...args); await loadReviews(); };
   async function loadOutInvoices(allowed = invoicingOn) {
     if (!allowed) { setOutInvoices([]); return; }
     try { setOutInvoices(await invoicing.listInvoices(orgId)); } catch { setOutInvoices([]); }
@@ -194,7 +202,7 @@ function MainApp({ orgId, role, onChangeOrg }) {
   async function reloadFeatures(list) {
     const feats = list || await orgFeatures.list(orgId);
     setFeatures(feats);
-    await loadClaims((featOn(feats, 'expenses') || featOn(feats, 'invoice_inbox')) && canSubmitExpense);
+    await loadClaims((featOn(feats, 'expenses') || featOn(feats, 'invoice_inbox')) && canSeeClaims);
     await loadOutInvoices(featOn(feats, 'invoicing'));
     await reloadProjects();
   }
@@ -299,14 +307,14 @@ function MainApp({ orgId, role, onChangeOrg }) {
   const pageMap   = {
     komigang:   <Komigang {...pageProps} features={features} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
-    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} claims={claims} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
+    kassabok:   <Kassabok   {...pageProps} reviewData={reviewData} canReview={role === 'auditor' || isDemoMode()} canRemark={role === 'auditor' || canWrite} onReview={afterReview(reviewsApi.review)} onAddRemark={afterReview(reviewsApi.addRemark)} onResolveRemark={afterReview(reviewsApi.resolveRemark)} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} claims={claims} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
     utlagg:     <Utlagg {...pageProps} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoiceInboxOn={invoiceInboxOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
-    arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} claims={claims} outInvoices={outInvoices} />,
+    arsrapport: <Arsrapport {...pageProps} reviewData={reviewData} budgetComments={budgetComments} orgId={orgId} claims={claims} outInvoices={outInvoices} />,
     perioder:   <Rakenskapsperioder claims={claims} outInvoices={outInvoices} fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} voidedTxs={voidedTxs} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
-    medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} features={features} />,
+    medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
     installningar: <Installningar orgId={orgId} orgName={orgName} features={features} onFeaturesChange={reloadFeatures} onProjectSettingsChange={reloadProjects} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };
 
@@ -459,7 +467,7 @@ function MainApp({ orgId, role, onChangeOrg }) {
         <nav className="sidebar-nav">
           {NAV_GROUPS.map((g, gi) => {
             const items = g.items.filter(n =>
-              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || inboxOn) && !(n.id === 'komigang' && hideStart));
+              (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || inboxOn) && !(n.id === 'komigang' && hideStart));
             if (!items.length) return null;
             return (
               <div key={gi}>

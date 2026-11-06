@@ -174,7 +174,7 @@ function DeleteWarningModal({ cat, affectedTxs, allCategories, onConfirm, onCanc
 export default function Kategorier({ categories, transactions, fiscalPeriods, onSave, onReasignAndDelete, orgId }) {
   const { t } = useI18n()
   const { role } = useAuth()
-  const canWrite = role !== 'viewer'
+  const canWrite = !isReadOnlyRole(role)
   // _k: stabil radnyckel, origId: kod i databasen, _sort: radens plats (uppdateras först vid spar)
   const [cats, setCats]               = useState(() => categories.map(c => ({ ...c, _k: c.id, origId: c.id, _sort: c.id })))
   const [dirty, setDirty]             = useState(false)

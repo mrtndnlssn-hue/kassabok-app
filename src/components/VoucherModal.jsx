@@ -35,7 +35,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
   const [members, setMembers] = useState([]);   // föreningens medlemmar: ägare och medlemmar kan registrera utlägg åt andra
   const [forUser, setForUser] = useState('');
   useEffect(() => {
-    if (editing || role === 'viewer' || !(expense === 'forced' || expense === 'optional')) return;
+    if (editing || role === 'viewer' || role === 'auditor' || !(expense === 'forced' || expense === 'optional')) return;
     supabase.rpc('get_org_members_with_email', { p_org_id: orgId }).then(({ data }) =>
       setMembers((data || []).map(m => ({ id: m.user_id, name: m.nickname || m.email }))));
   }, [orgId, editing, role, expense]);

@@ -1,19 +1,21 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Check, Search, Paperclip, Ban, Lock, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Search, Paperclip, Ban, Lock, X, MessageSquare, ClipboardCheck } from 'lucide-react';
 import AttachmentPanel from './AttachmentPanel';
+import Granskning from './Granskning';
+import { verNumbers } from '../excelExport';
 import { fmt, txsForPeriod, txLines, isTxLocked, graceMinutesLeft } from '../store';
 import VoucherModal from '../components/VoucherModal';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth, isReadOnlyRole } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
 import useIsMobile from '../hooks/useIsMobile';
 import { useProjects, cap, lower } from '../ProjectsContext';
 
 
-export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, voidedTxs = [], claims = [], onUpdateLocked, onVoid, onSubmitExpense, canSubmitExpense, activePeriod, addRequest, onAddHandled }) {
+export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, voidedTxs = [], claims = [], onUpdateLocked, onVoid, onSubmitExpense, canSubmitExpense, activePeriod, addRequest, onAddHandled, reviewData = { reviews: [], remarks: [] }, canReview, canRemark, onReview, onAddRemark, onResolveRemark }) {
   const { t } = useI18n()
   const isMobile = useIsMobile()
   const { role } = useAuth()
-  const canWrite = role !== 'viewer'
+  const canWrite = !isReadOnlyRole(role)
   const { enabled: projOn, labels, projects } = useProjects()
   const projMap = useMemo(() => Object.fromEntries(projects.map(p => [p.id, p])), [projects])
   const showProjects = projOn && projects.length > 0
@@ -30,6 +32,8 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const [attachTx, setAttachTx]       = useState(null); // {tx, verNum}
   const [filterCat, setFilterCat]     = useState('all');
   const [filterProject, setFilterProject] = useState('all');   // 'all' | 'none' | projekt-id
+  const [filterReview, setFilterReview] = useState('all');     // 'all' | 'unreviewed' | 'reviewed' | 'open'
+  const [reviewTx, setReviewTx] = useState(null);               // {tx, verNum}: verifikatet vars granskning visas
   const [sort, setSort] = useState({ key: 'date', dir: 'desc' });
   const toggleSort = key => setSort(s => s.key === key
     ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
@@ -54,6 +58,10 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   // Makulerade verifikat visas i kassaboken (och behåller sitt nummer) men räknas inte i summorna
   const yearTxs = useMemo(() => txsForPeriod([...transactions, ...voidedTxs], period), [transactions, voidedTxs, period]);
   const catMap   = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories]);
+  // Revisorns granskning: vilka verifikat som är granskade och vilka anmärkningar som finns
+  const reviewByTx = useMemo(() => Object.fromEntries(reviewData.reviews.map(r => [r.txId, r])), [reviewData]);
+  const remarksByTx = useMemo(() => { const m = {}; for (const r of reviewData.remarks) (m[r.txId] ||= []).push(r); return m; }, [reviewData]);
+  const showReviewUi = !!canReview || reviewData.reviews.length > 0 || reviewData.remarks.length > 0;
 
   // De rader av ett verifikat som matchar filtren (så att summorna stämmer när man filtrerar på ett konto)
   const shownLines = tx => txLines(tx).filter(l =>
@@ -62,9 +70,10 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     matchesProject(l));
   const sumType = (lines, type) => lines.filter(l => catMap[l.categoryId]?.type === type).reduce((s, l) => s + Number(l.amount), 0);
 
-  // Verifikatnumret följer grundordningen (datum, nyast först) och ändras inte av filter eller sortering
+  // Grundordningen i listan: nyast först. Verifikatnumret påverkas inte av filter eller sortering.
   const baseOrder = useMemo(() => [...yearTxs].sort((a, b) => b.date?.localeCompare(a.date)), [yearTxs]);
-  const verMap = useMemo(() => Object.fromEntries(baseOrder.map((x, i) => [x.id, i + 1])), [baseOrder]);
+  // Samma numrering som i exporterna: äldst först (datum, sedan registreringstid). Då är numret detsamma i appen, Excel och verifikationslistan.
+  const verMap = useMemo(() => verNumbers(txsForPeriod(transactions, period), txsForPeriod(voidedTxs, period)), [transactions, voidedTxs, period]);
 
   const filtered = useMemo(() => {
     let txs = [...baseOrder];
@@ -104,8 +113,15 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
         return c * m || verMap[a.id] - verMap[b.id];
       });
     }
+    if (filterReview !== 'all') {
+      txs = txs.filter(x => {
+        const reviewed = !!reviewByTx[x.id];
+        const open = (remarksByTx[x.id] || []).some(r => !r.resolvedAt);
+        return filterReview === 'unreviewed' ? (!reviewed && !x.voidedAt) : filterReview === 'reviewed' ? reviewed : open;
+      });
+    }
     return txs;
-  }, [baseOrder, verMap, sort, search, filterType, filterCat, filterProject, catMap]);
+  }, [baseOrder, verMap, sort, search, filterType, filterCat, filterProject, filterReview, reviewByTx, remarksByTx, catMap]);
 
   function matchesProject(l) {
     return filterProject === 'all' || (filterProject === 'none' ? !l.projectId : l.projectId === filterProject);
@@ -150,6 +166,24 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
       <strong>{t('Makulerat')}</strong>: {tx.voidReason}
     </div>
   ) : null;
+  const reviewBtn = (tx, mobile) => {
+    if (!showReviewUi) return null;
+    const rem = remarksByTx[tx.id] || [];
+    const open = rem.filter(r => !r.resolvedAt).length;
+    const reviewed = !!reviewByTx[tx.id];
+    const sz = mobile ? 15 : 12;
+    const label = open ? t('Granskning: {n} öppna anmärkningar', { n: open }) : reviewed ? t('Granskat') : t('Granskning');
+    return (
+      <button className={mobile ? 'btn btn-secondary' : 'btn btn-sm btn-secondary'} title={label} aria-label={label}
+        onClick={() => setReviewTx({ tx, verNum: verMap[tx.id] })}
+        style={mobile ? undefined : { padding: '4px 8px', marginLeft: 4, ...(open ? { color: 'var(--amber)', borderColor: 'var(--amber)' } : reviewed ? { color: 'var(--accent)', borderColor: 'var(--accent-2)' } : {}) }}>
+        {reviewed ? <ClipboardCheck size={sz} /> : <MessageSquare size={sz} />}
+        {rem.length > 0 && <span style={{ marginLeft: 4, fontSize: '0.75rem' }}>{open || rem.length}</span>}
+        {mobile && <> {t('Granskning')}</>}
+      </button>
+    );
+  };
+
   const actionButtons = (tx, mobile) => {
     if (!canWrite || tx.voidedAt) return null;
     const sz = mobile ? 15 : 12, cls = mobile ? 'btn' : 'btn btn-sm', locked = isTxLocked(tx);
@@ -211,6 +245,14 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
             <option value="all">{t('Alla {namn}', { namn: lower(labels.many) })}</option>
             <option value="none">{t('Utan {namn}', { namn: lower(labels.one) })}</option>
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}{p.closed ? ` (${t('stängd')})` : ''}</option>)}
+          </select>
+        )}
+        {showReviewUi && (
+          <select value={filterReview} onChange={e => setFilterReview(e.target.value)} aria-label={t('Granskning')} style={{ width: isMobile ? '100%' : 'auto' }}>
+            <option value="all">{t('Alla verifikat')}</option>
+            <option value="unreviewed">{t('Inte granskade')}</option>
+            <option value="reviewed">{t('Granskade')}</option>
+            <option value="open">{t('Med öppna anmärkningar')}</option>
           </select>
         )}
         <div className="ml-auto">
@@ -275,6 +317,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                 {tx.comment && <div className="m-card-comment">{tx.comment}</div>}
                 <div className="m-card-actions">
                   <button className="btn btn-secondary" onClick={() => setAttachTx({ tx, verNum: verMap[tx.id] })} aria-label={t('Bilagor')}><Paperclip size={15} /> {t('Bilagor')}</button>
+                  {reviewBtn(tx, true)}
                   {actionButtons(tx, true)}
                 </div>
               </div>
@@ -351,6 +394,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                     >
                       <Paperclip size={12}/>
                     </button>
+                    {reviewBtn(tx, false)}
                   </td>
                   <td>
                     {canWrite && !tx.voidedAt && <div className="gap-row" style={{ gap: 4 }}>{actionButtons(tx, false)}</div>}
@@ -382,6 +426,13 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
           verNum={attachTx.verNum}
           onClose={() => setAttachTx(null)}
         />
+      )}
+
+      {reviewTx && (
+        <Granskning orgId={orgId} tx={reviewTx.tx} verNum={reviewTx.verNum}
+          review={reviewByTx[reviewTx.tx.id]} remarks={remarksByTx[reviewTx.tx.id] || []}
+          canReview={canReview} canRemark={canRemark} onReview={onReview} onAddRemark={onAddRemark} onResolveRemark={onResolveRemark}
+          onClose={() => setReviewTx(null)} />
       )}
 
       {modal && (

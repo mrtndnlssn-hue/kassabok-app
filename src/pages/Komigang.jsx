@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useI18n } from '../i18n';
+import { isAdminRole } from '../auth/AuthProvider';
 
 const flagKey = orgId => `kb_onboarding_${orgId}`;
 function loadFlags(orgId) {
@@ -10,7 +11,7 @@ function loadFlags(orgId) {
 
 export default function Komigang({ orgId, role, transactions, budget, activePeriod, onSavePeriods, fiscalPeriods, onNavigate, onHide, features = [] }) {
   const { t } = useI18n();
-  const isOwner = role === 'main_owner' || role === 'owner';
+  const isOwner = isAdminRole(role);
   const [flags, setFlags]       = useState(() => loadFlags(orgId));
   const [memberCount, setMemberCount] = useState(null);
   const [balance, setBalance]   = useState(String(activePeriod?.openingBalance ?? 0));

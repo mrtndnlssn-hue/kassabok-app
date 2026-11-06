@@ -24,7 +24,7 @@ export default {
   'Utlägget avser': 'Expense is for',
   'Mig själv': 'Myself',
   'Välj en annan medlem om du registrerar utlägget åt hen. Pengarna betalas då ut till den personen.': 'Choose another member if you are registering the expense on their behalf. The money is then paid out to that person.',
-  'Bara ägare och medlemmar kan registrera utlägg åt andra.': 'Only owners and members can register expenses for others.',
+  'Bara administratörer och bokförare kan registrera utlägg åt andra.': 'Only administrators and bookkeepers can register expenses for others.',
   'Personen är inte medlem i föreningen.': 'That person is not a member of the association.',
   'Utlägg': 'Expenses',
   'Registrera, godkänn och betala ut utlägg': 'Submit, approve and pay out expenses',
@@ -69,8 +69,6 @@ export default {
   'Det här är ditt eget utlägg. Någon annan med skrivrätt måste hantera det.': 'This is your own expense. Someone else with write access must handle it.',
   'Räkenskapsperioden för det datumet är låst. Välj ett annat datum eller lås upp perioden.': 'The financial period for that date is locked. Choose another date or unlock the period.',
   // Medlemmar och inställningar
-  'Får registrera utlägg': 'Can submit expenses',
-  'Läsaren kan registrera egna utlägg som ska godkännas av en ägare eller medlem': 'The reader can submit their own expenses, which an owner or member must approve',
   'Medlemmar kan registrera utlägg med kvitto. Ägare och medlemmar godkänner och bekräftar utbetalning. Välj vilka e-postbesked som ska skickas.': 'Members can submit expenses with a receipt. Owners and members approve and confirm payout. Choose which email notifications to send.',
   'E-post till de som kan godkänna när ett nytt utlägg kommer in': 'Email to those who can approve when a new expense comes in',
   'E-post till den som lagt ut pengarna när utlägget godkänns, avslås och betalas ut': 'Email to the person who paid when the expense is approved, rejected and paid out',

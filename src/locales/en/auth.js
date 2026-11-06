@@ -38,8 +38,9 @@ export default {
   // Föreningsväljare
   'Laddar…': 'Loading…',
   'Välj en förening eller skapa ny': 'Choose an association or create a new one',
-  'Huvudägare': 'Main owner',
-  'Ägare': 'Owner',
+  'Administratör': 'Administrator',
+  'Administratör (huvudansvarig)': 'Administrator (primary)',
+  'Bokförare': 'Bookkeeper',
   'Medlem': 'Member',
   'Läsare': 'Viewer',
   'Skapa ny förening': 'Create new association',

@@ -1,14 +1,14 @@
 // Engelska översättningar: medlemmar och inbjudningar
 export default {
-  'Använd "Lämna över" för att byta huvudägare.': 'Use "Transfer" to change the main owner.',
-  'Använd "Lämna över"-knappen för att utse ny huvudägare.': 'Use the "Transfer" button to appoint a new main owner.',
+  'Använd "Lämna över" för att byta huvudansvarig.': 'Use "Transfer" to change the primary administrator.',
+  'Använd "Lämna över"-knappen för att utse ny huvudansvarig.': 'Use the "Transfer" button to appoint a new primary administrator.',
   'Namn i den här föreningen (lämna tomt för att ta bort):': 'Name in this association (leave empty to remove):',
-  'Huvudägaren kan inte tas bort. Lämna över rollen först.': 'The main owner cannot be removed. Transfer the role first.',
+  'Huvudansvarig kan inte tas bort. Lämna över rollen först.': 'The primary administrator cannot be removed. Transfer the role first.',
   'Ta bort {namn}s åtkomst till föreningen?': 'Remove access to the association for {namn}?',
   'användaren': 'the user',
   'Föreningen har redan max {max} användare. Ta bort en användare innan du bjuder in fler.': 'The association already has the maximum of {max} users. Remove a user before inviting more.',
-  'Lämna över huvudägarrollen?': 'Transfer the main owner role?',
-  'blir ny huvudägare. Du blir vanlig ägare och kan inte längre byta föreningsnamn.': 'becomes the new main owner. You become a regular owner and can no longer change the association name.',
+  'Lämna över som huvudansvarig?': 'Make someone else primary administrator?',
+  'blir ny huvudansvarig. Du blir vanlig administratör och kan inte längre byta föreningsnamn.': 'becomes the new primary administrator. You become a regular administrator and can no longer change the association name.',
   'Bekräfta': 'Confirm',
   'E-post': 'Email',
   'Roll': 'Role',
@@ -20,7 +20,10 @@ export default {
   'Ta bort åtkomst': 'Remove access',
   'Inbjudningslänkar': 'Invitation links',
   'Namn (valfritt)': 'Name (optional)',
-  'Läsare (skrivskyddad)': 'Viewer (read-only)',
+  'Allt, även medlemmar och inställningar.': 'Everything, including members and settings.',
+  'Bokför, hanterar utlägg och fakturor. Ändrar inte medlemmar eller inställningar.': 'Does the bookkeeping and handles expenses and invoices. Does not change members or settings.',
+  'Ser allt och kan lämna in egna utlägg och fakturor. Ändrar inget i bokföringen.': 'Sees everything and can submit their own expenses and invoices. Changes nothing in the books.',
+  'Ser allt, granskar verifikat och lägger anmärkningar. Ändrar inget i bokföringen.': 'Sees everything, reviews vouchers and adds remarks. Changes nothing in the books.',
   'Max {max} användare per förening': 'Max {max} users per association',
   'Ny inbjudan': 'New invitation',
   'Inga aktiva inbjudningslänkar.': 'No active invitation links.',
@@ -31,5 +34,5 @@ export default {
   'Radera inbjudan': 'Delete invitation',
   'Namnet följer med när personen skapar konto och syns bara för medlemmarna i den här föreningen. Länken är giltig i 7 dagar. En förening kan ha max {max} användare.':
     'The name follows along when the person creates an account and is only visible to members of this association. The link is valid for 7 days. An association can have at most {max} users.',
-  'Lämna över huvudägarrollen': 'Transfer the main owner role',
+  'Lämna över huvudansvaret': 'Transfer primary responsibility',
 }

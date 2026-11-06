@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
-import { useAuth } from '../auth/AuthProvider'
+import { useAuth, isAdminRole, isPrimaryRole } from '../auth/AuthProvider'
 import { fmtDate, isoDateTime } from '../store'
 import { useI18n } from '../i18n'
 import { Copy, Check, Trash2, ArrowRightLeft } from 'lucide-react'
 
+// Fyra roller för användarna. 'main_owner' är en administratör som också är huvudansvarig (en per förening).
 const ROLE_LABEL = {
-  main_owner: 'Huvudägare',
-  owner:      'Ägare',
-  member:     'Medlem',
+  main_owner: 'Administratör (huvudansvarig)',
+  owner:      'Administratör',
+  member:     'Bokförare',
   viewer:     'Läsare',
+  auditor:    'Revisor',
+}
+
+// Vad rollen får göra, visas när man bjuder in och som tips vid rollvalet
+const ROLE_HELP = {
+  owner:   'Allt, även medlemmar och inställningar.',
+  member:  'Bokför, hanterar utlägg och fakturor. Ändrar inte medlemmar eller inställningar.',
+  viewer:  'Ser allt och kan lämna in egna utlägg och fakturor. Ändrar inget i bokföringen.',
+  auditor: 'Ser allt, granskar verifikat och lägger anmärkningar. Ändrar inget i bokföringen.',
 }
 
 const ROLE_STYLE = {
@@ -17,6 +27,7 @@ const ROLE_STYLE = {
   owner:      { background: 'var(--green-soft)', color: 'var(--green)', border: '1px solid var(--border)' },
   member:     { background: 'var(--blue-soft, #e8f0fe)', color: 'var(--blue, #1a73e8)', border: '1px solid var(--border)' },
   viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)', border: '1px solid var(--border)' },
+  auditor:    { background: 'var(--paper-2)', color: 'var(--ink)', border: '1px solid var(--ink-muted)' },
 }
 
 function RoleBadge({ role }) {
@@ -28,19 +39,14 @@ function RoleBadge({ role }) {
   )
 }
 
-export default function Medlemmar({ orgId, orgName, features = [] }) {
+export default function Medlemmar({ orgId, orgName }) {
   const { t } = useI18n()
   const { session, role: myRole } = useAuth()
-  const isMainOwner = myRole === 'main_owner'
-  const canManage   = myRole === 'main_owner' || myRole === 'owner'
+  const isMainOwner = isPrimaryRole(myRole)
+  const canManage   = isAdminRole(myRole)
 
   const [members, setMembers] = useState([])
   const [maxMembers, setMaxMembers] = useState(15)
-  // Rätten att registrera utlägg och/eller fakturor visas när funktionen är påslagen, med text efter vad som gäller
-  const expOn = features.some(f => f.key === 'expenses' && f.effective)
-  const invOn = features.some(f => f.key === 'invoice_inbox' && f.effective)
-  const expensesAllowed = expOn || invOn
-  const rightLabel = expOn && invOn ? t('Får registrera utlägg och fakturor') : invOn ? t('Får lägga upp fakturor') : t('Får registrera utlägg')
   useEffect(() => {
     supabase.rpc('get_org_plan', { p_org: orgId }).then(({ data }) => {
       if (data?.member_limit) setMaxMembers(data.member_limit)
@@ -52,7 +58,6 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
   const [error, setError]     = useState('')
   const [newRole, setNewRole]     = useState('member')
   const [newNickname, setNewNickname] = useState('')
-  const [newExpenses, setNewExpenses] = useState(false)   // ny läsare får registrera utlägg
   const [transferTo, setTransferTo] = useState(null)
   const [newestCode, setNewestCode] = useState(null) // code of most recently created invite
 
@@ -64,7 +69,7 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
         supabase.rpc('get_org_members_with_email', { p_org_id: orgId }),
         supabase
           .from('org_invites')
-          .select('code, invited_role, nickname, expires_at, created_at, can_submit_expenses')
+          .select('code, invited_role, nickname, expires_at, created_at')
           .eq('org_id', orgId)
           .gt('expires_at', new Date().toISOString())
           .order('created_at', { ascending: false }),
@@ -77,7 +82,6 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
         role:   m.role,
         email:  m.email,
         nickname: m.nickname || '',
-        canExpenses: !!m.can_submit_expenses,
         isMe:  m.user_id === session.user.id,
       })))
       const fetchedInvites = invitesRes.data || []
@@ -95,31 +99,21 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
   async function changeRole(userId, newRole) {
     // Prevent demoting the last main_owner
     if (members.find(m => m.userId === userId)?.role === 'main_owner') {
-      setError(t('Använd "Lämna över" för att byta huvudägare.'))
+      setError(t('Använd "Lämna över" för att byta huvudansvarig.'))
       return
     }
     // Prevent assigning main_owner via dropdown (use transfer instead)
     if (newRole === 'main_owner') {
-      setError(t('Använd "Lämna över"-knappen för att utse ny huvudägare.'))
+      setError(t('Använd "Lämna över"-knappen för att utse ny huvudansvarig.'))
       return
     }
     const { error } = await supabase
       .from('organization_members')
-      .update({ role: newRole, ...(newRole !== 'viewer' ? { can_submit_expenses: false } : {}) })   // rättigheten gäller bara läsare
+      .update({ role: newRole })
       .eq('org_id', orgId)
       .eq('user_id', userId)
     if (error) { setError(error.message); return }
-    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole, canExpenses: newRole === 'viewer' && m.canExpenses } : m))
-  }
-
-  async function setCanExpenses(userId, value) {
-    const { error } = await supabase
-      .from('organization_members')
-      .update({ can_submit_expenses: value })
-      .eq('org_id', orgId)
-      .eq('user_id', userId)
-    if (error) { setError(error.message); return }
-    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, canExpenses: value } : m))
+    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, role: newRole } : m))
   }
 
   async function editNickname(userId) {
@@ -165,7 +159,7 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
   async function removeMember(userId) {
     const m = members.find(m => m.userId === userId)
     if (m?.role === 'main_owner') {
-      setError(t('Huvudägaren kan inte tas bort. Lämna över rollen först.'))
+      setError(t('Huvudansvarig kan inte tas bort. Lämna över rollen först.'))
       return
     }
     if (!window.confirm(t('Ta bort {namn}s åtkomst till föreningen?', { namn: m?.email || t('användaren') }))) return
@@ -186,10 +180,9 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
     }
     const { error } = await supabase
       .from('org_invites')
-      .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole, nickname: newNickname.trim() || null, can_submit_expenses: newRole === 'viewer' && newExpenses })
+      .insert({ org_id: orgId, created_by: session.user.id, invited_role: newRole, nickname: newNickname.trim() || null })
     if (error) { setError(error.message); return }
     setNewNickname('')
-    setNewExpenses(false)
     const fetched = await fetchAll()
     if (fetched?.length) setNewestCode(fetched[0].code) // sorted desc, so [0] is newest
   }
@@ -224,9 +217,9 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
       {/* Transfer confirmation */}
       {transferTo && (
         <div className="notice" style={{ background: 'var(--amber-soft, #fef3c7)', borderColor: '#fcd34d', color: 'var(--amber, #b45309)', marginBottom: 16 }}>
-          <strong>{t('Lämna över huvudägarrollen?')}</strong><br/>
+          <strong>{t('Lämna över som huvudansvarig?')}</strong><br/>
           <span style={{ fontSize:'0.85rem' }}>
-            {members.find(m => m.userId === transferTo)?.email} {t('blir ny huvudägare. Du blir vanlig ägare och kan inte längre byta föreningsnamn.')}
+            {members.find(m => m.userId === transferTo)?.email} {t('blir ny huvudansvarig. Du blir vanlig administratör och kan inte längre byta föreningsnamn.')}
           </span>
           <div style={{ display:'flex', gap:8, marginTop:10 }}>
             <button className="btn btn-primary btn-sm" onClick={() => transferMainOwner(transferTo)}>{t('Bekräfta')}</button>
@@ -250,7 +243,7 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
           </thead>
           <tbody>
             {[...members].sort((a, b) => {
-              const order = { main_owner: 0, owner: 1, member: 2, viewer: 3 }
+              const order = { main_owner: 0, owner: 1, member: 2, viewer: 3, auditor: 4 }
               return (order[a.role] ?? 9) - (order[b.role] ?? 9)
             }).map(m => (
               <tr key={m.userId}>
@@ -279,22 +272,15 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
                     <select
                       value={m.role}
                       onChange={e => changeRole(m.userId, e.target.value)}
+                      title={t(ROLE_HELP[m.role] || '')}
                       style={{ fontSize: '0.8rem', padding: '3px 6px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer' }}
                     >
-                      <option value="owner">{t('Ägare')}</option>
-                      <option value="member">{t('Medlem')}</option>
+                      <option value="owner">{t('Administratör')}</option>
+                      <option value="member">{t('Bokförare')}</option>
                       <option value="viewer">{t('Läsare')}</option>
+                      <option value="auditor">{t('Revisor')}</option>
                     </select>
                   )}
-                  {m.role === 'viewer' && expensesAllowed && (canManage ? (
-                    <label title={t('Läsaren kan registrera egna utlägg och lägga upp fakturor som hanteras av en ägare eller medlem')}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.75rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer', whiteSpace: 'nowrap', width: 'auto' }}>
-                      <input type="checkbox" checked={m.canExpenses} onChange={e => setCanExpenses(m.userId, e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
-                      {rightLabel}
-                    </label>
-                  ) : m.canExpenses && (
-                    <div style={{ marginTop: 4, fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{rightLabel}</div>
-                  ))}
                 </td>
                 <td style={{ textAlign: 'right', verticalAlign: 'top' }}>
                   <div style={{ display:'flex', gap:4, justifyContent:'flex-end', whiteSpace: 'nowrap' }}>
@@ -302,7 +288,7 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => setTransferTo(m.userId)}
-                        title={t('Lämna över huvudägarrollen')}
+                        title={t('Lämna över huvudansvaret')}
                         style={{ fontSize:'0.72rem', gap:4 }}
                       >
                         <ArrowRightLeft size={12}/> {t('Lämna över')}
@@ -345,21 +331,17 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
                 onChange={e => setNewRole(e.target.value)}
                 style={{ fontSize: '0.85rem', padding: '6px 10px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer', width: 'auto', flex: 'none' }}
               >
-                <option value="member">{t('Medlem')}</option>
-                <option value="viewer">{t('Läsare (skrivskyddad)')}</option>
-                <option value="owner">{t('Ägare')}</option>
+                <option value="member">{t('Bokförare')}</option>
+                <option value="viewer">{t('Läsare')}</option>
+                <option value="auditor">{t('Revisor')}</option>
+                <option value="owner">{t('Administratör')}</option>
               </select>
-              {newRole === 'viewer' && expensesAllowed && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer', whiteSpace: 'nowrap', width: 'auto' }}>
-                  <input type="checkbox" checked={newExpenses} onChange={e => setNewExpenses(e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
-                  {rightLabel}
-                </label>
-              )}
               <button className="btn btn-primary btn-sm" style={{ flex: 'none' }} onClick={createInvite} disabled={members.length >= maxMembers}
                 title={members.length >= maxMembers ? t('Max {max} användare per förening', { max: maxMembers }) : undefined}>
                 + {t('Ny inbjudan')}
               </button>
             </div>
+            <p style={{ margin: '8px 0 0', fontSize: '0.78rem', color: 'var(--ink-muted)' }}>{t(ROLE_HELP[newRole])}</p>
           </div>
 
           {invites.length === 0 ? (
@@ -381,7 +363,6 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
                     <div style={{ display:'flex', alignItems:'center', gap:6, fontSize: '0.72rem', color: 'var(--ink-muted)', flexWrap: 'wrap' }}>
                       {inv.nickname && <strong style={{ color: 'var(--ink)' }}>{inv.nickname} ·</strong>}
                       {ROLE_LABEL[inv.invited_role] ? t(ROLE_LABEL[inv.invited_role]) : inv.invited_role}
-                      {inv.can_submit_expenses && <> · {rightLabel}</>}
                       · {t('Skapad')} {isoDateTime(new Date(inv.created_at))}
                       · {t('Går ut')} {fmtDate(inv.expires_at)}
                       {inv.code === newestCode && (

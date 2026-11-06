@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { FileDown, FileSpreadsheet, Archive, Loader } from 'lucide-react';
-import { fmt, txsForPeriod, sumByCategory, reportExtras } from '../store';
-import { exportAnnualReport, exportBudget } from '../pdfExport';
-import { exportPeriodExcel, exportPeriodVouchers, downloadBlob } from '../excelExport';
+import { fmt, txsForPeriod, sumByCategory, reportExtras, attachments } from '../store';
+import { supabase } from '../supabase';
+import { exportAnnualReport, exportBudget, exportVoucherList } from '../pdfExport';
+import { exportPeriodExcel, exportPeriodVouchers, downloadBlob, verNumbers } from '../excelExport';
 import { useI18n } from '../i18n';
 import { useProjects, cap } from '../ProjectsContext';
 
-export default function Arsrapport({ transactions, voidedTxs = [], categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod, claims = [], outInvoices = [] }) {
+export default function Arsrapport({ transactions, voidedTxs = [], categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod, claims = [], outInvoices = [], reviewData = { reviews: [], remarks: [] } }) {
   const { t } = useI18n();
   const { enabled: projOn, projects, labels } = useProjects();
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
@@ -46,7 +47,7 @@ export default function Arsrapport({ transactions, voidedTxs = [], categories, b
     try {
       const result = await fn();
       if (!result) setMsg({ type: 'warn', text: t('Inga bilagor finns uppladdade för den här perioden.') });
-      else downloadBlob(result.blob, result.filename);
+      else if (!result.skip) downloadBlob(result.blob, result.filename);
     } catch (e) {
       setMsg({ type: 'error', text: e.message || t('Något gick fel.') });
     } finally {
@@ -55,6 +56,18 @@ export default function Arsrapport({ transactions, voidedTxs = [], categories, b
   }
 
   const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, voidedTxs, categories, budget: periodBudget, projects: projOn ? projects : [], projectLabel: cap(labels.one), extras }));
+  // Verifikationslista för revisorn: alla verifikat med bilagor, granskning och anmärkningar
+  const handleVoucherList = () => runDownload('vlist', async () => {
+    const periodVoided = txsForPeriod(voidedTxs, period);
+    const attachmentsByTx = await attachments.namesByTx(orgId, [...periodTxs, ...periodVoided].map(x => x.id));
+    let names = {};
+    try {
+      const { data } = await supabase.rpc('get_org_members_with_email', { p_org_id: orgId });
+      names = Object.fromEntries((data || []).map(m => [m.user_id, m.nickname || m.email]));
+    } catch { /* namnen är bara ett tillägg */ }
+    exportVoucherList({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, verNo: verNumbers(periodTxs, periodVoided), attachmentsByTx, reviews: reviewData.reviews, remarks: reviewData.remarks, names });
+    return { skip: true };
+  });
   const handleVouchers = () => runDownload('vouchers', () => exportPeriodVouchers({ orgId, period, transactions, voidedTxs }));
 
   async function handleBudgetExport() {
@@ -190,6 +203,11 @@ export default function Arsrapport({ transactions, voidedTxs = [], categories, b
             {busy === 'vouchers'
               ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('Hämtar bilagor…')}</>
               : <><Archive size={16}/> {t('Ladda ner alla verifikat')}</>}
+          </button>
+          <button className="btn btn-secondary" onClick={handleVoucherList} disabled={loading || !!busy} title={t('Alla verifikat med bilagor, granskning och anmärkningar, till revisorn')}>
+            {busy === 'vlist'
+              ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('Skapar…')}</>
+              : <><FileDown size={16}/> {t('Verifikationslista (PDF)')}</>}
           </button>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

@@ -1,7 +1,7 @@
 // pdfExport.js – generates annual report and budget PDF using jsPDF + autoTable
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { fmt as fmtRaw, sumByCategory, isoDate } from './store';
+import { fmt as fmtRaw, sumByCategory, isoDate, txLines } from './store';
 import { translate as t } from './i18n';
 
 // jsPDF:s standardfonter saknar Unicode-minus, så negativa belopp skrivs med vanligt bindestreck
@@ -459,5 +459,119 @@ export function exportAnnualReport({ orgName, period, transactions, voided = [],
   if (!existingDoc) {
     doc.save(`${t('arsrapport')}_${(period?.label||'').replace(/[^a-zA-Z0-9]/g,'_')}_${orgName.replace(/\s+/g,'_')}.pdf`);
   }
+  return doc;
+}
+
+
+// Verifikationslista för revisorn: alla verifikat i perioden med motpart, kategori, belopp, bilagor och granskningsstatus,
+// följt av anmärkningarna. Makulerade verifikat är med och är markerade.
+export function exportVoucherList({ orgName, period, transactions, voided = [], categories, verNo = {}, attachmentsByTx = {}, reviews = [], remarks = [], names = {} } = {}) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const DARK = [26, 26, 46], GREEN = [45, 106, 79], RED = [193, 18, 31], PAPER = [250, 249, 246], BORDER = [213, 208, 197];
+  const pad3 = n => String(n || 0).padStart(3, '0');
+  const catMap = Object.fromEntries(categories.map(c => [c.id, c]));
+  const reviewBy = Object.fromEntries(reviews.map(r => [r.txId, r]));
+  const remarksBy = {};
+  for (const r of remarks) (remarksBy[r.txId] ||= []).push(r);
+  const all = [...transactions, ...voided].sort((a, b) => (verNo[a.id] || 0) - (verNo[b.id] || 0));
+  const inPeriod = new Set(all.map(x => x.id));
+  const periodRemarks = remarks.filter(r => inPeriod.has(r.txId));
+  const reviewedCount = all.filter(x => !x.voidedAt && reviewBy[x.id]).length;
+  const activeCount = all.filter(x => !x.voidedAt).length;
+  const openCount = periodRemarks.filter(r => !r.resolvedAt).length;
+  const day = iso => String(iso || '').slice(0, 10);
+
+  doc.setFillColor(...DARK);
+  doc.rect(0, 0, W, 34, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('times', 'bolditalic');
+  doc.setFontSize(22);
+  doc.text(t('Verifikationslista'), 18, 16);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(180, 180, 210);
+  doc.text(String(orgName || '').toUpperCase(), 18, 24);
+  doc.setFontSize(18);
+  doc.setFont('times', 'italic');
+  doc.setTextColor(255, 255, 255);
+  doc.text(String(period?.label || ''), W - 18, 16, { align: 'right' });
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(150, 150, 190);
+  doc.text(`${period?.start || ''} – ${period?.end || ''}`, W - 18, 22, { align: 'right' });
+  doc.text(t('Genererad {datum}', { datum: isoDate() }), W - 18, 28, { align: 'right' });
+
+  doc.setTextColor(...DARK);
+  doc.setFontSize(9);
+  doc.text(`${t('Antal verifikat')}: ${activeCount}   ·   ${t('Granskade')}: ${reviewedCount}   ·   ${t('Inte granskade')}: ${activeCount - reviewedCount}   ·   ${t('Öppna anmärkningar')}: ${openCount}`, 18, 42);
+
+  const rows = all.map(tx => {
+    const lines = txLines(tx);
+    const first = catMap[lines[0]?.categoryId];
+    const sign = first?.type === 'income' ? 1 : -1;
+    const rev = reviewBy[tx.id];
+    const nOpen = (remarksBy[tx.id] || []).filter(r => !r.resolvedAt).length;
+    return [
+      pad3(verNo[tx.id]),
+      tx.date,
+      `${tx.description || '–'}${tx.counterparty ? '\n' + tx.counterparty : ''}${tx.voidedAt ? '\n(' + t('Makulerat') + ')' : ''}`,
+      `${first ? first.id + ' ' + first.name : ''}${lines.length > 1 ? ` (+${lines.length - 1})` : ''}`,
+      fmt(sign * (Number(tx.amount) || 0)),
+      (attachmentsByTx[tx.id] || []).join(', ') || '–',
+      rev ? `${day(rev.at)}${names[rev.by] ? ' ' + names[rev.by] : ''}` : (tx.voidedAt ? '–' : t('Nej')),
+      nOpen ? String(nOpen) : '',
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 47,
+    head: [[t('Ver.'), t('Datum'), t('Beskrivning och motpart'), t('Kategori'), t('Belopp'), t('Bilagor'), t('Granskad'), t('Öppna anm.')]],
+    body: rows,
+    headStyles: { fillColor: DARK, fontSize: 8 },
+    columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 22 }, 2: { cellWidth: 70 }, 3: { cellWidth: 48 }, 4: { halign: 'right', font: 'courier', cellWidth: 26 }, 5: { cellWidth: 40 }, 6: { cellWidth: 30 }, 7: { halign: 'center', cellWidth: 12 } },
+    styles: { fontSize: 7.5, cellPadding: 1.6, overflow: 'linebreak' },
+    alternateRowStyles: { fillColor: PAPER },
+    margin: { left: 18, right: 18 },
+    didParseCell: data => {
+      if (data.section === 'body' && all[data.row.index]?.voidedAt) data.cell.styles.textColor = [140, 140, 160];
+      if (data.section === 'body' && data.column.index === 6 && data.cell.raw === t('Nej')) data.cell.styles.textColor = RED;
+      if (data.section === 'body' && data.column.index === 6 && data.cell.raw !== t('Nej') && data.cell.raw !== '–') data.cell.styles.textColor = GREEN;
+    },
+  });
+
+  if (periodRemarks.length) {
+    let y = doc.lastAutoTable.finalY + 12;
+    if (y > 165) { doc.addPage(); y = 18; }
+    doc.setFillColor(...DARK);
+    doc.rect(18, y, W - 36, 8, 'F');
+    doc.setFont('times', 'bolditalic');
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.text(t('Anmärkningar'), 22, y + 5.5);
+    autoTable(doc, {
+      startY: y + 8,
+      head: [[t('Ver.'), t('Anmärkning'), t('Av'), t('Skapad'), t('Status')]],
+      body: periodRemarks.map(r => [pad3(verNo[r.txId]), r.text, names[r.author] || '–', day(r.createdAt), r.resolvedAt ? `${t('Åtgärdad')} ${day(r.resolvedAt)}` : t('Öppen')]),
+      headStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 130 }, 2: { cellWidth: 40 }, 3: { cellWidth: 24 } },
+      styles: { fontSize: 8, cellPadding: 1.8, overflow: 'linebreak' },
+      alternateRowStyles: { fillColor: PAPER },
+      margin: { left: 18, right: 18 },
+    });
+  }
+
+  const pages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(160, 160, 180);
+    doc.text(`${orgName} · ${period?.label || ''}`, 18, 204);
+    doc.text(t('Sida {p} av {n}', { p, n: pages }), W - 18, 204, { align: 'right' });
+    doc.setDrawColor(...BORDER);
+    doc.line(18, 201, W - 18, 201);
+  }
+  doc.save(`${t('verifikationslista')}_${(period?.label || '').replace(/[^a-zA-Z0-9]/g, '_')}_${String(orgName || '').replace(/\s+/g, '_')}.pdf`);
   return doc;
 }

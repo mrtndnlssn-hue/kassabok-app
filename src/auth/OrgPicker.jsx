@@ -6,10 +6,11 @@ import { useI18n } from '../i18n'
 import LanguageSwitch from '../components/LanguageSwitch'
 
 const ROLE_LABEL = {
-  main_owner: 'Huvudägare',
-  owner:      'Ägare',
-  member:     'Medlem',
+  main_owner: 'Administratör',
+  owner:      'Administratör',
+  member:     'Bokförare',
   viewer:     'Läsare',
+  auditor:    'Revisor',
 }
 
 const ROLE_STYLE = {
@@ -17,6 +18,7 @@ const ROLE_STYLE = {
   owner:      { background: 'var(--green-soft)', color: 'var(--green)' },
   member:     { background: '#e8f0fe', color: '#1a73e8' },
   viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)' },
+  auditor:    { background: 'var(--paper-2)', color: 'var(--ink)' },
 }
 
 export default function OrgPicker({ onCreateNew, onPick, onBack }) {

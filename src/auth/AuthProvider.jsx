@@ -38,6 +38,15 @@ function saveOrgId(userId, orgId) {
 function markChosen(userId, orgId) {
   try { localStorage.setItem(`orgChosen_${userId}`, orgId) } catch {}
 }
+// Roller som inte får skriva i bokföringen: läsare och revisor
+export const isReadOnlyRole = r => r === 'viewer' || r === 'auditor'
+// Administratör (och huvudansvarig, som är en administratör med extra ansvar): medlemmar, inställningar
+export const isAdminRole = r => r === 'main_owner' || r === 'owner'
+// Huvudansvarig: den som skapade föreningen eller tagit över den. Kan ta bort föreningen och godkänna sina egna utlägg
+export const isPrimaryRole = r => r === 'main_owner'
+// Får lämna in utlägg och fakturor: de som bokför, och läsare (som inte kan se andras utlägg)
+export const canSubmitClaimsRole = r => !isReadOnlyRole(r) || r === 'viewer'
+
 export function hasChosenOrg(userId, orgs) {
   try { const id = localStorage.getItem(`orgChosen_${userId}`); return !!id && orgs.some(o => o.orgId === id) } catch { return false }
 }
@@ -69,11 +78,11 @@ export default function AuthProvider({ children }) {
   async function fetchOrgs(userId, demo) {
     const { data } = await supabase
       .from('organization_members')
-      .select('org_id, role, can_submit_expenses')
+      .select('org_id, role')
       .eq('user_id', userId)
 
     // Demokontot är läsare i databasen men visas som ägare och får skriva i minnet (se store.js)
-    const list = (data || []).map(r => ({ orgId: r.org_id, role: demo ? 'owner' : r.role, canExpenses: !!r.can_submit_expenses }))
+    const list = (data || []).map(r => ({ orgId: r.org_id, role: demo ? 'owner' : r.role }))
     setOrgs(list)
 
     if (list.length === 0) {

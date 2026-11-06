@@ -683,7 +683,7 @@ const dbInvoicing = {
 // ── Demoläge ───────────────────────────────────────────────────
 // Demokontot läser riktig data men all skrivning sker i minnet och försvinner vid omladdning.
 let demo = null // { data, files: Map<txId, [{name, file}]>, seq, claims, customers, invoices, invSeq }
-export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0, aiReads: 0 } : null }
+export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0, aiReads: 0, reviews: [], remarks: [] } : null }
 export const isDemoMode = () => !!demo
 // Demoläget tillåter en AI-avläsning per session (nollställs när man loggar in på demon igen)
 export const DEMO_AI_LIMIT = 1
@@ -1192,3 +1192,47 @@ export function reportExtras({ periods, period, transactions, categories, claims
   const prev = prevP ? { label: prevP.label, ...periodSummary(transactions, categories, prevP) } : null
   return { prev: prev && (prev.income !== 0 || prev.expense !== 0) ? prev : null, unpaid: unpaidAtEnd({ period, claims, outInvoices }) }
 }
+
+// ── Granskning: revisorns markering "granskad" och anmärkningar per verifikat ─────────────
+const dbReviews = {
+  async list(orgId) {
+    const [rv, rm] = await Promise.all([
+      supabase.from('voucher_reviews').select('tx_id, reviewed_by, reviewed_at').eq('org_id', orgId),
+      supabase.from('voucher_remarks').select('id, tx_id, author, text, created_at, resolved_at').eq('org_id', orgId).order('created_at'),
+    ])
+    if (rv.error) throw rv.error
+    if (rm.error) throw rm.error
+    return {
+      reviews: (rv.data || []).map(r => ({ txId: r.tx_id, by: r.reviewed_by, at: r.reviewed_at })),
+      remarks: (rm.data || []).map(r => ({ id: r.id, txId: r.tx_id, author: r.author, text: r.text, createdAt: r.created_at, resolvedAt: r.resolved_at })),
+    }
+  },
+  async review(_orgId, txId, on) {
+    const { error } = await supabase.rpc('review_voucher', { p_tx: txId, p_on: !!on })
+    if (error) throw error
+  },
+  async addRemark(_orgId, txId, text) {
+    const { error } = await supabase.rpc('add_voucher_remark', { p_tx: txId, p_text: text })
+    if (error) throw error
+  },
+  async resolveRemark(_orgId, id, on) {
+    const { error } = await supabase.rpc('resolve_voucher_remark', { p_id: id, p_on: !!on })
+    if (error) throw error
+  },
+}
+const demoReviews = {
+  async list() { return clone({ reviews: demo.reviews, remarks: demo.remarks }) },
+  async review(_o, txId, on) {
+    demo.reviews = demo.reviews.filter(r => r.txId !== txId)
+    if (on) demo.reviews.push({ txId, by: await demoUserId(), at: new Date().toISOString() })
+  },
+  async addRemark(_o, txId, text) {
+    if (!String(text || '').trim()) throw new Error('Skriv en anmärkning.')
+    demo.remarks.push({ id: `demo-r-${++demo.seq}`, txId, author: await demoUserId(), text: String(text).trim(), createdAt: new Date().toISOString(), resolvedAt: null })
+  },
+  async resolveRemark(_o, id, on) {
+    const r = demo.remarks.find(x => x.id === id)
+    if (r) r.resolvedAt = on ? new Date().toISOString() : null
+  },
+}
+export const reviews = withDemo(dbReviews, demoReviews)

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, ArrowLeft, Pencil, Lock, LockOpen, Trash2, FileDown, FileSpreadsheet, Check, X, Users, Loader } from 'lucide-react';
 import { supabase } from '../supabase';
 import { fmt, projectRows, projectTotals, isValidIsoDate, fmtDate, store } from '../store';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth, isAdminRole } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
 import { useProjects, cap, lower } from '../ProjectsContext';
 import DateInput from '../components/DateInput';
@@ -15,7 +15,7 @@ const emptyForm = () => ({ id: null, name: '', description: '', start: '', end: 
 export default function Projekt({ orgId, orgName, transactions, categories }) {
   const { t } = useI18n();
   const { role, session } = useAuth();
-  const isOwner = role === 'main_owner' || role === 'owner';
+  const isOwner = isAdminRole(role);
   const { labels, projects, reload, openProjectId, openProject } = useProjects();
   const one = lower(labels.one), many = lower(labels.many);
 

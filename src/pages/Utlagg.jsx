@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2, Check, X, Paperclip, Loader, Wallet } from 'lucide-react';
 import { supabase } from '../supabase';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth, isReadOnlyRole, isAdminRole, isPrimaryRole } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
 import { fmt, todayStr, isValidIsoDate, expenses, claimFolder, isDemoMode } from '../store';
 import DateInput from '../components/DateInput';
@@ -26,9 +26,11 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
   const { t } = useI18n();
   const { session, role } = useAuth();
   const myId = session?.user?.id;
-  const isWriter = role !== 'viewer';
-  const isMain = role === 'main_owner';
-  const isOwner = role === 'main_owner' || role === 'owner';
+  const isWriter = !isReadOnlyRole(role);
+  const isAuditor = role === 'auditor';
+  const canSeeAll = isWriter || isAuditor;   // revisorn ser allt men ändrar inget
+  const isMain = isPrimaryRole(role);
+  const isOwner = isAdminRole(role);
   const catMap = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories]);
 
   const [names, setNames]       = useState({});
@@ -65,11 +67,14 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
   const byDue = (a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
   const toHandle = list.filter(c => (isInv ? c.status === 'submitted' : (c.status === 'submitted' || c.status === 'approved'))).sort(isInv ? byDue : () => 0);
   const rejectedList = list.filter(c => c.status === 'rejected');
-  const invoicesToPay = isWriter && invoiceInboxOn ? claims.filter(c => c.kind === 'invoice' && c.status === 'submitted').length : 0;
-  const tabs = isWriter
-    ? [['handle', isInv ? t('Att betala') : t('Att hantera'), toHandle.length], ['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null], ['rejected', isInv ? t('Avvisade') : t('Avslagna'), rejectedList.length], ['all', isInv ? t('Alla fakturor') : t('Alla utlägg'), null]]
+  const invoicesToPay = canSeeAll && invoiceInboxOn ? claims.filter(c => c.kind === 'invoice' && c.status === 'submitted').length : 0;
+  const tabs = canSeeAll
+    ? [['handle', isAuditor ? t('Väntande') : (isInv ? t('Att betala') : t('Att hantera')), toHandle.length],
+       ...(isWriter ? [['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null]] : []),
+       ['rejected', isInv ? t('Avvisade') : t('Avslagna'), rejectedList.length],
+       ['all', isInv ? t('Alla fakturor') : t('Alla utlägg'), null]]
     : [['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null]];
-  const activeTab = tab || (isWriter && toHandle.length ? 'handle' : 'mine');
+  const activeTab = tab || (canSeeAll && toHandle.length ? 'handle' : isWriter ? 'mine' : canSeeAll ? 'all' : 'mine');
   const shown = activeTab === 'handle' ? toHandle : activeTab === 'mine' ? mine : activeTab === 'rejected' ? rejectedList : list;
   const switchView = v => { setView(v); setTab(null); setError(''); };
   const statusOf = c => (c.kind === 'invoice' ? STATUS_INVOICE : STATUS)[c.status];
@@ -131,7 +136,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
 
   // ── Översikt över allt oredovisat: utlägg, inkommande och utgående fakturor på samma ställe ──
   const sum = arr => arr.reduce((acc, c) => acc + Number(c.total), 0);
-  const expToHandle = claims.filter(c => c.kind !== 'invoice' && (isWriter ? (c.status === 'submitted' || c.status === 'approved') && !ownBlocked(c) : c.userId === myId && (c.status === 'submitted' || c.status === 'approved')));
+  const expToHandle = claims.filter(c => c.kind !== 'invoice' && (canSeeAll ? (c.status === 'submitted' || c.status === 'approved') && !ownBlocked(c) : c.userId === myId && (c.status === 'submitted' || c.status === 'approved')));
   const invToPay = claims.filter(c => c.kind === 'invoice' && c.status === 'submitted');
   const outUnpaid = outInvoices.filter(i => i.status === 'issued');
   const outDrafts = outInvoices.filter(i => i.status === 'draft');
@@ -143,7 +148,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
     <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
       <button className={`btn ${view === 'overview' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('overview')}>{t('Översikt')}</button>
       {expensesOn && <button className={`btn ${view === 'expense' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('expense')}>
-        {t('Utlägg')}{isWriter && expToHandle.length > 0 ? ` (${expToHandle.length})` : ''}
+        {t('Utlägg')}{canSeeAll && expToHandle.length > 0 ? ` (${expToHandle.length})` : ''}
       </button>}
       {invoiceInboxOn && <button className={`btn ${view === 'invoice' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('invoice')}>
         {t('Inkommande fakturor')}{invoicesToPay > 0 ? ` (${invoicesToPay})` : ''}
@@ -174,7 +179,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
               {t('Här ser du allt som ännu inte är bokfört: utlägg, fakturor att betala och fakturor som kunder ska betala. Allt bokförs i kassaboken först när det är betalt.')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-              {expensesOn && overviewCard(isWriter ? t('Utlägg att hantera') : t('Dina utlägg som väntar'), expToHandle.length, sum(expToHandle),
+              {expensesOn && overviewCard(isAuditor ? t('Utlägg som väntar') : isWriter ? t('Utlägg att hantera') : t('Dina utlägg som väntar'), expToHandle.length, sum(expToHandle),
                 [], 'expense', t('Öppna utlägg'))}
               {invoiceInboxOn && overviewCard(t('Fakturor att betala'), invToPay.length, sum(invToPay),
                 [overdueIn > 0 && { text: t('{n} har förfallit', { n: overdueIn }), red: true }], 'invoice', t('Öppna inkorgen'))}
@@ -215,7 +220,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
             </button>
           ))}
         </div>
-        <button className="btn btn-primary" onClick={() => setModal({})}><Plus size={15} /> {isInv ? t('Lägg upp faktura') : t('Registrera utlägg')}</button>
+        {!isAuditor && <button className="btn btn-primary" onClick={() => setModal({})}><Plus size={15} /> {isInv ? t('Lägg upp faktura') : t('Registrera utlägg')}</button>}
       </div>
 
       {shown.length === 0 ? (

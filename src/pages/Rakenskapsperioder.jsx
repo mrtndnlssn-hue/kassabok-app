@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Check, AlertCircle, Pencil, X, Lock, Unlock, Archive, Loader, FileSpreadsheet, Paperclip } from 'lucide-react';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth, isReadOnlyRole } from '../auth/AuthProvider';
 import JSZip from 'jszip';
 import { getYear, txsForPeriod, attachments, isValidIsoDate, fmt, previousPeriod, periodSummary, nextPeriodDates, unpaidAtEnd, reportExtras } from '../store';
 import { useI18n } from '../i18n';
@@ -352,7 +352,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, voided
   const { t } = useI18n()
   const { role } = useAuth()
   const { enabled: projOn, projects, labels } = useProjects()
-  const canWrite = role !== 'viewer'
+  const canWrite = !isReadOnlyRole(role)
   const [periods, setPeriods]   = useState(fiscalPeriods);
   const [dirty, setDirty]       = useState(false);
   const [editIdx, setEditIdx]   = useState(null);
