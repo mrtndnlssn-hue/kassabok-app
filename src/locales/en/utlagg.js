@@ -1,5 +1,7 @@
 // Utlägg (expense claims)
 export default {
+  'Demon tillåter en AI-avläsning per besök. Ladda om demon för att prova igen.': 'The demo allows one AI reading per visit. Reload the demo to try again.',
+  '{used}/{limit} avläsning använd i demon (en per besök)': '{used}/{limit} reading used in the demo (one per visit)',
   'Det här verkar redan vara inlagt': 'This seems to be entered already',
   'Utlägg som väntar på hantering: {vad}': 'Expense awaiting handling: {vad}',
   'Du kan ändå spara om det är en egen post.': 'You can still save it if it is a separate entry.',

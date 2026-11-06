@@ -660,8 +660,12 @@ const dbInvoicing = {
 // ── Demoläge ───────────────────────────────────────────────────
 // Demokontot läser riktig data men all skrivning sker i minnet och försvinner vid omladdning.
 let demo = null // { data, files: Map<txId, [{name, file}]>, seq, claims, customers, invoices, invSeq }
-export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0 } : null }
+export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0, aiReads: 0 } : null }
 export const isDemoMode = () => !!demo
+// Demoläget tillåter en AI-avläsning per session (nollställs när man loggar in på demon igen)
+export const DEMO_AI_LIMIT = 1
+export const demoAiUsed = () => demo?.aiReads || 0
+export const demoAiCount = () => { if (demo) demo.aiReads++ }
 
 const clone = v => structuredClone(v)
 const remapKeys = (obj, map) => Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => [map[k] ?? k, v]))

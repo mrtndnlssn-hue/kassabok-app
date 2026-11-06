@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, X, Check, Upload, FileText, Sparkles, Camera } from 'lucide-react';
 import { getReceiptUsage, readReceipt, canReadWithAi, buildHistory } from '../receiptAi';
-import { fmt, todayStr, isValidIsoDate, txLines } from '../store';
+import { fmt, todayStr, isValidIsoDate, txLines, isDemoMode } from '../store';
 import DateInput from './DateInput';
 import { useI18n } from '../i18n';
 import { useAuth } from '../auth/AuthProvider';
@@ -456,7 +456,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
                       <Sparkles size={13} /> {aiBusy ? t('Läser av…') : t('Fyll i med AI')}
                     </button>
                     <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>
-                      {t('{used}/{limit} avläsningar använda denna månad', { used: aiUsage.used, limit: aiUsage.limit })}
+                      {isDemoMode() ? t('{used}/{limit} avläsning använd i demon (en per besök)', { used: aiUsage.used, limit: aiUsage.limit }) : t('{used}/{limit} avläsningar använda denna månad', { used: aiUsage.used, limit: aiUsage.limit })}
                     </span>
                   </div>
                 )}

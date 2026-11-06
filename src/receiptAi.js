@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { translate as t } from './i18n'
-import { txLines } from './store'
+import { txLines, isDemoMode, DEMO_AI_LIMIT, demoAiUsed, demoAiCount } from './store'
 
 const MAX_BYTES = 5 * 1024 * 1024
 const MAX_SIDE = 1600
@@ -29,6 +29,7 @@ async function downscaleImage(file) {
 export const canReadWithAi = file => /^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(file?.type || '')
 
 export async function getReceiptUsage(orgId) {
+  if (isDemoMode()) return { enabled: true, used: demoAiUsed(), limit: DEMO_AI_LIMIT }
   const { data, error } = await supabase.rpc('get_receipt_usage', { p_org_id: orgId })
   if (error) throw error
   return data // { enabled, used, limit }
@@ -61,6 +62,7 @@ export function buildHistory(transactions, categories) {
 
 // Returnerar { date, amount, description, category_id, confidence, used, limit }
 export async function readReceipt(orgId, file, categories, history = []) {
+  if (isDemoMode() && demoAiUsed() >= DEMO_AI_LIMIT) throw new Error(t('Demon tillåter en AI-avläsning per besök. Ladda om demon för att prova igen.'))
   let mediaType = file.type
   let blob = file
   if (mediaType.startsWith('image/')) {
@@ -79,5 +81,6 @@ export async function readReceipt(orgId, file, categories, history = []) {
   })
   if (error) throw new Error(t('Tjänsten för AI-avläsning kunde inte nås.'))
   if (result?.error) throw new Error(t(result.error))
+  if (isDemoMode()) { demoAiCount(); return { ...result, used: demoAiUsed(), limit: DEMO_AI_LIMIT } }
   return result
 }
