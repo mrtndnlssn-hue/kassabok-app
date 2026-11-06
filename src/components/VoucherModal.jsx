@@ -13,6 +13,7 @@ import { useProjects, cap } from '../ProjectsContext';
 export const emptyVoucherForm = () => ({
   date: todayStr(),
   description: '',
+  counterparty: '',
   lines: [{ categoryId: '', amount: '', projectId: '' }],   // ett verifikat kan bokföras på flera konton
   comment: '',
 });
@@ -64,6 +65,12 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
   const linesTotal   = form.lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
   const lineTypes    = new Set(form.lines.filter(l => l.categoryId).map(l => catMap[l.categoryId]?.type));
   const mixedTypes   = lineTypes.size > 1;
+  // Motparter som använts förut, vanligast först, som förslag när man skriver
+  const counterpartySuggestions = (() => {
+    const n = {};
+    for (const tx of transactions) { const c = (tx.counterparty || '').trim(); if (c) n[c] = (n[c] || 0) + 1; }
+    return Object.entries(n).sort((a, b) => b[1] - a[1]).slice(0, 60).map(([c]) => c);
+  })();
 
   // Varning om samma sak verkar vara inlagd redan: fakturor mot inkorgen och bokföringen, övriga verifikat och utlägg mot
   // bokföringen och andra utlägg (samma belopp och datum, och samma konto eller liknande beskrivning)
@@ -91,15 +98,16 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
     } else {
       const desc = norm(form.description);
       const cats = new Set(form.lines.map(l => l.categoryId).filter(Boolean));
-      const similar = (d, ls) => {
+      const cp = norm(form.counterparty);
+      const similar = (d, ls, c) => {
         const x = norm(d);
-        return (desc && x && (x.includes(desc) || desc.includes(x))) || ls.some(l => cats.has(l.categoryId));
+        return (desc && x && (x.includes(desc) || desc.includes(x))) || ls.some(l => cats.has(l.categoryId)) || (cp && norm(c) === cp);
       };
       const paidIds = new Set(claims.filter(c => c.txId).map(c => c.txId));
       for (const tx of transactions) {
         if (tx.id === selfId || tx.voidedAt || tx.date !== form.date) continue;
         const ls = txLines(tx);
-        if (sumOf(ls) === total && similar(tx.description, ls)) found.push({ kind: 'booked', tx, viaClaim: paidIds.has(tx.id) });
+        if (sumOf(ls) === total && similar(tx.description, ls, tx.counterparty)) found.push({ kind: 'booked', tx, viaClaim: paidIds.has(tx.id) });
       }
       for (const c of claims) {
         if (c.kind === 'invoice' || c.id === selfId || c.status === 'rejected' || c.status === 'paid' || c.date !== form.date) continue;
@@ -138,6 +146,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
         ...f,
         date:        r.date || f.date,
         description: isInvoice ? f.description : (r.description || f.description),
+        counterparty: isInvoice ? f.counterparty : (f.counterparty || r.supplier || ''),
         // AI-förslaget är ett enda konto: ersätter en eventuell uppdelning
         lines: [{
           categoryId: r.category_id || f.lines[0]?.categoryId || '',
@@ -163,9 +172,10 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
     if (form.lines.some(l => !l.categoryId || !(parseFloat(l.amount) > 0))) { setSaveError(t('Välj konto och ange belopp för varje rad.')); return; }
     if (mixedTypes) { setSaveError(t('Alla konton på ett verifikat måste vara av samma typ (alla intäkter eller alla kostnader).')); return; }
     const lines = form.lines.map(l => ({ id: l.id, categoryId: l.categoryId, amount: parseFloat(l.amount), projectId: l.projectId || null }));
+    if (!isInvoice && !restricted && !form.description.trim()) { setSaveError(t('Ange vad verifikatet avser.')); return; }
     if (isInvoice && !inv.supplier.trim()) { setSaveError(t('Ange leverantör.')); return; }
     if (isInvoice && inv.dueDate && !isValidIsoDate(inv.dueDate)) { setSaveError(t('Ange ett giltigt förfallodatum på formatet YYYY-MM-DD.')); return; }
-    const payload = { date: form.date, description: form.description, comment: form.comment, lines, ...(isInvoice ? { invoice: { ...inv } } : {}), ...(isExpense && !isInvoice && forUser && forUser !== session?.user?.id ? { forUser } : {}) };
+    const payload = { date: form.date, description: form.description, comment: form.comment, counterparty: isInvoice ? inv.supplier : form.counterparty, lines, ...(isInvoice ? { invoice: { ...inv } } : {}), ...(isExpense && !isInvoice && forUser && forUser !== session?.user?.id ? { forUser } : {}) };
     setSaving(true);
     setSaveError('');
     try {
@@ -381,11 +391,25 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
           )}
           <div className="form-row">
             <div>
-              <label>{t('Beskrivning')}</label>
+              <label>{t('Beskrivning')}{!isInvoice && ' *'}</label>
               <input type="text" placeholder={t('Vad avser transaktionen?')} value={form.description} disabled={restricted}
+                required={!isInvoice && !restricted} maxLength={200}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
           </div>
+          {!isInvoice && (
+            <div className="form-row">
+              <div>
+                <label>{isExpense ? t('Köpt hos') : t('Motpart')}</label>
+                <input type="text" list="voucher-counterparties" maxLength={120} value={form.counterparty || ''} disabled={restricted}
+                  placeholder={isExpense ? t('Butik eller leverantör') : t('Leverantör, kund eller den ni köpt hos')}
+                  onChange={e => setForm(f => ({ ...f, counterparty: e.target.value }))} />
+                <datalist id="voucher-counterparties">
+                  {counterpartySuggestions.map(n => <option key={n} value={n} />)}
+                </datalist>
+              </div>
+            </div>
+          )}
           <div className="form-row">
             <div>
               <label>{t('Kommentar')}</label>

@@ -1,5 +1,10 @@
 // Utlägg (expense claims)
 export default {
+  'Ange vad verifikatet avser.': 'Enter what the voucher is for.',
+  'Motpart': 'Counterparty',
+  'Köpt hos': 'Bought from',
+  'Butik eller leverantör': 'Shop or supplier',
+  'Leverantör, kund eller den ni köpt hos': 'Supplier, customer or who you bought from',
   'Avslagna': 'Rejected',
   'Avvisade': 'Rejected',
   'Inga avslagna utlägg.': 'No rejected expenses.',

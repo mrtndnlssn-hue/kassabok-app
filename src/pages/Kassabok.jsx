@@ -72,6 +72,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
       const q = search.toLowerCase();
       txs = txs.filter(x =>
         x.description?.toLowerCase().includes(q) ||
+        x.counterparty?.toLowerCase().includes(q) ||
         txLines(x).some(l => l.categoryId?.toLowerCase().includes(q) || catMap[l.categoryId]?.name.toLowerCase().includes(q))
       );
     }
@@ -119,7 +120,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     ? <span className="badge badge-project" title={cap(labels.one)} style={{ marginLeft: 6 }}>{projMap[l.projectId].name}</span>
     : null;
 
-  const txForm = tx => ({ date: tx.date, description: tx.description || '', comment: tx.comment || '',
+  const txForm = tx => ({ date: tx.date, description: tx.description || '', counterparty: tx.counterparty || '', comment: tx.comment || '',
     lines: txLines(tx).map(l => ({ id: l.id, categoryId: l.categoryId, amount: String(l.amount), projectId: l.projectId || '' })) });
   function openAdd() { setModal({ initial: null, editId: null }); }
   // Efter 1 timme är verifikatet låst: bara kommentar och projektmärkning kan ändras
@@ -258,6 +259,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                   <span className={`m-amount ${incAmt ? 'positive' : 'negative'}`}>{incAmt ? `+${fmt(incAmt)}` : `−${fmt(expAmt)}`}</span>
                 </div>
                 <div className="m-card-desc" style={tx.voidedAt ? { textDecoration: 'line-through' } : undefined}>{tx.description || '–'}</div>
+                {tx.counterparty && <div style={{ fontSize: '0.78rem', color: 'var(--ink-muted)' }}>{tx.counterparty}</div>}
                 {voidBadge(tx)}
                 {lines.map((l, k) => {
                   const c = catMap[l.categoryId];
@@ -314,6 +316,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                   <td className="mono">{tx.date}</td>
                   <td>
                     <span style={tx.voidedAt ? { textDecoration: 'line-through' } : undefined}>{tx.description || <em style={{ color: 'var(--ink-muted)' }}>–</em>}</span>
+                    {tx.counterparty && <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>{tx.counterparty}</div>}
                     {voidBadge(tx)}
                   </td>
                   <td>

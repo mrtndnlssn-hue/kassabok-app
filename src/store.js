@@ -118,6 +118,7 @@ const dbStore = {
         categoryId:  t.category_id,
         amount:      Number(t.amount),
         comment:     t.comment || '',
+        counterparty: t.counterparty || '',
         createdAt:   t.created_at,
         voidedAt:    t.voided_at || null,
         voidReason:  t.void_reason || '',
@@ -302,6 +303,7 @@ const dbStore = {
       category_id: lines[0].categoryId,
       amount:      sumLines(lines),
       comment:     tx.comment || '',
+      counterparty: tx.counterparty?.trim() || null,
     }).select().single()
     if (error) throw error
     const { error: lineErr } = await supabase.from('transaction_lines').insert(
@@ -321,6 +323,7 @@ const dbStore = {
     if (updates.categoryId  !== undefined) patch.category_id = updates.categoryId
     if (updates.amount      !== undefined) patch.amount      = updates.amount
     if (updates.comment     !== undefined) patch.comment     = updates.comment
+    if (updates.counterparty !== undefined) patch.counterparty = updates.counterparty?.trim() || null
     const lines = updates.lines ? cleanLines(updates.lines) : null
     if (lines) {
       if (!lines.length) throw new Error('Verifikatet saknar konto.')
@@ -363,7 +366,7 @@ const dbStore = {
     const { data, error } = await supabase.rpc('void_transaction', {
       p_id: id, p_reason: reason,
       p_new: replacement && {
-        date: replacement.date, description: replacement.description || '', comment: replacement.comment || '',
+        date: replacement.date, description: replacement.description || '', comment: replacement.comment || '', counterparty: replacement.counterparty || '',
         lines: cleanLines(replacement.lines),
       },
     })
@@ -502,7 +505,7 @@ const dbAttachments = {
 export const claimFolder = id => `claim_${id}`
 
 const claimFromRow = r => ({
-  id: r.id, userId: r.user_id, registeredBy: r.registered_by || null, date: r.date, description: r.description || '', comment: r.comment || '',
+  id: r.id, userId: r.user_id, registeredBy: r.registered_by || null, counterparty: r.counterparty || '', date: r.date, description: r.description || '', comment: r.comment || '',
   lines: (r.lines || []).map(l => ({ categoryId: l.categoryId, amount: Number(l.amount), projectId: l.projectId || null })),
   total: Number(r.total), status: r.status, rejectReason: r.reject_reason || '',
   kind: r.kind || 'expense', supplier: r.supplier || '', invoiceNo: r.invoice_no || '', dueDate: r.due_date || null, paymentRef: r.payment_ref || '',
@@ -528,7 +531,7 @@ const dbExpenses = {
         })
       : await supabase.rpc('submit_expense_claim', {
           p_id: id, p_org: orgId, p_date: claim.date, p_description: claim.description || '', p_comment: claim.comment || '',
-          p_lines: cleanLines(claim.lines), p_for_user: claim.forUser || null,
+          p_lines: cleanLines(claim.lines), p_for_user: claim.forUser || null, p_counterparty: claim.counterparty || null,
         })
     if (error) throw error
     let uploadError = null
@@ -828,7 +831,7 @@ const demoStore = {
     const lines = cleanLines(tx.lines || [{ categoryId: tx.categoryId, amount: tx.amount }]).map((l, i) => ({ ...l, id: `${id}-l${i}` }))
     demo.data.transactions.push({
       id, date: tx.date, description: tx.description, categoryId: lines[0].categoryId,
-      amount: sumLines(lines), comment: tx.comment || '', createdAt, lines,
+      amount: sumLines(lines), comment: tx.comment || '', counterparty: tx.counterparty?.trim() || '', createdAt, lines,
     })
     demo.data.transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
     return { ...tx, id, lines, createdAt }
@@ -838,7 +841,7 @@ const demoStore = {
     const lines = updates.lines ? cleanLines(updates.lines) : null
     demo.data.transactions = demo.data.transactions.map(t => t.id === id ? {
       ...t,
-      ...Object.fromEntries(['date', 'description', 'categoryId', 'amount', 'comment']
+      ...Object.fromEntries(['date', 'description', 'categoryId', 'amount', 'comment', 'counterparty']
         .filter(k => updates[k] !== undefined).map(k => [k, updates[k]])),
       ...(lines ? { lines, categoryId: lines[0].categoryId, amount: sumLines(lines) } : {}),
     } : t)
@@ -928,7 +931,7 @@ const demoExpenses = {
     if (!lines.length) throw new Error('Välj konto och ange belopp.')
     const existing = claim.id && demo.claims.find(c => c.id === claim.id)
     const inv = claim.invoice
-    const base = { date: claim.date, description: claim.description || '', comment: claim.comment || '', lines, total: sumLines(lines),
+    const base = { date: claim.date, description: claim.description || '', comment: claim.comment || '', counterparty: claim.counterparty || '', lines, total: sumLines(lines),
       ...(inv ? { kind: 'invoice', supplier: (inv.supplier || '').trim(), invoiceNo: inv.invoiceNo || '', dueDate: inv.dueDate || null, paymentRef: inv.paymentRef || '' } : {}) }
     if (inv && !base.supplier) throw new Error('Ange leverantör.')
     let saved
@@ -957,6 +960,7 @@ const demoExpenses = {
     const added = await demoStore.addTransaction(orgId, {
       date: paidDate, description: c.kind === 'invoice' ? (c.description || c.supplier) : c.description,
       comment: c.kind === 'invoice' ? `Faktura från ${c.supplier}${c.invoiceNo ? ` (nr ${c.invoiceNo})` : ''}${c.comment ? ` – ${c.comment}` : ''}` : c.comment,
+      counterparty: c.kind === 'invoice' ? c.supplier : c.counterparty,
       lines: c.lines })
     await demoAttachments.moveFolder(orgId, claimFolder(id), added.id)
     Object.assign(c, { status: 'paid', paidAt: new Date().toISOString(), paidDate, txId: added.id })
@@ -1017,7 +1021,7 @@ const demoInvoicing = {
     const inv = demo.invoices.find(x => x.id === id)
     if (!inv || inv.status !== 'issued') throw new Error('Bara utfärdade, obetalda fakturor kan markeras som betalda.')
     const added = await demoStore.addTransaction(orgId, { date: paidDate, description: `Faktura ${inv.invoiceNo} – ${inv.customer.name}`,
-      comment: `Betald faktura till ${inv.customer.name}`, lines: inv.lines.map(l => ({ categoryId: l.categoryId, amount: l.amount })) })
+      comment: `Betald faktura till ${inv.customer.name}`, counterparty: inv.customer.name, lines: inv.lines.map(l => ({ categoryId: l.categoryId, amount: l.amount })) })
     Object.assign(inv, { status: 'paid', paidDate, txId: added.id })
     return added.id
   },

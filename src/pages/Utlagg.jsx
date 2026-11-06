@@ -335,7 +335,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
           expense={(modal.claim ? modal.claim.kind === 'invoice' : isInv) ? 'invoice' : 'forced'}
           editing={!!modal.claim}
           initial={modal.claim && {
-            date: modal.claim.date, description: modal.claim.description, comment: modal.claim.comment,
+            date: modal.claim.date, description: modal.claim.description, counterparty: modal.claim.counterparty || '', comment: modal.claim.comment,
             lines: modal.claim.lines.map(l => ({ categoryId: l.categoryId, amount: String(l.amount), projectId: l.projectId || '' })),
             invoice: modal.claim.kind === 'invoice'
               ? { supplier: modal.claim.supplier, invoiceNo: modal.claim.invoiceNo, dueDate: modal.claim.dueDate || '', paymentRef: modal.claim.paymentRef }
