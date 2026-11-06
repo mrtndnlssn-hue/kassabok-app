@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.jsx'
 import AuthProvider from './auth/AuthProvider.jsx'
 import { I18nProvider } from './i18n'
+import { initA11y } from './a11y'
+
+initA11y()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
