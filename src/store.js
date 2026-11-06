@@ -743,7 +743,9 @@ async function seedDemo() {
   if (!exp.length || !inc.length) return
   const me = await demoUserId()
   const pd = demo.data.projectData
-  demo.tripSettings.categoryId = exp[0].id
+  // Körersättning i demon: två ersättningsslag, och kontot som resor bokförs på
+  const tripCat = exp.find(c => /resa|resor|transport|bil|fordon/i.test(c.name)) || exp[0]
+  demo.tripSettings = { rates: [{ name: 'Egen bil', rate: 25 }, { name: 'Skoter/fyrhjuling', rate: 90 }], label: 'Körersättning', categoryId: tripCat.id, note: '' }
   demo.data.features = (demo.data.features || []).map(f => ({ ...f, enabled: true, allowed: true }))
   Object.assign(pd, { expensesAllowed: true, invoicingAllowed: true, invoicingEnabled: true, invoiceDetails: {
     address: 'Björkvägen 4', zip: '123 45', city: 'Björkby', org_number: '802400-0000', email: 'kassor@bjorkbyif.example', phone: '070-123 45 67',
@@ -758,6 +760,10 @@ async function seedDemo() {
   demo.claims.push(
     claim({ date: day(-2), description: 'Fika till årsmötet', comment: 'Kaffe, kakor och muggar', lines: [line(exp[0], 640)] }),
     claim({ date: day(-6), description: 'Bensin till materialtransport', status: 'approved', decidedAt: new Date().toISOString(), lines: [line(exp[Math.min(1, exp.length - 1)], 420)] }),
+    claim({ date: day(-3), description: 'Körersättning', comment: 'Matchresor och materialtransport', lines: [line(tripCat, 247.5)],
+      trips: { rows: [{ date: day(-8), area: 'Östersund', minutes: 150, miles: 4.5, type: 'Egen bil', rate: 25 }, { date: day(-3), area: 'Björkby', minutes: 40, miles: 1.5, type: 'Skoter/fyrhjuling', rate: 90 }] } }),
+    claim({ date: day(-12), description: 'Körersättning', status: 'approved', decidedAt: new Date().toISOString(), lines: [line(tripCat, 100)],
+      trips: { rows: [{ date: day(-12), area: 'Sveg', minutes: 120, miles: 4, type: 'Egen bil', rate: 25 }] } }),
     claim({ date: day(-5), kind: 'invoice', supplier: 'Elbolaget Norr AB', invoiceNo: '2026-4471', dueDate: day(9), paymentRef: 'OCR 1234567890', description: 'El, lokalen', lines: [line(exp[Math.min(2, exp.length - 1)], 1850)] }),
     claim({ date: day(-30), kind: 'invoice', supplier: 'Björkbyns bygdegård', invoiceNo: '118', dueDate: day(-3), paymentRef: 'Bankgiro 555-1234', description: 'Hyra av lokal', lines: [line(exp[Math.min(3, exp.length - 1)], 2500)] }),
   )
