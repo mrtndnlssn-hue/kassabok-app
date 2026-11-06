@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { demoCredentials } from '../demo'
 import { useI18n } from '../i18n'
@@ -17,6 +17,18 @@ export default function LoginPage() {
   const [inviteOrg, setInviteOrg] = useState(null) // org name from invite in URL
 
   const inviteCode = new URLSearchParams(window.location.search).get('invite')
+
+  // En länk med ?demo=1 (från hemsidan) loggar in direkt i demon
+  const demoStarted = useRef(false)
+  useEffect(() => {
+    if (demoStarted.current || new URLSearchParams(window.location.search).get('demo') !== '1') return
+    demoStarted.current = true
+    setLoading(true)
+    supabase.auth.signInWithPassword(demoCredentials('demo', 'demo')).then(({ error }) => {
+      if (error) setError(error.message)
+      setLoading(false)
+    })
+  }, [])
 
   useEffect(() => {
     if (!inviteCode) return

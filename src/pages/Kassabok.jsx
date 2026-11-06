@@ -35,9 +35,12 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
     : { key, dir: key === 'category' || key === 'type' ? 'asc' : (key === 'ver' ? 'asc' : 'desc') });
   const sortTh = (key, label, extra = {}) => (
-    <th className={extra.className} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...extra.style }}
-      onClick={() => toggleSort(key)} aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      {label}{sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+    <th className={extra.className} style={extra.style}
+      aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" onClick={() => toggleSort(key)}
+        style={{ background: 'none', border: 'none', padding: 0, margin: 0, font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        {label}{sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+      </button>
     </th>
   );
 

@@ -63,6 +63,10 @@ a { color: var(--blue); }
 .container { max-width: var(--max); margin: 0 auto; }
 .kicker { font-family: 'DM Mono', monospace; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); }
 
+.skip-link { position: absolute; left: 8px; top: -60px; z-index: 100; background: var(--ink); color: var(--paper); padding: 10px 14px; border-radius: 4px; font-weight: 600; }
+.skip-link:focus { top: 8px; }
+main:focus { outline: none; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 /* ── Nav ─────────────────────────────────────────── */
 .site-nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--paper); border-bottom: 1px solid var(--rule); margin: 0 calc(-1 * max(18px, env(safe-area-inset-left, 0px)));  padding: 0 max(18px, env(safe-area-inset-left, 0px)); }
 .nav-inner { max-width: var(--max); margin: 0 auto; display: flex; align-items: center; }
@@ -299,6 +303,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main" data-en="Skip to content">Hoppa till innehåll</a>
 
 <!-- NAV -->
 <nav class="site-nav">
@@ -316,6 +321,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
   </div>
 </nav>
 
+<main id="main" tabindex="-1">
 <!-- ── VIEW: START ───────────────────────────────────────────────── -->
 <div class="view active" id="view-start">
   <div class="container">
@@ -326,9 +332,10 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <p class="hero-sub" data-en="Vouchers, receipts, budget and annual report in one place. For non-profit associations that want things in order for the auditor without buying business accounting software.">Verifikat, kvitton, budget och årsrapport på ett ställe. För ideella föreningar som vill ha ordning inför revisorn utan att köpa ett bokföringsprogram för företag.</p>
         <div class="cta-row">
           <a class="btn" data-app href="https://app.foreningsbalans.se" data-en="Try it free →">Prova gratis →</a>
+          <a class="btn btn-line" data-app-demo href="https://app.foreningsbalans.se/?demo=1" data-en="Look around in the demo →">Titta runt i demon →</a>
           <a class="textlink" href="#priser" onclick="navigate('priser'); return false;" data-en="See pricing">Se priser</a>
         </div>
-        <p class="hero-note" data-en="Try it with up to 15 vouchers at no cost. No card needed. <a data-app href=&quot;https://app.foreningsbalans.se&quot;>Look around in the demo</a> (username and password: demo).">Prova med upp till 15 verifikat utan kostnad. Ingen kortuppgift. <a data-app href="https://app.foreningsbalans.se">Titta runt i demon</a> (användarnamn och lösenord: demo).</p>
+        <p class="hero-note" data-en="Try it with up to 15 vouchers at no cost. No card needed. The demo needs no account: everything you change in it disappears when you leave.">Prova med upp till 15 verifikat utan kostnad. Ingen kortuppgift. Demon kräver inget konto: allt du ändrar i den försvinner när du lämnar den.</p>
       </div>
 
       <div>
@@ -682,7 +689,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <li><div class="step-dot">5</div><span data-en="Click <strong>Excel</strong> to export the period as an Excel file with all vouchers. Receipts and attachments come with it in the same ZIP file. Together they are your backup copy.">Klicka på <strong>Excel</strong> för att exportera perioden som en Excel-fil med alla verifikat. Kvitton och bilagor följer med i samma ZIP-fil. Tillsammans är de er säkerhetskopia.</span></li>
 <li><div class="step-dot">6</div><span data-en="Once you have saved the ZIP file somewhere safe, click <strong>Clear attachments…</strong> to remove the uploaded files for that period from the database and free up storage. You can download the copy again from the same window, and you are asked to confirm because the files are deleted permanently.">När ni har sparat ZIP-filen på ett tryggt ställe klickar ni på <strong>Rensa bilagor…</strong> för att ta bort periodens uppladdade filer från databasen och frigöra lagringsutrymme. Ni kan ladda ner kopian igen i samma ruta, och ni får be om en bekräftelse eftersom filerna raderas permanent.</span></li>
       </ul>
-      <div data-en="The opening balance is the account balance you had at the start of the period — it is used in the cash report in the PDF." class="help-tip">Ingående saldo är det kontosaldo ni hade vid periodens start — det används i kassarapporten i PDF:en.</div>
+      <div data-en="The opening balance is the account balance you had at the start of the period — it is used in the cash report in the PDF. The Swedish Bookkeeping Act requires vouchers and supporting documents to be kept for seven years. If you clear attachments to free up storage, keep the ZIP copy for that long, readable and available to the auditor and the Swedish Tax Agency." class="help-tip">Ingående saldo är det kontosaldo ni hade vid periodens start — det används i kassarapporten i PDF:en. Bokföringslagen kräver att verifikat och underlag sparas i sju år. Rensar ni bilagor för att frigöra lagringsutrymme ska ZIP-kopian sparas lika länge, läsbar och tillgänglig för revisor och Skatteverket.</div>
     </div>
 
     <div class="help-section" id="sec-budget">
@@ -801,6 +808,8 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
 
 
 
+
+</main>
 
 <footer>
   <div class="container foot">
@@ -936,6 +945,7 @@ function applyLang(lang) {
     el.setAttribute('placeholder', lang === 'en' ? el.dataset.enPh : el.dataset.phSv);
   });
   document.querySelectorAll('[data-app]').forEach(a => { a.href = APP_URL + '/?lang=' + lang; });
+  document.querySelectorAll('[data-app-demo]').forEach(a => { a.href = APP_URL + '/?demo=1&lang=' + lang; });
   document.querySelectorAll('.lang-switch button').forEach(b => {
     const on = b.dataset.lang === lang;
     b.classList.toggle('active', on);
@@ -960,6 +970,16 @@ function navigate(id, tabEl) {
   if (tab) tab.classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   try { history.replaceState(null, '', '#' + id); } catch(e) {}
+  // Sidan byts utan att laddas om: uppdatera titeln och flytta fokus så att skärmläsare får veta det
+  const VIEW_TITLES = {
+    sv: { start: null, funktioner: 'Funktioner', priser: 'Priser', hjalp: 'Hjälp', bestall: 'Beställ' },
+    en: { start: null, funktioner: 'Features', priser: 'Pricing', hjalp: 'Help', bestall: 'Order' }
+  };
+  const part = (VIEW_TITLES[currentLang] || VIEW_TITLES.sv)[id];
+  document.title = part ? part + ' — Föreningsbalans' : META[currentLang].title;
+  const main = document.getElementById('main');
+  if (main && window.__navDone) main.focus({ preventScroll: true });
+  window.__navDone = true;
 }
 
 function selectPlan(code) {
