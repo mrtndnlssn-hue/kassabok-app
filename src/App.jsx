@@ -300,7 +300,7 @@ function MainApp({ orgId, role }) {
     komigang:   <Komigang {...pageProps} features={features} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} claims={claims} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
-    utlagg:     <Utlagg {...pageProps} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoiceInboxOn={invoiceInboxOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
+    utlagg:     <Utlagg {...pageProps} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoiceInboxOn={invoiceInboxOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
@@ -337,7 +337,7 @@ function MainApp({ orgId, role }) {
     return (
       <div className="m-shell">
         <header className="m-topbar">
-          <a className="m-brand" href="https://foreningsbalans.se" title={t('Till startsidan')}>
+          <a className="m-brand" href="#dashboard" title={t('Översikt')} onClick={e => { e.preventDefault(); go('dashboard'); }}>
             <img src="/favicon.svg" alt="" width="26" height="26" />
             <span>{orgName || t('Min Förening')}</span>
           </a>
@@ -360,8 +360,11 @@ function MainApp({ orgId, role }) {
         <nav className="m-tabbar" aria-label={t('Meny')}>
           {tab('dashboard', LayoutDashboard, t('Översikt'))}
           {tab('kassabok', BookOpen, t('Kassabok'))}
-          {canWrite && (
-            <button className="m-tab m-tab-add" onClick={() => { go('kassabok'); setAddRequest(true); }} aria-label={t('Lägg till verifikat')}>
+          {/* Skrivare lägger till verifikat. En läsare med rätt att registrera utlägg eller fakturor får plusset till Utlägg i stället. */}
+          {(canWrite || expensesOn || invoiceInboxOn) && (
+            <button className="m-tab m-tab-add"
+              onClick={() => { go(canWrite ? 'kassabok' : 'utlagg'); setAddRequest(true); }}
+              aria-label={canWrite ? t('Lägg till verifikat') : expensesOn ? t('Registrera utlägg') : t('Lägg upp faktura')}>
               <span className="m-add-circle"><Plus size={26}/></span>
             </button>
           )}
