@@ -28,7 +28,7 @@ function RoleBadge({ role }) {
   )
 }
 
-export default function Medlemmar({ orgId, orgName }) {
+export default function Medlemmar({ orgId, orgName, features = [] }) {
   const { t } = useI18n()
   const { session, role: myRole } = useAuth()
   const isMainOwner = myRole === 'main_owner'
@@ -36,11 +36,14 @@ export default function Medlemmar({ orgId, orgName }) {
 
   const [members, setMembers] = useState([])
   const [maxMembers, setMaxMembers] = useState(15)
-  const [expensesAllowed, setExpensesAllowed] = useState(false)   // utlägg ingår i planen
+  // Rätten att registrera utlägg och/eller fakturor visas när funktionen är påslagen, med text efter vad som gäller
+  const expOn = features.some(f => f.key === 'expenses' && f.effective)
+  const invOn = features.some(f => f.key === 'invoice_inbox' && f.effective)
+  const expensesAllowed = expOn || invOn
+  const rightLabel = expOn && invOn ? t('Får registrera utlägg och fakturor') : invOn ? t('Får lägga upp fakturor') : t('Får registrera utlägg')
   useEffect(() => {
     supabase.rpc('get_org_plan', { p_org: orgId }).then(({ data }) => {
       if (data?.member_limit) setMaxMembers(data.member_limit)
-      setExpensesAllowed(!!data?.expenses_allowed)
     })
   }, [orgId])
   const [invites, setInvites] = useState([])
@@ -277,13 +280,13 @@ export default function Medlemmar({ orgId, orgName }) {
                     </select>
                   )}
                   {m.role === 'viewer' && expensesAllowed && (canManage ? (
-                    <label title={t('Läsaren kan registrera egna utlägg som ska godkännas av en ägare eller medlem')}
+                    <label title={t('Läsaren kan registrera egna utlägg och lägga upp fakturor som hanteras av en ägare eller medlem')}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.75rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer' }}>
                       <input type="checkbox" checked={m.canExpenses} onChange={e => setCanExpenses(m.userId, e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
-                      {t('Får registrera utlägg')}
+                      {rightLabel}
                     </label>
                   ) : m.canExpenses && (
-                    <div style={{ marginTop: 4, fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{t('Får registrera utlägg')}</div>
+                    <div style={{ marginTop: 4, fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{rightLabel}</div>
                   ))}
                 </td>
                 <td style={{ textAlign: 'right' }}>
@@ -342,7 +345,7 @@ export default function Medlemmar({ orgId, orgName }) {
               {newRole === 'viewer' && expensesAllowed && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer' }}>
                   <input type="checkbox" checked={newExpenses} onChange={e => setNewExpenses(e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
-                  {t('Får registrera utlägg')}
+                  {rightLabel}
                 </label>
               )}
               <button className="btn btn-primary btn-sm" onClick={createInvite} disabled={members.length >= maxMembers}
@@ -371,7 +374,7 @@ export default function Medlemmar({ orgId, orgName }) {
                     <div style={{ display:'flex', alignItems:'center', gap:6, fontSize: '0.72rem', color: 'var(--ink-muted)', flexWrap: 'wrap' }}>
                       {inv.nickname && <strong style={{ color: 'var(--ink)' }}>{inv.nickname} ·</strong>}
                       {ROLE_LABEL[inv.invited_role] ? t(ROLE_LABEL[inv.invited_role]) : inv.invited_role}
-                      {inv.can_submit_expenses && <> · {t('Får registrera utlägg')}</>}
+                      {inv.can_submit_expenses && <> · {rightLabel}</>}
                       · {t('Skapad')} {isoDateTime(new Date(inv.created_at))}
                       · {t('Går ut')} {fmtDate(inv.expires_at)}
                       {inv.code === newestCode && (

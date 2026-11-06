@@ -58,6 +58,20 @@ const projectError = e => {
 }
 const sumLines = lines => Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100
 
+// Funktioner som föreningen kan slå på och av. Servern avgör vad paketet tillåter, vad som är påslaget och vad som hindrar en avstängning.
+const dbFeatures = {
+  async list(orgId) {
+    const { data, error } = await supabase.rpc('get_org_features', { p_org: orgId })
+    if (error) throw error
+    return data || []
+  },
+  async set(orgId, key, on) {
+    const { data, error } = await supabase.rpc('set_org_feature', { p_org: orgId, p_key: key, p_on: !!on })
+    if (error) throw error
+    return data || []
+  },
+}
+
 const dbStore = {
   async getAll(orgId) {
     const [orgRes, settingsRes, catsRes, txsRes, budgetRes, periodsRes, linesRes] = await Promise.all([
@@ -70,6 +84,7 @@ const dbStore = {
       supabase.from('transaction_lines').select('*').eq('org_id', orgId).order('position'),
     ])
     const projectData = await dbStore.getProjectData(orgId)
+    const features = await dbFeatures.list(orgId).catch(() => [])
 
     for (const res of [orgRes, catsRes, txsRes, budgetRes, periodsRes, linesRes]) {
       if (res.error) throw res.error
@@ -121,6 +136,7 @@ const dbStore = {
         budgetLocked:   p.budget_locked ?? false,
       })),
       projectData,
+      features,
     }
   },
 
@@ -679,6 +695,7 @@ async function seedDemo() {
   if (!exp.length || !inc.length) return
   const me = await demoUserId()
   const pd = demo.data.projectData
+  demo.data.features = (demo.data.features || []).map(f => ({ ...f, enabled: true, allowed: true }))
   Object.assign(pd, { expensesAllowed: true, invoicingAllowed: true, invoicingEnabled: true, invoiceDetails: {
     address: 'Björkvägen 4', zip: '123 45', city: 'Björkby', org_number: '802400-0000', email: 'kassor@bjorkbyif.example', phone: '070-123 45 67',
     bankgiro: '123-4567', swish: '123 456 78 90', payment_days: 30, invoice_prefix: '',
@@ -736,7 +753,7 @@ const demoStore = {
     // Flera anrop kan komma samtidigt vid start: ladda och fyll på exempeldata bara en gång
     demo.loading ||= (async () => { demo.data = clone(await dbStore.getAll(orgId)); await seedDemo() })()
     await demo.loading
-    return clone(demo.data)
+    return { ...clone(demo.data), features: demoFeatureList() }
   },
   async getProjectData() { return clone(demo.data?.projectData || emptyProjectData()) },
   async setProjectSettings(_o, { enabled, singular, plural }) {
@@ -1023,12 +1040,43 @@ const demoInvoicing = {
   },
 }
 
+// Funktioner i demoläget: allt är tillåtet och påslaget från början, och ändringar görs i minnet.
+const demoFeatureBlocker = key => {
+  const open = arr => arr.length
+  if (key === 'expenses') { const n = open(demo.claims.filter(c => c.kind === 'expense' && (c.status === 'submitted' || c.status === 'approved'))); if (n) return { code: 'open_expenses', n } }
+  if (key === 'invoice_inbox') { const n = open(demo.claims.filter(c => c.kind === 'invoice' && c.status === 'submitted')); if (n) return { code: 'open_invoices', n } }
+  if (key === 'invoicing') { const n = open(demo.invoices.filter(i => i.status === 'draft' || i.status === 'issued')); if (n) return { code: 'open_outgoing', n } }
+  const dep = demo.data.features.find(f => f.enabled && f.requires.includes(key))
+  return dep ? { code: 'dependents', by: dep.key } : null
+}
+const demoFeatureList = () => {
+  const list = demo.data.features
+  const eff = f => f.enabled && f.requires.every(r => eff(list.find(x => x.key === r) || { enabled: false, requires: [] }))
+  return clone(list.map(f => ({ ...f, allowed: true, effective: eff(f) }))).map(f => ({ ...f, blocker: demoFeatureBlocker(f.key) }))
+}
+const demoFeatures = {
+  async list() { return demoFeatureList() },
+  async set(_o, key, on) {
+    const f = demo.data.features.find(x => x.key === key)
+    if (!f) throw new Error('Funktionen finns inte.')
+    if (on) {
+      const turnOn = k => { const g = demo.data.features.find(x => x.key === k); g.requires.forEach(turnOn); g.enabled = true }
+      turnOn(key)
+    } else {
+      if (demoFeatureBlocker(key)) throw new Error(`${f.name} kan inte stängas av just nu.`)
+      f.enabled = false
+    }
+    return demoFeatureList()
+  },
+}
+
 const withDemo = (real, fake) => new Proxy(real, {
   get: (target, key, receiver) => (demo && key in fake ? fake[key] : Reflect.get(target, key, receiver)),
 })
 export const store = withDemo(dbStore, demoStore)
 export const attachments = withDemo(dbAttachments, demoAttachments)
 export const expenses = withDemo(dbExpenses, demoExpenses)
+export const orgFeatures = withDemo(dbFeatures, demoFeatures)
 export const invoicing = withDemo(dbInvoicing, demoInvoicing)
 
 // ── Formatering ────────────────────────────────────────────────

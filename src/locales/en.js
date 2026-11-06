@@ -15,8 +15,10 @@ import utlagg from './en/utlagg'
 import verifikat from './en/verifikat'
 import fakturor from './en/fakturor'
 import fakturering from './en/fakturering'
+import funktioner from './en/funktioner'
 
 export default {
+  ...funktioner,   // först: redan översatta texter i övriga filer går före
   ...auth, ...app, ...dashboard, ...kassabok, ...budget, ...kategorier,
   ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter, ...projekt, ...utlagg, ...verifikat, ...fakturor, ...fakturering,
 }

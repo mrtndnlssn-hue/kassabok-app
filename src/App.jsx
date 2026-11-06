@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings, Layers, Receipt } from 'lucide-react';
-import { store, attachments, expenses, invoicing, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
+import { store, attachments, expenses, invoicing, orgFeatures, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import { isDemoSession } from './demo';
@@ -97,18 +97,23 @@ function MainApp({ orgId, role }) {
   const [activePeriodId, setActivePeriodId] = useState(null);
   const [projectData, setProjectData] = useState(null);      // märkning med projekt/sektioner (plan + inställning + projekt)
   const [openProjectId, setOpenProjectId] = useState(null);
-  const [hideStart, setHideStart]   = useState(false);          // Kom igång-sidan avstängd i inställningarna
+  const [features, setFeatures]     = useState([]);             // funktioner: vad paketet tillåter och vad föreningen slagit på
   const [outInvoices, setOutInvoices] = useState([]);          // utgående fakturor (fakturering)
   const [claims, setClaims]        = useState([]);             // utlägg (egna, eller alla för den som får godkänna)
   const [flash, setFlash]          = useState('');             // meddelande ovanför sidan
 
   const pd = projectData || { allowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] };
-  const projOn = pd.allowed && pd.enabled;
+  const featOn = (list, key) => list.some(f => f.key === key && f.effective);
+  const projOn = featOn(features, 'projects');
   const labels = projectLabels(pd);
-  const expensesOn = !!pd.expensesAllowed && canSubmitExpense;
-  const invoicingOn = !!pd.invoicingAllowed && !!pd.invoicingEnabled;   // fakturering är aktiverad i inställningarna och ingår i planen
-  const inboxOn = expensesOn || invoicingOn;                            // sidan Utlägg & fakturor
-  const navLabel = n => (n.id === 'projekt' ? cap(labels.many) : t(n.label));
+  const expensesOn = featOn(features, 'expenses') && canSubmitExpense;            // utlägg: den som får registrera
+  const invoiceInboxOn = featOn(features, 'invoice_inbox') && canSubmitExpense;   // inkommande fakturor
+  const invoicingOn = featOn(features, 'invoicing');                              // utgående fakturering
+  const inboxOn = expensesOn || invoiceInboxOn || invoicingOn;                    // sidan Utlägg & fakturor finns om något av dem är på
+  const hideStart = features.length > 0 && !featOn(features, 'getting_started');  // Kom igång-sidan avstängd
+  // Sidans namn följer vad som är påslaget
+  const utlaggLabel = expensesOn && (invoiceInboxOn || invoicingOn) ? 'Utlägg & fakturor' : expensesOn ? 'Utlägg' : 'Fakturor';
+  const navLabel = n => (n.id === 'projekt' ? cap(labels.many) : n.id === 'utlagg' ? t(utlaggLabel) : t(n.label));
 
   async function fetchAll() {
     setLoading(true);
@@ -124,9 +129,10 @@ function MainApp({ orgId, role }) {
       setOrgNames(prev => ({ ...prev, [orgId]: data.orgName || '' }));
       setFiscalPeriods(periods);
       setProjectData(data.projectData || null);
-      setHideStart(!!data.hideGettingStarted);
-      await loadClaims(!!data.projectData?.expensesAllowed && canSubmitExpense);
-      await loadOutInvoices(!!data.projectData?.invoicingAllowed && !!data.projectData?.invoicingEnabled);
+      const feats = data.features || [];
+      setFeatures(feats);
+      await loadClaims((featOn(feats, 'expenses') || featOn(feats, 'invoice_inbox')) && canSubmitExpense);
+      await loadOutInvoices(featOn(feats, 'invoicing'));
 
       const today  = todayStr();
       const active =
@@ -138,7 +144,7 @@ function MainApp({ orgId, role }) {
       // Nya föreningar utan verifikat hamnar på Kom igång första gången
       if (!routed.current) {
         routed.current = true;
-        if (canWrite && !data.hideGettingStarted && !(data.transactions || []).length && !pageFromUrl()) {
+        if (canWrite && featOn(feats, 'getting_started') && !(data.transactions || []).length && !pageFromUrl()) {
           window.history.replaceState({ page: 'komigang' }, '', '#komigang');
           setPage('komigang');
         }
@@ -150,7 +156,7 @@ function MainApp({ orgId, role }) {
 
   useEffect(() => { setOpenProjectId(null); setFlash(''); fetchAll(); }, [orgId]);
 
-  async function loadClaims(allowed = expensesOn) {
+  async function loadClaims(allowed = expensesOn || invoiceInboxOn) {
     if (!allowed) { setClaims([]); return; }
     try { setClaims(await expenses.list(orgId)); } catch { setClaims([]); }
   }
@@ -184,9 +190,16 @@ function MainApp({ orgId, role }) {
     }
   }, [loading, page, projOn, inboxOn, hideStart]);
 
+  // Läser om funktionerna efter att något slagits på eller av, och hämtar det som den nya inställningen behöver
+  async function reloadFeatures(list) {
+    const feats = list || await orgFeatures.list(orgId);
+    setFeatures(feats);
+    await loadClaims((featOn(feats, 'expenses') || featOn(feats, 'invoice_inbox')) && canSubmitExpense);
+    await loadOutInvoices(featOn(feats, 'invoicing'));
+    await reloadProjects();
+  }
   async function setStartHidden(hidden) {
-    await store.setGettingStartedHidden(orgId, hidden);
-    setHideStart(hidden);
+    await reloadFeatures(await orgFeatures.set(orgId, 'getting_started', !hidden));
     if (hidden && page === 'komigang') navigate('dashboard');
   }
 
@@ -287,28 +300,28 @@ function MainApp({ orgId, role }) {
     komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} claims={claims} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
-    utlagg:     <Utlagg {...pageProps} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
+    utlagg:     <Utlagg {...pageProps} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoiceInboxOn={invoiceInboxOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
     perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} voidedTxs={voidedTxs} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
-    medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
-    installningar: <Installningar orgId={orgId} orgName={orgName} onProjectSettingsChange={reloadProjects} hideStart={hideStart} onHideStartChange={setStartHidden} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
+    medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} features={features} />,
+    installningar: <Installningar orgId={orgId} orgName={orgName} features={features} onFeaturesChange={reloadFeatures} onProjectSettingsChange={reloadProjects} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };
 
   const subtitles = {
     komigang:   t('Gör föreningen redo steg för steg'),
     dashboard:  t('Ekonomisk översikt – {period}', { period: activePeriod?.label || '–' }),
     kassabok:   t('Verifikat – {period}', { period: activePeriod?.label || '–' }),
-    utlagg:     t('Utlägg och fakturor: registrera, godkänn, betala och bokför'),
+    utlagg:     t(utlaggLabel === 'Utlägg' ? 'Utlägg: registrera, godkänn, betala ut och bokför' : utlaggLabel === 'Fakturor' ? 'Fakturor: ta emot, betala och bokför' : 'Utlägg och fakturor: registrera, godkänn, betala och bokför'),
     projekt:    t('Följ {namn}: intäkter, kostnader och rapporter', { namn: lower(labels.many) }),
     budget:     t('Budget vs utfall – {period}', { period: activePeriod?.label || '–' }),
     kategorier: t('Definiera intäkts- och kostnadskategorier'),
     arsrapport: t('Årsrapport, Excel, verifikat och budget som filer'),
     perioder:   t('Hantera räkenskapsperioder och verksamhetsår'),
     medlemmar:     t('Bjud in och hantera föreningens användare'),
-    installningar: t('Föreningsnamn och borttagning'),
+    installningar: t('Föreningsnamn, funktioner och borttagning'),
   };
 
   // ── Mobilvariant: toppfält, innehåll och flikmeny längst ner (Översikt, Kassabok, Nytt, Budget, Mer) ──

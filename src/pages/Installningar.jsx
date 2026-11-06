@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { Check, Trash2, AlertTriangle, X } from 'lucide-react'
-import { store, attachments, expenses, invoicing } from '../store'
-import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
+import { store, attachments } from '../store'
+import Funktioner from './Funktioner'
 import { useI18n } from '../i18n'
-import { useProjects, defaultLabels } from '../ProjectsContext'
 
 const fmtMb = b => `${((b || 0) / 1048576).toFixed(b >= 10485760 ? 0 : 1)} MB`
 
-export default function Installningar({ orgId, orgName, onOrgNameChange, onProjectSettingsChange, hideStart, onHideStartChange }) {
+export default function Installningar({ orgId, orgName, features = [], onFeaturesChange, onOrgNameChange, onProjectSettingsChange }) {
   const { t } = useI18n()
   const { session, role } = useAuth()
+  const [tab, setTab] = useState(() => (window.location.hash.includes('funktioner') ? 'funktioner' : 'allmant'))   // 'allmant' | 'funktioner'
 
   // --- Byta namn ---
   const [nameInput, setNameInput]   = useState(orgName)
@@ -41,89 +41,6 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
     supabase.rpc('get_org_plan', { p_org: orgId }).then(({ data }) => setPlan(data))
   }, [orgId])
 
-  // --- AI-avläsning ---
-  const canManageAi = role === 'main_owner' || role === 'owner'
-  const [aiUsage, setAiUsage] = useState(null)
-  const [aiError, setAiError] = useState('')
-  useEffect(() => {
-    getReceiptUsage(orgId).then(setAiUsage).catch(e => setAiError(e.message))
-  }, [orgId])
-
-  async function toggleAi(enabled) {
-    setAiError('')
-    try {
-      await setReceiptAiEnabled(orgId, enabled)
-      setAiUsage(u => ({ ...u, enabled }))
-    } catch (e) {
-      setAiError(e.message)
-    }
-  }
-
-  // --- Fakturering: aktivera och föreningens uppgifter på fakturorna ---
-  const [invSettings, setInvSettings] = useState(null)   // { enabled, details }
-  const [invSaving, setInvSaving]     = useState(false)
-  const [invDone, setInvDone]         = useState(false)
-  const [invError, setInvError]       = useState('')
-  useEffect(() => {
-    invoicing.getSettings(orgId).then(setInvSettings).catch(e => setInvError(e.message))
-  }, [orgId])
-  const setInvDetail = (k, v) => setInvSettings(s => ({ ...s, details: { ...s.details, [k]: v } }))
-  async function saveInvoicing(e) {
-    e.preventDefault()
-    setInvError(''); setInvDone(false)
-    const d = invSettings.details
-    if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) { setInvError(t('Ange en giltig e-postadress.')); return }
-    setInvSaving(true)
-    try {
-      await invoicing.setSettings(orgId, invSettings)
-      await onProjectSettingsChange?.()
-      setInvDone(true); setTimeout(() => setInvDone(false), 3000)
-    } catch (err) { setInvError(t(err.message)) } finally { setInvSaving(false) }
-  }
-
-  // --- Utlägg: e-postbesked ---
-  const [expSettings, setExpSettings] = useState(null)   // { notifySubmitted, notifyDecided }
-  const [expError, setExpError]       = useState('')
-  useEffect(() => {
-    expenses.getSettings(orgId).then(setExpSettings).catch(e => setExpError(e.message))
-  }, [orgId])
-  async function toggleExpense(key, value) {
-    const next = { ...expSettings, [key]: value }
-    setExpError('')
-    try { await expenses.setSettings(orgId, next); setExpSettings(next) }
-    catch (e) { setExpError(t(e.message)) }
-  }
-
-  // --- Märkning med projekt/sektioner ---
-  const { allowed: projAllowed, settings: projSettings } = useProjects()
-  const [projOn, setProjOn]         = useState(!!projSettings?.enabled)
-  const [projOne, setProjOne]       = useState(projSettings?.labelSingular || '')
-  const [projMany, setProjMany]     = useState(projSettings?.labelPlural || '')
-  const [projSaving, setProjSaving] = useState(false)
-  const [projDone, setProjDone]     = useState(false)
-  const [projError, setProjError]   = useState('')
-  useEffect(() => {
-    setProjOn(!!projSettings?.enabled); setProjOne(projSettings?.labelSingular || ''); setProjMany(projSettings?.labelPlural || '')
-  }, [projSettings?.enabled, projSettings?.labelSingular, projSettings?.labelPlural])
-  const projDirty = projOn !== !!projSettings?.enabled || projOne.trim() !== (projSettings?.labelSingular || '') || projMany.trim() !== (projSettings?.labelPlural || '')
-
-  async function saveProjects(e) {
-    e.preventDefault()
-    setProjError(''); setProjDone(false)
-    if (!!projOne.trim() !== !!projMany.trim()) { setProjError(t('Fyll i både enkelform och flertal, eller lämna båda tomma.')); return }
-    setProjSaving(true)
-    try {
-      await store.setProjectSettings(orgId, { enabled: projOn, singular: projOne, plural: projMany })
-      await onProjectSettingsChange?.()
-      setProjDone(true)
-      setTimeout(() => setProjDone(false), 3000)
-    } catch (err) {
-      setProjError(t(err.message))
-    } finally {
-      setProjSaving(false)
-    }
-  }
-
   // --- Ta bort förening ---
   const [deleteStep, setDeleteStep]       = useState(0) // 0 | 1 | 2 | 3
   const [confirmName, setConfirmName]     = useState('')
@@ -145,8 +62,22 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
     }
   }
 
+  const tabBtn = (id, label) => (
+    <button key={id} type="button" className={`btn btn-sm ${tab === id ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab(id)}>{label}</button>
+  )
+
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div style={{ maxWidth: 640 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {tabBtn('allmant', t('Allmänt'))}
+        {tabBtn('funktioner', t('Funktioner'))}
+      </div>
+
+      {tab === 'funktioner' && (
+        <Funktioner orgId={orgId} features={features} onFeaturesChange={onFeaturesChange} onProjectSettingsChange={onProjectSettingsChange} />
+      )}
+
+      {tab === 'allmant' && (<>
 
       {/* Plan */}
       {plan && (
@@ -202,155 +133,6 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
             {nameSaving ? t('Sparar…') : <><Check size={14}/> {t('Spara')}</>}
           </button>
         </form>
-      </div>
-
-      {/* AI-avläsning */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="section-title">{t('AI-avläsning av kvitton')}</div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-          {t('Vid nytt verifikat kan en uppladdad PDF eller bild läsas av med AI, som föreslår datum, belopp, beskrivning och kategori. Du kontrollerar alltid förslaget innan du sparar. Max {max} avläsningar per månad.', { max: aiUsage?.limit ?? 50 })}
-        </p>
-        <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginBottom: 16, lineHeight: 1.6 }}>
-          {t('När funktionen används skickas den valda filen till Anthropic för avläsning. Filen kan innehålla personuppgifter, så aktivera bara om föreningen är bekväm med det.')}
-        </p>
-        {aiError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{aiError}</div>}
-        {aiUsage ? (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem' }}>
-            <input type="checkbox" checked={aiUsage.enabled} disabled={!canManageAi}
-              onChange={e => toggleAi(e.target.checked)} style={{ width: 'auto' }} />
-            {t('Aktivera AI-avläsning för {namn}', { namn: orgName })}
-            {aiUsage.enabled && <span style={{ color: 'var(--ink-muted)', fontSize: '0.78rem' }}>({t('{used}/{limit} använda denna månad', { used: aiUsage.used, limit: aiUsage.limit })})</span>}
-          </label>
-        ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span>}
-        {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
-      </div>
-
-      {/* Kom igång-sidan */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="section-title">{t('Kom igång')}</div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-          {t('Kom igång-sidan visar några steg för att göra föreningen redo. När ni är klara kan ni dölja den.')}
-        </p>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0 }}>
-          <input type="checkbox" checked={!hideStart} disabled={!canManageAi} onChange={e => onHideStartChange?.(!e.target.checked)} style={{ width: 'auto' }} />
-          {t('Visa Kom igång-sidan i menyn')}
-        </label>
-        {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
-      </div>
-
-      {/* Utlägg */}
-      {plan?.expenses_allowed && (
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="section-title">{t('Utlägg')}</div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-            {t('Medlemmar kan registrera utlägg med kvitto och lägga upp fakturor i en inkorg. Ägare och medlemmar godkänner utlägg, betalar och bokför. Välj vilka e-postbesked som ska skickas.')}
-          </p>
-          {expError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{expError}</div>}
-          {expSettings ? (
-            <div style={{ display: 'grid', gap: 10 }}>
-              {[
-                ['notifySubmitted', t('E-post till de som kan godkänna eller betala när ett nytt utlägg eller en ny faktura kommer in')],
-                ['notifyDecided', t('E-post till den som lagt ut pengarna eller laddat upp fakturan när den godkänns, avslås och betalas')],
-              ].map(([key, label]) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
-                  <input type="checkbox" checked={expSettings[key]} disabled={!canManageAi}
-                    onChange={e => toggleExpense(key, e.target.checked)} style={{ width: 'auto', flex: 'none', marginTop: 3 }} />
-                  {label}
-                </label>
-              ))}
-            </div>
-          ) : <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span>}
-          {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
-        </div>
-      )}
-
-      {/* Fakturering */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="section-title">{t('Fakturering')}</div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-          {t('Skapa och skicka fakturor från föreningen, med ett kundregister. Fakturorna har föreningen som avsändare och bokförs som intäkt när de är betalda. Ingen moms.')}
-        </p>
-        {!plan?.invoicing_allowed ? (
-          <div className="notice notice-info" style={{ fontSize: '0.85rem' }}>
-            {t('Fakturering ingår i planerna Medel och Stor.')} <a href="https://foreningsbalans.se/#priser">{t('Se planerna')}</a>
-          </div>
-        ) : !invSettings ? <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span> : (
-          <form onSubmit={saveInvoicing}>
-            {invError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{invError}</div>}
-            {invDone && <div className="notice notice-success" style={{ marginBottom: 12 }}>{t('Inställningarna har sparats.')}</div>}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0, fontWeight: 400, marginBottom: 14 }}>
-              <input type="checkbox" checked={invSettings.enabled} disabled={!canManageAi} onChange={e => setInvSettings(s => ({ ...s, enabled: e.target.checked }))} style={{ width: 'auto' }} />
-              {t('Aktivera fakturering för {namn}', { namn: orgName })}
-            </label>
-            {invSettings.enabled && (
-              <fieldset disabled={!canManageAi} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-                <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginBottom: 10 }}>{t('Uppgifterna visas på fakturorna och i mejlet som skickas till kunden.')}</p>
-                {[
-                  [['org_number', t('Organisationsnummer')], ['email', t('E-post (kunder svarar hit)')]],
-                  [['address', t('Adress')], null],
-                  [['zip', t('Postnummer')], ['city', t('Ort')]],
-                  [['phone', t('Telefon')], null],
-                  [['bankgiro', t('Bankgiro')], ['plusgiro', t('Plusgiro')]],
-                  [['bank_account', t('Bankkonto (clearing och kontonummer)')], ['swish', t('Swish-nummer')]],
-                  [['payment_days', t('Betalningsvillkor (dagar)'), 'number'], ['invoice_prefix', t('Prefix på fakturanummer (valfritt)')]],
-                ].map((row, i) => (
-                  <div key={i} className="form-row form-row-cols">
-                    {row.map((f, j) => f ? (
-                      <div key={f[0]}><label>{f[1]}</label>
-                        <input type={f[2] || 'text'} min={f[2] === 'number' ? 0 : undefined} max={f[2] === 'number' ? 365 : undefined} value={invSettings.details[f[0]] ?? ''} maxLength={120}
-                          onChange={e => setInvDetail(f[0], e.target.value)} /></div>
-                    ) : <div key={j} />)}
-                  </div>
-                ))}
-                <div className="form-row"><div><label>{t('Standardtext på fakturor (valfritt)')}</label>
-                  <textarea rows={2} maxLength={1000} style={{ width: '100%' }} value={invSettings.details.note || ''} onChange={e => setInvDetail('note', e.target.value)} /></div></div>
-              </fieldset>
-            )}
-            {canManageAi && <button className="btn btn-primary" type="submit" disabled={invSaving} style={{ marginTop: 8 }}><Check size={14} /> {invSaving ? t('Sparar…') : t('Spara')}</button>}
-            {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
-          </form>
-        )}
-      </div>
-
-      {/* Märkning med projekt/sektioner */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="section-title">{t('Märkning av inkomster och utgifter')}</div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-          {t('Följ vissa projekt, sektioner eller event genom att märka inkomster och utgifter. Du får en egen rapport per märkning, och kan koppla medlemmar så att de ser sin del på översikten.')}
-        </p>
-        {!projAllowed ? (
-          <div className="notice notice-info" style={{ fontSize: '0.85rem' }}>
-            {t('Märkning ingår i planerna Medel och Stor.')} <a href="https://foreningsbalans.se/#priser">{t('Se planerna')}</a>
-          </div>
-        ) : (
-          <form onSubmit={saveProjects}>
-            {projError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{projError}</div>}
-            {projDone && <div className="notice notice-success" style={{ marginBottom: 12 }}>{t('Inställningarna har sparats.')}</div>}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0 }}>
-              <input type="checkbox" checked={projOn} disabled={!canManageAi} onChange={e => { setProjOn(e.target.checked); setProjDone(false) }} style={{ width: 'auto' }} />
-              {t('Använd märkning i {namn}', { namn: orgName })}
-            </label>
-            <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', margin: '8px 0 0' }}>
-              {t('Stänger ni av märkningen sparas alla projekt, kopplingar och märkta verifikat, men de syns inte i appen. Slår ni på den igen finns allt kvar.')}
-            </p>
-            {projOn && (
-              <div style={{ marginTop: 16 }}>
-                <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', margin: '0 0 10px' }}>
-                  {t('Vad ska funktionen heta hos er? Till exempel Sektion och Sektioner, Projekt och Projekt eller Event och Event. Lämna tomt för Projekt.')}
-                </p>
-                <div className="form-row form-row-cols">
-                  <div><label>{t('Enkelform')}</label><input type="text" value={projOne} maxLength={30} placeholder={defaultLabels().one} disabled={!canManageAi} onChange={e => { setProjOne(e.target.value); setProjDone(false) }} /></div>
-                  <div><label>{t('Flertal')}</label><input type="text" value={projMany} maxLength={30} placeholder={defaultLabels().many} disabled={!canManageAi} onChange={e => { setProjMany(e.target.value); setProjDone(false) }} /></div>
-                </div>
-              </div>
-            )}
-            {canManageAi
-              ? <button className="btn btn-primary" type="submit" disabled={projSaving || !projDirty} style={{ marginTop: 14 }}>
-                  {projSaving ? t('Sparar…') : <><Check size={14}/> {t('Spara')}</>}
-                </button>
-              : <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
-          </form>
-        )}
       </div>
 
       {/* Ta bort förening */}
@@ -448,6 +230,7 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
           <p style={{ color:'var(--ink-muted)', fontSize:'0.9rem' }}>{t('Raderar förening…')}</p>
         )}
       </div>
+      </>)}
     </div>
   )
 }

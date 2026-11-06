@@ -22,7 +22,7 @@ const STATUS_INVOICE = {
   paid:      { label: 'Betald',     bg: 'var(--accent-3)',   color: 'var(--accent)' },
 };
 
-export default function Utlagg({ orgId, orgName, claims, transactions, categories, fiscalPeriods, expensesOn, invoicingOn, outInvoices = [], invoiceDetails, onReload, onReloadInvoices, onTransactionsChanged, onFlash }) {
+export default function Utlagg({ orgId, orgName, claims, transactions, categories, fiscalPeriods, expensesOn, invoiceInboxOn, invoicingOn, outInvoices = [], invoiceDetails, onReload, onReloadInvoices, onTransactionsChanged, onFlash }) {
   const { t } = useI18n();
   const { session, role } = useAuth();
   const myId = session?.user?.id;
@@ -57,7 +57,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
   // Fakturor sorteras på förfallodatum så att den som snart förfaller hamnar överst
   const byDue = (a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
   const toHandle = list.filter(c => (isInv ? c.status === 'submitted' : (c.status === 'submitted' || c.status === 'approved'))).sort(isInv ? byDue : () => 0);
-  const invoicesToPay = isWriter ? claims.filter(c => c.kind === 'invoice' && c.status === 'submitted').length : 0;
+  const invoicesToPay = isWriter && invoiceInboxOn ? claims.filter(c => c.kind === 'invoice' && c.status === 'submitted').length : 0;
   const tabs = isWriter
     ? [['handle', isInv ? t('Att betala') : t('Att hantera'), toHandle.length], ['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null], ['all', isInv ? t('Alla fakturor') : t('Alla utlägg'), null]]
     : [['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null]];
@@ -137,7 +137,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
       {expensesOn && <button className={`btn ${view === 'expense' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('expense')}>
         {t('Utlägg')}{isWriter && expToHandle.length > 0 ? ` (${expToHandle.length})` : ''}
       </button>}
-      {expensesOn && <button className={`btn ${view === 'invoice' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('invoice')}>
+      {invoiceInboxOn && <button className={`btn ${view === 'invoice' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('invoice')}>
         {t('Inkommande fakturor')}{invoicesToPay > 0 ? ` (${invoicesToPay})` : ''}
       </button>}
       {invoicingOn && <button className={`btn ${view === 'outgoing' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchView('outgoing')}>
@@ -168,7 +168,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
               {expensesOn && overviewCard(isWriter ? t('Utlägg att hantera') : t('Dina utlägg som väntar'), expToHandle.length, sum(expToHandle),
                 [], 'expense', t('Öppna utlägg'))}
-              {expensesOn && overviewCard(t('Fakturor att betala'), invToPay.length, sum(invToPay),
+              {invoiceInboxOn && overviewCard(t('Fakturor att betala'), invToPay.length, sum(invToPay),
                 [overdueIn > 0 && { text: t('{n} har förfallit', { n: overdueIn }), red: true }], 'invoice', t('Öppna inkorgen'))}
               {invoicingOn && overviewCard(t('Obetalda utgående fakturor'), outUnpaid.length, sum(outUnpaid),
                 [overdueOut > 0 && { text: t('{n} har förfallit', { n: overdueOut }), red: true }, outDrafts.length > 0 && { text: t('{n} utkast', { n: outDrafts.length }) }], 'outgoing', t('Öppna fakturor'))}
