@@ -111,7 +111,7 @@ export default {
   'Bara utfärdade, obetalda fakturor kan makuleras.': 'Only issued, unpaid invoices can be voided.',
   'Bara fakturautkast kan tas bort.': 'Only invoice drafts can be deleted.',
   'Fakturanumret kan inte ändras.': 'The invoice number cannot be changed.',
-  'Bara ägare kan skicka fakturor.': 'Only administrators can send invoices.',
+  'Bara administratörer kan skicka fakturor.': 'Only administrators can send invoices.',
   'Bara utfärdade, obetalda fakturor kan skickas.': 'Only issued, unpaid invoices can be sent.',
   'Fakturan hittades inte.': 'The invoice was not found.',
   'Tjänsten för att skicka fakturor kunde inte nås.': 'The invoice sending service could not be reached.',
