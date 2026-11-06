@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { supabase } from '../supabase';
-import { getReceiptUsage } from '../receiptAi';
 import { useI18n } from '../i18n';
 
 const flagKey = orgId => `kb_onboarding_${orgId}`;
@@ -9,12 +8,11 @@ function loadFlags(orgId) {
   try { return JSON.parse(localStorage.getItem(flagKey(orgId)) || '{}'); } catch { return {}; }
 }
 
-export default function Komigang({ orgId, role, transactions, budget, activePeriod, onSavePeriods, fiscalPeriods, onNavigate, onHide }) {
+export default function Komigang({ orgId, role, transactions, budget, activePeriod, onSavePeriods, fiscalPeriods, onNavigate, onHide, features = [] }) {
   const { t } = useI18n();
   const isOwner = role === 'main_owner' || role === 'owner';
   const [flags, setFlags]       = useState(() => loadFlags(orgId));
   const [memberCount, setMemberCount] = useState(null);
-  const [aiEnabled, setAiEnabled]     = useState(null);
   const [balance, setBalance]   = useState(String(activePeriod?.openingBalance ?? 0));
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
@@ -25,7 +23,6 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
     if (!isOwner) return;
     supabase.rpc('get_org_members_with_email', { p_org_id: orgId })
       .then(({ data }) => setMemberCount(data?.length ?? null));
-    getReceiptUsage(orgId).then(u => setAiEnabled(u.enabled)).catch(() => {});
   }, [orgId, isOwner]);
 
   function setFlag(key, value = true) {
@@ -104,12 +101,12 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
       manual: true,
     },
     {
-      id: 'ai',
-      title: t('Slå på AI-avläsning av kvitton (valfritt)'),
-      text: t('AI läser av datum, belopp och kategori från en uppladdad PDF eller bild. Filen skickas till Anthropic för avläsning.'),
-      done: !!aiEnabled,
+      id: 'features',
+      title: t('Välj vad ni vill använda (valfritt)'),
+      text: t('Utlägg, fakturor, projekt och AI-avläsning slår ni på själva när ni behöver dem, under Inställningar → Funktioner. Allt som är avstängt är bara dolt.'),
+      done: features.some(f => ['expenses', 'invoice_inbox', 'invoicing', 'projects', 'ai_receipts'].includes(f.key) && f.effective),
       optional: true,
-      action: { label: t('Öppna Inställningar'), page: 'installningar' },
+      action: { label: t('Öppna Funktioner'), page: 'installningar', tab: 'funktioner' },
       ownerOnly: true,
     },
   ].filter(s => !s.ownerOnly || isOwner);
@@ -148,7 +145,11 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
               {s.action && (
                 <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
                   <button className={`btn btn-sm ${s.done ? 'btn-secondary' : 'btn-primary'}`}
-                    onClick={() => { if (s.manual) setFlag(s.id); onNavigate(s.action.page); }}>
+                    onClick={() => {
+                      if (s.manual) setFlag(s.id);
+                      if (s.action.tab) { try { sessionStorage.setItem('kb_settings_tab', s.action.tab); } catch { /* ignore */ } }
+                      onNavigate(s.action.page);
+                    }}>
                     {s.action.label} <ArrowRight size={13}/>
                   </button>
                   {s.manual && (
@@ -167,7 +168,7 @@ export default function Komigang({ orgId, role, transactions, budget, activePeri
       {isOwner && onHide && (
         <div style={{ marginTop:20, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
           <button className="btn btn-secondary btn-sm" onClick={onHide}>{t('Dölj den här sidan')}</button>
-          <span style={{ fontSize:'0.78rem', color:'var(--ink-muted)' }}>{t('Du kan slå på den igen under Inställningar.')}</span>
+          <span style={{ fontSize:'0.78rem', color:'var(--ink-muted)' }}>{t('Du kan slå på den igen under Inställningar → Funktioner.')}</span>
         </div>
       )}
     </div>

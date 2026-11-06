@@ -1,5 +1,9 @@
 // Engelska översättningar: funktioner (reglage i Inställningar)
 export default {
+  'Välj vad ni vill använda (valfritt)': 'Choose what you want to use (optional)',
+  'Utlägg, fakturor, projekt och AI-avläsning slår ni på själva när ni behöver dem, under Inställningar → Funktioner. Allt som är avstängt är bara dolt.': 'Expenses, invoices, projects and AI reading are turned on by you when you need them, under Settings → Features. Anything turned off is only hidden.',
+  'Öppna Funktioner': 'Open Features',
+  'Du kan slå på den igen under Inställningar → Funktioner.': 'You can turn it on again under Settings → Features.',
   'Föreningsnamn, funktioner och borttagning': 'Association name, features and deletion',
   'Välj vilka e-postbesked som ska skickas.': 'Choose which emails are sent.',
   'Det finns {n} utlägg som väntar på hantering. Godkänn, avslå eller betala ut dem först.': 'There are {n} expenses waiting to be handled. Approve, reject or pay them out first.',

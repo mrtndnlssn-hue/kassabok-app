@@ -297,7 +297,7 @@ function MainApp({ orgId, role }) {
     openProjectId, openProject, reload: reloadProjects,
   };
   const pageMap   = {
-    komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
+    komigang:   <Komigang {...pageProps} features={features} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
     kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} claims={claims} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
     utlagg:     <Utlagg {...pageProps} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoiceInboxOn={invoiceInboxOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,

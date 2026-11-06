@@ -11,7 +11,11 @@ const fmtMb = b => `${((b || 0) / 1048576).toFixed(b >= 10485760 ? 0 : 1)} MB`
 export default function Installningar({ orgId, orgName, features = [], onFeaturesChange, onOrgNameChange, onProjectSettingsChange }) {
   const { t } = useI18n()
   const { session, role } = useAuth()
-  const [tab, setTab] = useState(() => (window.location.hash.includes('funktioner') ? 'funktioner' : 'allmant'))   // 'allmant' | 'funktioner'
+  const [tab, setTab] = useState(() => {
+    // Kom igång-sidan kan öppna fliken Funktioner direkt
+    try { if (sessionStorage.getItem('kb_settings_tab') === 'funktioner') { sessionStorage.removeItem('kb_settings_tab'); return 'funktioner' } } catch { /* ignore */ }
+    return window.location.hash.includes('funktioner') ? 'funktioner' : 'allmant'
+  })   // 'allmant' | 'funktioner'
 
   // --- Byta namn ---
   const [nameInput, setNameInput]   = useState(orgName)
