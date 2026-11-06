@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
-import { attachments, txsForPeriod, txLines } from './store'
+import { attachments, txsForPeriod, txLines, reviews as reviewsApi, isDemoMode } from './store'
+import { supabase } from './supabase'
 import { translate as tr } from './i18n'
 
 export function sortPeriodTxs(txs) {
@@ -32,7 +33,22 @@ export function verNumbers(transactions, voided = []) {
 }
 const pad3 = n => String(n).padStart(3, '0')
 
-export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx, projects = [], projectLabel = '', voided = [], extras = null }) {
+// Revisorns granskning till Excel: vilka verifikat som är granskade och vilka anmärkningar som finns.
+// Returnerar null om inget är granskat eller har anmärkningar (då läggs inga kolumner till) eller om datan inte kan hämtas.
+export async function loadReviewData(orgId) {
+  try {
+    const { reviews, remarks } = await reviewsApi.list(orgId)
+    if (!reviews.length && !remarks.length) return null
+    let names = {}
+    if (!isDemoMode()) {
+      const { data } = await supabase.rpc('get_org_members_with_email', { p_org_id: orgId })
+      names = Object.fromEntries((data || []).map(m => [m.user_id, m.nickname || m.email]))
+    }
+    return { reviews, remarks, names }
+  } catch { return null }   // granskningen är ett tillägg och får aldrig stoppa exporten
+}
+
+export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx, projects = [], projectLabel = '', voided = [], extras = null, review = null }) {
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
   const txs = sortPeriodTxs(transactions)
   const voidedTxs = sortPeriodTxs(voided)
@@ -49,6 +65,10 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   const maxAtt = Math.max(0, ...txs.map(t => (attachmentsByTx[t.id] || []).length))
   const projectNames = Object.fromEntries(projects.map(p => [p.id, p.name]))
   const hasProjects = txs.some(t => txLines(t).some(l => l.projectId && projectNames[l.projectId]))
+  const reviewBy = Object.fromEntries((review?.reviews || []).map(r => [r.txId, r]))
+  const remarksBy = {}
+  for (const r of review?.remarks || []) (remarksBy[r.txId] ||= []).push(r)
+  const who = id => review?.names?.[id] || ''
   const cols = [
     { header: tr('Ver.nr'), key: 'ver', width: 8 },
     { header: tr('Datum'), key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
@@ -64,6 +84,13 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     { header: tr('Kommentar'), key: 'comment', width: 36 },
     { header: tr('Registrerad'), key: 'created', width: 18, style: { numFmt: 'yyyy-mm-dd hh:mm' } },
     { header: tr('Antal bilagor'), key: 'attCount', width: 13 },
+    ...(review ? [
+      { header: tr('Granskad'), key: 'reviewed', width: 11 },
+      { header: tr('Granskad av'), key: 'reviewedBy', width: 22 },
+      { header: tr('Granskad datum'), key: 'reviewedAt', width: 16, style: { numFmt: 'yyyy-mm-dd' } },
+      { header: tr('Öppna anm.'), key: 'openRem', width: 11 },
+      { header: tr('Anmärkningar'), key: 'remarks', width: 44 },
+    ] : []),
   ]
   for (let i = 0; i < maxAtt; i++) cols.push({ header: `${tr('Bilaga')} ${i + 1}`, key: `att${i}`, width: 34 })
   ws.columns = cols
@@ -106,7 +133,15 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
         comment: first ? (replaces + (tx.comment || '')) : '',
         created: first && tx.createdAt ? new Date(tx.createdAt) : null,
         attCount: first ? atts.length : null,
+        ...(review && first ? {
+          reviewed: reviewBy[tx.id] ? tr('Ja') : tr('Nej'),
+          reviewedBy: reviewBy[tx.id] ? who(reviewBy[tx.id].by) : '',
+          reviewedAt: reviewBy[tx.id] ? new Date(reviewBy[tx.id].at) : null,
+          openRem: (remarksBy[tx.id] || []).filter(r => !r.resolvedAt).length,
+          remarks: (remarksBy[tx.id] || []).map(r => `${r.resolvedAt ? '✓ ' : ''}${r.text}`).join('\n'),
+        } : {}),
       })
+      if (review && first && (remarksBy[tx.id] || []).length) row.getCell('remarks').alignment = { wrapText: true, vertical: 'top' }
       if (first) {
         atts.forEach((filename, k) => {
           const cell = row.getCell(`att${k}`)
@@ -201,6 +236,27 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     for (const i of un.payables) us.addRow({ type: tr('Att betala'), date: i.date, what: `${kind(i)}${i.no ? ' ' + i.no : ''}${i.party ? ' · ' + i.party : ''}`, due: i.due || '', amount: i.amount })
   }
 
+  // ── Anmärkningar: en rad per anmärkning, med vem som skrev den och om den är åtgärdad ──
+  const periodRemarks = (review?.remarks || []).filter(r => verNo[r.txId])
+  if (periodRemarks.length) {
+    const rs = wb.addWorksheet(tr('Anmärkningar'), { views: [{ state: 'frozen', ySplit: 1 }] })
+    rs.columns = [
+      { header: tr('Ver.nr'), key: 'ver', width: 8 },
+      { header: tr('Anmärkning'), key: 'text', width: 60 },
+      { header: tr('Av'), key: 'by', width: 22 },
+      { header: tr('Datum'), key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
+      { header: tr('Status'), key: 'status', width: 18 },
+    ]
+    styleHeader(rs.getRow(1))
+    periodRemarks.sort((a, b) => verNo[a.txId] - verNo[b.txId] || String(a.createdAt).localeCompare(String(b.createdAt))).forEach(r => {
+      const row = rs.addRow({
+        ver: pad3(verNo[r.txId]), text: r.text, by: who(r.author), date: new Date(r.createdAt),
+        status: r.resolvedAt ? `${tr('Åtgärdad')} ${String(r.resolvedAt).slice(0, 10)}` : tr('Öppen'),
+      })
+      row.getCell('text').alignment = { wrapText: true, vertical: 'top' }
+    })
+  }
+
   // ── Makulerade verifikat: redovisas separat och ingår inte i summorna ──
   if (voidedTxs.length) {
     const vs = wb.addWorksheet(tr('Makulerade verifikat'), { views: [{ state: 'frozen', ySplit: 1 }] })
@@ -248,7 +304,7 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, vo
   for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename)
 
   onProgress(tr('Skapar Excel-fil…'))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel, extras })
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel, extras, review: await loadReviewData(orgId) })
   const xlsx = await wb.xlsx.writeBuffer()
 
   onProgress(tr('Packar ihop ZIP…'))
@@ -269,7 +325,7 @@ export async function exportPeriodExcel({ orgId, orgName, period, transactions, 
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
   const periodVoided = sortPeriodTxs(txsForPeriod(voidedTxs, period))
   const attachmentsByTx = await attachments.namesByTx(orgId, [...periodTxs, ...periodVoided].map(t => t.id))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel, extras })
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel, extras, review: await loadReviewData(orgId) })
   const buf = await wb.xlsx.writeBuffer()
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
   return {

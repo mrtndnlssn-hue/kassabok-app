@@ -7,7 +7,7 @@ import { useI18n } from '../i18n';
 import { useProjects, cap } from '../ProjectsContext';
 import DateInput from '../components/DateInput';
 import { exportAnnualReport } from '../pdfExport';
-import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, verNumbers, buildPeriodWorkbook } from '../excelExport';
+import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, verNumbers, buildPeriodWorkbook, loadReviewData } from '../excelExport';
 
 
 function periodsOverlap(a, b) {
@@ -85,7 +85,7 @@ function CloseYearModal({ period, periods = [], claims = [], outInvoices = [], t
       setProgress(t('Skapar Excel-fil…'));
       const attachmentsByTx = {};
       for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename);
-      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget: periodBudget, attachmentsByTx, projects: projOn ? projects : [], projectLabel: cap(labels.one), extras });
+      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget: periodBudget, attachmentsByTx, projects: projOn ? projects : [], projectLabel: cap(labels.one), extras, review: await loadReviewData(orgId) });
       zip.file(`foreningsbalans_${safePeriod}.xlsx`, await wb.xlsx.writeBuffer());
 
       // Mappa txId → verifikatnummer för läsbart mappnamn i ZIP
