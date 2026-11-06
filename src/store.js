@@ -60,9 +60,9 @@ const sumLines = lines => Math.round(lines.reduce((s, l) => s + l.amount, 0) * 1
 // Resor (körersättning): rader med datum, område, minuter och mil. Mil kan skrivas med komma.
 const cleanTripRows = rows => (rows || []).map(r => ({
   date: r.date, area: (r.area || '').trim(), minutes: r.minutes === '' || r.minutes == null ? null : Number(r.minutes),
-  miles: Number(String(r.miles ?? '').replace(',', '.')),
+  miles: Number(String(r.miles ?? '').replace(',', '.')), type: r.type || '',
 }))
-const tripSettingsFromJson = j => ({ rate: Number(j?.rate) || 90, label: j?.label || 'Körersättning', areas: j?.areas || [], categoryId: j?.categoryId || null, note: j?.note || '' })
+const tripSettingsFromJson = j => ({ rates: (j?.rates?.length ? j.rates : [{ name: 'Egen skoter/fyrhjuling', rate: j?.rate ?? 90 }]).map(x => ({ name: x.name, rate: Number(x.rate) })), label: j?.label || 'Körersättning', categoryId: j?.categoryId || null, note: j?.note || '' })
 
 // Funktioner som föreningen kan slå på och av. Servern avgör vad paketet tillåter, vad som är påslaget och vad som hindrar en avstängning.
 const dbFeatures = {
@@ -516,7 +516,7 @@ const claimFromRow = r => ({
   total: Number(r.total), status: r.status, rejectReason: r.reject_reason || '',
   kind: r.kind || 'expense', supplier: r.supplier || '', invoiceNo: r.invoice_no || '', dueDate: r.due_date || null, paymentRef: r.payment_ref || '',
   createdAt: r.created_at, decidedAt: r.decided_at, paidAt: r.paid_at, paidDate: r.paid_date, txId: r.tx_id || null,
-  trips: r.trips ? { rate: Number(r.trips.rate), rows: (r.trips.rows || []).map(x => ({ date: x.date, area: x.area || '', minutes: x.minutes ?? null, miles: Number(x.miles) })) } : null,
+  trips: r.trips ? { rows: (r.trips.rows || []).map(x => ({ date: x.date, area: x.area || '', minutes: x.minutes ?? null, miles: Number(x.miles), type: x.type || '', rate: Number(x.rate ?? r.trips.rate) })) } : null,
 })
 
 const dbExpenses = {
@@ -560,7 +560,7 @@ const dbExpenses = {
     return tripSettingsFromJson(data)
   },
   async setTripSettings(orgId, s) {
-    const { data, error } = await supabase.rpc('set_trip_settings', { p_org: orgId, p_rate: s.rate, p_label: s.label || '', p_areas: s.areas || [], p_category: s.categoryId || '', p_note: s.note || '' })
+    const { data, error } = await supabase.rpc('set_trip_settings', { p_org: orgId, p_rates: s.rates, p_label: s.label || '', p_category: s.categoryId || '', p_note: s.note || '' })
     if (error) throw error
     return tripSettingsFromJson(data)
   },
@@ -615,7 +615,7 @@ export function tripReportRows({ claims, names = {}, unknownName = '', period = 
     for (const r of c.trips.rows) {
       if (period && (r.date < period.start || r.date > period.end)) continue
       rows.push({ userId: c.userId, name: names[c.userId] || unknownName, date: r.date, area: r.area || '', minutes: r.minutes ?? null, miles: r.miles,
-        rate: c.trips.rate, amount: round2(r.miles * c.trips.rate), status: c.status, paidDate: c.paidDate || null })
+        type: r.type || '', rate: r.rate, amount: round2(r.miles * r.rate), status: c.status, paidDate: c.paidDate || null })
     }
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name, 'sv') || a.date.localeCompare(b.date))
@@ -724,7 +724,7 @@ const dbInvoicing = {
 // ── Demoläge ───────────────────────────────────────────────────
 // Demokontot läser riktig data men all skrivning sker i minnet och försvinner vid omladdning.
 let demo = null // { data, files: Map<txId, [{name, file}]>, seq, claims, customers, invoices, invSeq }
-export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0, aiReads: 0, reviews: [], remarks: [], tripSettings: { rate: 90, label: 'Körersättning', areas: [], categoryId: null, note: '' } } : null }
+export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0, aiReads: 0, reviews: [], remarks: [], tripSettings: { rates: [{ name: 'Egen skoter/fyrhjuling', rate: 90 }], label: 'Körersättning', categoryId: null, note: '' } } : null }
 export const isDemoMode = () => !!demo
 // Demoläget tillåter en AI-avläsning per session (nollställs när man loggar in på demon igen)
 export const DEMO_AI_LIMIT = 1
@@ -995,11 +995,16 @@ const demoExpenses = {
     if (!clean.length) throw new Error('Lägg till minst en resa.')
     for (const r of clean) {
       if (!(r.miles > 0)) throw new Error('Ogiltigt antal mil.')
-      if (st.areas.length && !st.areas.includes(r.area)) throw new Error('Välj ett område i listan.')
+      if (!r.area) throw new Error('Ange område eller ort för varje resa.')
     }
-    const total = Math.round(clean.reduce((a, r) => a + r.miles, 0) * st.rate * 100) / 100
+    for (const r of clean) {
+      const ty = st.rates.find(x => x.name === r.type) || (st.rates.length === 1 ? st.rates[0] : null)
+      if (!ty) throw new Error('Välj ersättningsslag för varje resa.')
+      r.type = ty.name; r.rate = ty.rate
+    }
+    const total = Math.round(clean.reduce((a, r) => a + Math.round(r.miles * r.rate * 100) / 100, 0) * 100) / 100
     const base = { date: clean.map(r => r.date).sort().pop(), description: st.label, comment: comment || '', counterparty: '', lines: [{ categoryId: st.categoryId, amount: total, projectId: null }], total,
-      trips: { rate: st.rate, rows: clean } }
+      trips: { rows: clean } }
     const existing = id && demo.claims.find(c => c.id === id)
     let saved
     if (existing) { Object.assign(existing, base, { status: 'submitted', rejectReason: '' }); saved = existing }
@@ -1026,7 +1031,7 @@ const demoExpenses = {
     const added = await demoStore.addTransaction(orgId, {
       date: paidDate, description: c.kind === 'invoice' ? (c.description || c.supplier) : c.description,
       comment: c.kind === 'invoice' ? `Faktura från ${c.supplier}${c.invoiceNo ? ` (nr ${c.invoiceNo})` : ''}${c.comment ? ` – ${c.comment}` : ''}`
-        : c.trips ? `Körersättning – ${Math.round(c.trips.rows.reduce((a, r) => a + r.miles, 0) * 100) / 100} mil à ${c.trips.rate} kr${c.comment ? ` – ${c.comment}` : ''}` : c.comment,
+        : c.trips ? `Körersättning – ${[...new Set(c.trips.rows.map(r => `${r.type}|${r.rate}`))].map(k => { const [ty, ra] = k.split('|'); return `${ty} ${Math.round(c.trips.rows.filter(r => r.type === ty && String(r.rate) === ra).reduce((a, r) => a + r.miles, 0) * 100) / 100} mil à ${ra} kr` }).join('; ')}${c.comment ? ` – ${c.comment}` : ''}` : c.comment,
       counterparty: c.kind === 'invoice' ? c.supplier : c.counterparty,
       lines: c.lines })
     await demoAttachments.moveFolder(orgId, claimFolder(id), added.id)

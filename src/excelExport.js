@@ -373,13 +373,14 @@ export async function exportTripReportExcel({ orgName, periodLabel, rows }) {
   }
   const s1 = sumSheet(tr('Sammanställning'), tr('Namn'), group('name'))
   s1.addRow({}); s1.addRow({ name: tr('Förening'), trips: orgName }); s1.addRow({ name: tr('Period'), trips: periodLabel })
-  if (rows.some(r => r.area)) sumSheet(tr('Per område'), tr('Område'), group('area'))
+  if (rows.some(r => r.area)) sumSheet(tr('Per område'), tr('Område/ort'), group('area'))
 
   const ws = wb.addWorksheet(tr('Resor'), { views: [{ state: 'frozen', ySplit: 1 }] })
   ws.columns = [
     { header: tr('Namn'), key: 'name', width: 26 },
     { header: tr('Datum'), key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
-    { header: tr('Område'), key: 'area', width: 18 },
+    { header: tr('Område/ort'), key: 'area', width: 18 },
+    { header: tr('Ersättningsslag'), key: 'type', width: 24 },
     { header: tr('Tid (minuter)'), key: 'minutes', width: 14 },
     { header: tr('Mil'), key: 'miles', width: 10 },
     { header: tr('Kr per mil'), key: 'rate', width: 12, style: { numFmt: MONEY } },
@@ -392,7 +393,7 @@ export async function exportTripReportExcel({ orgName, periodLabel, rows }) {
   const t2 = ws.addRow({ name: tr('TOTALT'), minutes: rows.reduce((a, r) => a + (r.minutes || 0), 0), miles: round2(rows.reduce((a, r) => a + r.miles, 0)), amount: round2(rows.reduce((a, r) => a + r.amount, 0)) })
   t2.font = { bold: true }
   t2.eachCell({ includeEmpty: true }, c => { c.border = { top: { style: 'thin' } } })
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } }
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } }
 
   const buf = await wb.xlsx.writeBuffer()
   return {

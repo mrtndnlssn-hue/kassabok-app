@@ -147,45 +147,59 @@ function ProjectSettings({ orgId, canManage, onChanged }) {
 function TripSettings({ orgId, canManage, categories }) {
   const { t } = useI18n()
   const [s, setS] = useState(null)
-  const [areasText, setAreasText] = useState('')
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
-  useEffect(() => { expenses.getTripSettings(orgId).then(x => { setS({ ...x, rate: String(x.rate).replace('.', ',') }); setAreasText((x.areas || []).join('\n')) }).catch(e => setError(t(e.message))) }, [orgId])
+  useEffect(() => { expenses.getTripSettings(orgId).then(x => { setS({ ...x, rates: x.rates.map(r => ({ name: r.name, rate: String(r.rate).replace('.', ',') })) }) }).catch(e => setError(t(e.message))) }, [orgId])
   const expCats = (categories || []).filter(c => c.type === 'expense' && !c.hidden)
   async function save(e) {
     e.preventDefault()
     setError(''); setDone(false)
-    const rate = Number(String(s.rate).replace(',', '.'))
-    if (!(rate > 0)) { setError(t('Ange en ersättning per mil.')); return }
+    const rates = s.rates.map(r => ({ name: r.name.trim(), rate: Number(String(r.rate).replace(',', '.')) }))
+    if (rates.some(r => !r.name || !(r.rate > 0))) { setError(t('Ange ett namn och en ersättning per mil för varje rad.')); return }
     setSaving(true)
     try {
-      await expenses.setTripSettings(orgId, { rate, label: s.label.trim(), areas: areasText.split('\n').map(x => x.trim()).filter(Boolean), categoryId: s.categoryId || '', note: s.note })
+      await expenses.setTripSettings(orgId, { rates, label: s.label.trim(), categoryId: s.categoryId || '', note: s.note })
       setDone(true); setTimeout(() => setDone(false), 3000)
     } catch (err) { setError(t(err.message)) } finally { setSaving(false) }
   }
   if (!s) return error ? <div className="notice" style={errBox}>{error}</div> : null
   const set = (k, v) => { setS(x => ({ ...x, [k]: v })); setDone(false) }
+  const setRate = (i, patch) => { setS(x => ({ ...x, rates: x.rates.map((r, j) => (j === i ? { ...r, ...patch } : r)) })); setDone(false) }
   return (
     <form onSubmit={save}>
       {error && <div className="notice" style={{ ...errBox, marginBottom: 12 }}>{error}</div>}
       {done && <div className="notice notice-success" style={{ marginBottom: 12 }}>{t('Inställningarna har sparats.')}</div>}
       {!s.categoryId && <div className="notice" style={{ background: 'var(--amber-soft)', borderColor: 'var(--amber)', color: 'var(--ink)', marginBottom: 12, fontSize: '0.82rem' }}>{t('Välj ett konto nedan, annars går det inte att registrera resor.')}</div>}
       <fieldset disabled={!canManage} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        <div className="form-row form-row-cols">
-          <div><label>{t('Ersättning per mil (kr)')}</label><input type="text" inputMode="decimal" value={s.rate} onChange={e => set('rate', e.target.value)} /></div>
-          <div><label>{t('Vad ersättningen heter')}</label><input type="text" maxLength={40} value={s.label} placeholder="Körersättning" onChange={e => set('label', e.target.value)} /></div>
-        </div>
+        <div className="form-row"><div>
+          <label>{t('Ersättning per mil')}</label>
+          <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', margin: '0 0 6px' }}>{t('Lägg till flera om ersättningen skiljer sig, till exempel egen skoter och bil. Man väljer slag för varje resa.')}</p>
+          {s.rates.map((r, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+              <input type="text" maxLength={40} value={r.name} placeholder={t('Till exempel Bil')} aria-label={t('Namn på ersättningen')}
+                onChange={e => setRate(i, { name: e.target.value })} style={{ flex: '2 1 140px', minWidth: 0 }} />
+              <input type="text" inputMode="decimal" value={r.rate} aria-label={t('Kronor per mil')} onChange={e => setRate(i, { rate: e.target.value })} style={{ flex: '1 1 70px', minWidth: 0, maxWidth: 100 }} />
+              <span style={{ fontSize: '0.85rem', color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{t('kr/mil')}</span>
+              {s.rates.length > 1 && canManage && (
+                <button type="button" className="btn btn-sm btn-secondary" aria-label={t('Ta bort')} title={t('Ta bort')}
+                  onClick={() => { setS(x => ({ ...x, rates: x.rates.filter((_, j) => j !== i) })); setDone(false) }}>×</button>
+              )}
+            </div>
+          ))}
+          {s.rates.length < 10 && (
+            <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setS(x => ({ ...x, rates: [...x.rates, { name: '', rate: '' }] })); setDone(false) }}>+ {t('Lägg till ersättning')}</button>
+          )}
+        </div></div>
+        <div className="form-row"><div>
+          <label>{t('Vad ersättningen heter')}</label><input type="text" maxLength={40} value={s.label} placeholder="Körersättning" onChange={e => set('label', e.target.value)} />
+        </div></div>
         <div className="form-row"><div>
           <label>{t('Bokförs på konto')}</label>
           <select value={s.categoryId || ''} onChange={e => set('categoryId', e.target.value)}>
             <option value="">{t('Välj…')}</option>
             {expCats.map(c => <option key={c.id} value={c.id}>{c.id} {c.name}</option>)}
           </select>
-        </div></div>
-        <div className="form-row"><div>
-          <label>{t('Områden (ett per rad, valfritt)')}</label>
-          <textarea rows={3} style={{ width: '100%' }} value={areasText} placeholder={'Område 1\nOmråde 2'} onChange={e => { setAreasText(e.target.value); setDone(false) }} />
         </div></div>
         <div className="form-row"><div>
           <label>{t('Information som visas när man registrerar (valfritt)')}</label>

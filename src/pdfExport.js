@@ -636,6 +636,17 @@ export function exportTripReport({ orgName, periodLabel, rows, onlyPaid = false 
   });
 
   const hasArea = rows.some(r => r.area);
+  const hasType = new Set(rows.map(r => r.type)).size > 1;
+  const spec = [
+    { h: t('Datum'), v: r => r.date },
+    ...(hasArea ? [{ h: t('Område/ort'), v: r => r.area || '' }] : []),
+    ...(hasType ? [{ h: t('Ersättningsslag'), v: r => r.type || '' }] : []),
+    { h: t('Tid (min)'), v: r => (r.minutes != null ? String(r.minutes) : ''), right: true, sum: g => String(g.minutes || '') },
+    { h: t('Mil'), v: r => mil(r.miles), right: true, sum: g => mil(g.miles) },
+    { h: t('Kr per mil'), v: r => fmt(r.rate), right: true, mono: true },
+    { h: t('Ersättning'), v: r => fmt(r.amount), right: true, mono: true, sum: g => fmt(g.amount) },
+    { h: t('Status'), v: r => STATUS[r.status] || r.status },
+  ];
   for (const g of list) {
     let y = doc.lastAutoTable.finalY + 12;
     if (y > 235) { doc.addPage(); y = 20; }
@@ -645,14 +656,12 @@ export function exportTripReport({ orgName, periodLabel, rows, onlyPaid = false 
     doc.text(g.name, 18, y);
     autoTable(doc, {
       startY: y + 3,
-      head: [[t('Datum'), ...(hasArea ? [t('Område')] : []), t('Tid (min)'), t('Mil'), t('Kr per mil'), t('Ersättning'), t('Status')]],
-      body: [...g.rows.map(r => [r.date, ...(hasArea ? [r.area || ''] : []), r.minutes != null ? String(r.minutes) : '', mil(r.miles), fmt(r.rate), fmt(r.amount), STATUS[r.status] || r.status]),
-        [{ content: t('Summa'), styles: { fontStyle: 'bold' } }, ...(hasArea ? [''] : []), { content: String(g.minutes || ''), styles: { fontStyle: 'bold' } }, { content: mil(g.miles), styles: { fontStyle: 'bold' } }, '',
-         { content: fmt(g.amount), styles: { fontStyle: 'bold' } }, '']],
+      head: [spec.map(c => c.h)],
+      body: [...g.rows.map(r => spec.map(c => c.v(r))),
+        spec.map((c, k) => (k === 0 ? { content: t('Summa'), styles: { fontStyle: 'bold' } } : c.sum ? { content: c.sum(g), styles: { fontStyle: 'bold' } } : ''))],
       headStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 8 },
       styles: { fontSize: 8, cellPadding: 1.6 },
-      columnStyles: hasArea ? { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right', font: 'courier' }, 5: { halign: 'right', font: 'courier' } }
-                            : { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right', font: 'courier' }, 4: { halign: 'right', font: 'courier' } },
+      columnStyles: Object.fromEntries(spec.map((c, k) => [k, { ...(c.right ? { halign: 'right' } : {}), ...(c.mono ? { font: 'courier' } : {}) }])),
       alternateRowStyles: { fillColor: PAPER },
       margin: { left: 18, right: 18 },
     });

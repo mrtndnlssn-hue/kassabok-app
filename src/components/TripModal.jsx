@@ -7,7 +7,7 @@ import DateInput from './DateInput';
 const toNum = v => Number(String(v ?? '').replace(',', '.'));
 const round2 = n => Math.round(n * 100) / 100;
 const milText = n => String(round2(n)).replace('.', ',');
-const emptyRow = (area = '') => ({ date: todayStr(), area, minutes: '', miles: '' });
+const emptyRow = (area = '') => ({ date: todayStr(), area, type: '', minutes: '', miles: '' });
 
 // Registrera körda resor (till exempel sladdning) med datum, område, tid och antal mil. Ersättningen räknas ut som mil x ersättning
 // per mil, och kravet hanteras sedan som ett utlägg: godkänns, betalas ut och bokförs.
@@ -15,7 +15,7 @@ export default function TripModal({ orgId, claim, onSubmit, onClose }) {
   const { t } = useI18n();
   const [settings, setSettings] = useState(null);
   const [rows, setRows] = useState(() => claim?.trips?.rows?.length
-    ? claim.trips.rows.map(r => ({ date: r.date, area: r.area || '', minutes: r.minutes ?? '', miles: String(r.miles).replace('.', ',') }))
+    ? claim.trips.rows.map(r => ({ date: r.date, area: r.area || '', type: r.type || '', minutes: r.minutes ?? '', miles: String(r.miles).replace('.', ',') }))
     : [emptyRow()]);
   const [comment, setComment] = useState(claim?.comment || '');
   const [busy, setBusy] = useState(false);
@@ -25,12 +25,14 @@ export default function TripModal({ orgId, claim, onSubmit, onClose }) {
     expenses.getTripSettings(orgId).then(setSettings).catch(e => setError(t(e.message || 'okänt fel')));
   }, [orgId]);
 
-  const areas = settings?.areas || [];
-  const rate = Number(settings?.rate) || 0;
+  const rates = settings?.rates || [];
+  const typeOf = r => r.type || rates[0]?.name || '';
+  const rateOf = r => rates.find(x => x.name === typeOf(r))?.rate || 0;
+  const amountOf = r => round2((toNum(r.miles) || 0) * rateOf(r));
   const setRow = (i, patch) => setRows(rs => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const filled = rows.filter(r => String(r.miles).trim() !== '' || String(r.minutes).trim() !== '');
   const totalMiles = round2(filled.reduce((a, r) => a + (toNum(r.miles) || 0), 0));
-  const total = round2(totalMiles * rate);
+  const total = round2(filled.reduce((a, r) => a + amountOf(r), 0));
   const notReady = settings && !settings.categoryId;
 
   async function save(e) {
@@ -40,11 +42,11 @@ export default function TripModal({ orgId, claim, onSubmit, onClose }) {
     for (const r of filled) {
       if (!isValidIsoDate(r.date)) { setError(t('Ange ett giltigt datum på formatet YYYY-MM-DD.')); return; }
       if (!(toNum(r.miles) > 0)) { setError(t('Ange antal mil för varje resa.')); return; }
-      if (areas.length && !areas.includes(r.area)) { setError(t('Välj område för varje resa.')); return; }
+      if (!r.area.trim()) { setError(t('Ange område eller ort för varje resa.')); return; }
     }
     setBusy(true);
     try {
-      await onSubmit({ rows: filled, comment });
+      await onSubmit({ rows: filled.map(r => ({ ...r, type: typeOf(r) })), comment });
       onClose();
     } catch (err) {
       setError(t(err.message || 'okänt fel'));
@@ -68,7 +70,9 @@ export default function TripModal({ orgId, claim, onSubmit, onClose }) {
         {error && <div className="notice" style={{ background: 'var(--red-soft)', borderColor: 'var(--red)', color: 'var(--red)', marginBottom: 12 }}>{error}</div>}
 
         <p style={{ fontSize: '0.85rem', color: 'var(--ink-soft)', margin: '0 0 12px' }}>
-          {t('Ersättning: {belopp} per mil.', { belopp: fmt(rate) })}
+          {rates.length === 1
+            ? t('Ersättning: {belopp} per mil.', { belopp: fmt(rates[0].rate) })
+            : <>{t('Ersättning per mil')}: {rates.map(x => `${x.name} ${fmt(x.rate)}`).join(' · ')}</>}
         </p>
 
         <div style={{ display: 'grid', gap: 10 }}>
@@ -79,12 +83,15 @@ export default function TripModal({ orgId, claim, onSubmit, onClose }) {
                   <label>{t('Datum')} *</label>
                   <DateInput value={r.date} onChange={v => setRow(i, { date: v })} />
                 </div>
-                {areas.length > 0 && (
+                <div style={{ minWidth: 0 }}>
+                  <label>{t('Område/ort')} *</label>
+                  <input type="text" maxLength={60} value={r.area} placeholder={t('Till exempel Klövsjö')} onChange={e => setRow(i, { area: e.target.value })} />
+                </div>
+                {rates.length > 1 && (
                   <div style={{ minWidth: 0 }}>
-                    <label>{t('Område')} *</label>
-                    <select value={r.area} onChange={e => setRow(i, { area: e.target.value })}>
-                      <option value="">{t('Välj…')}</option>
-                      {areas.map(a => <option key={a} value={a}>{a}</option>)}
+                    <label>{t('Ersättningsslag')} *</label>
+                    <select value={typeOf(r)} onChange={e => setRow(i, { type: e.target.value })}>
+                      {rates.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
                     </select>
                   </div>
                 )}
@@ -98,7 +105,7 @@ export default function TripModal({ orgId, claim, onSubmit, onClose }) {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
-                <span className="mono">{toNum(r.miles) > 0 ? fmt(round2(toNum(r.miles) * rate)) : ''}</span>
+                <span className="mono">{toNum(r.miles) > 0 ? fmt(amountOf(r)) : ''}</span>
                 {rows.length > 1 && (
                   <button type="button" className="btn btn-sm btn-secondary" onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} aria-label={t('Ta bort')} title={t('Ta bort')}>
                     <Trash2 size={12} />
@@ -108,7 +115,7 @@ export default function TripModal({ orgId, claim, onSubmit, onClose }) {
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm btn-secondary" style={{ marginTop: 10 }} onClick={() => setRows(rs => [...rs, emptyRow(areas.length === 1 ? areas[0] : '')])}>
+        <button type="button" className="btn btn-sm btn-secondary" style={{ marginTop: 10 }} onClick={() => setRows(rs => [...rs, emptyRow(rs[rs.length - 1]?.area || '')])}>
           <Plus size={13} /> {t('Lägg till resa')}
         </button>
 

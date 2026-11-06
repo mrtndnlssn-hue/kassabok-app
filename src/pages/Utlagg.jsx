@@ -260,6 +260,8 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
             const invoice = c.kind === 'invoice';
             const trip = !!c.trips;
             const tripMiles = trip ? c.trips.rows.reduce((a, r) => a + r.miles, 0) : 0;
+            const tripRates = trip ? [...new Set(c.trips.rows.map(r => r.rate))] : [];
+            const tripTypes = trip ? new Set(c.trips.rows.map(r => r.type)) : new Set();
             const overdue = invoice && c.status === 'submitted' && c.dueDate && c.dueDate < today;
             const own = c.userId === myId;
             return (
@@ -270,7 +272,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
                       {invoice
                         ? <>{c.supplier}{c.invoiceNo ? <span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}> · {t('nr')} {c.invoiceNo}</span> : null}</>
                         : trip
-                          ? <>{c.description}<span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}> · {milText(tripMiles)} {t('mil')} × {fmt(c.trips.rate)}</span></>
+                          ? <>{c.description}<span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}> · {milText(tripMiles)} {t('mil')}{tripRates.length === 1 ? ` × ${fmt(tripRates[0])}` : ''}</span></>
                           : (c.description || <em style={{ color: 'var(--ink-muted)' }}>{t('Utan beskrivning')}</em>)}
                     </div>
                     {invoice && c.description && <div style={{ fontSize: '0.85rem', color: 'var(--ink-soft)' }}>{c.description}</div>}
@@ -288,7 +290,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
                     {trip && (
                       <div style={{ marginTop: 6, display: 'grid', gap: 2, fontSize: '0.82rem', color: 'var(--ink-soft)' }}>
                         {c.trips.rows.map((r, i) => (
-                          <div key={i}><span className="mono">{r.date}</span>{r.area ? ` · ${r.area}` : ''}{r.minutes != null ? ` · ${r.minutes} ${t('min')}` : ''} · {milText(r.miles)} {t('mil')}</div>
+                          <div key={i}><span className="mono">{r.date}</span>{r.area ? ` · ${r.area}` : ''}{tripTypes.size > 1 && r.type ? ` · ${r.type}` : ''}{r.minutes != null ? ` · ${r.minutes} ${t('min')}` : ''} · {milText(r.miles)} {t('mil')}</div>
                         ))}
                       </div>
                     )}
