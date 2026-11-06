@@ -1,5 +1,9 @@
 // Utlägg (expense claims)
 export default {
+  'Avslagna': 'Rejected',
+  'Avvisade': 'Rejected',
+  'Inga avslagna utlägg.': 'No rejected expenses.',
+  'Inga avvisade fakturor.': 'No rejected invoices.',
   'Demon tillåter en AI-avläsning per besök. Ladda om demon för att prova igen.': 'The demo allows one AI reading per visit. Reload the demo to try again.',
   '{used}/{limit} avläsning använd i demon (en per besök)': '{used}/{limit} reading used in the demo (one per visit)',
   'Det här verkar redan vara inlagt': 'This seems to be entered already',

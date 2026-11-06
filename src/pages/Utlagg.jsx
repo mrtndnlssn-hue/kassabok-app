@@ -64,12 +64,13 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
   // Fakturor sorteras på förfallodatum så att den som snart förfaller hamnar överst
   const byDue = (a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
   const toHandle = list.filter(c => (isInv ? c.status === 'submitted' : (c.status === 'submitted' || c.status === 'approved'))).sort(isInv ? byDue : () => 0);
+  const rejectedList = list.filter(c => c.status === 'rejected');
   const invoicesToPay = isWriter && invoiceInboxOn ? claims.filter(c => c.kind === 'invoice' && c.status === 'submitted').length : 0;
   const tabs = isWriter
-    ? [['handle', isInv ? t('Att betala') : t('Att hantera'), toHandle.length], ['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null], ['all', isInv ? t('Alla fakturor') : t('Alla utlägg'), null]]
+    ? [['handle', isInv ? t('Att betala') : t('Att hantera'), toHandle.length], ['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null], ['rejected', isInv ? t('Avvisade') : t('Avslagna'), rejectedList.length], ['all', isInv ? t('Alla fakturor') : t('Alla utlägg'), null]]
     : [['mine', isInv ? t('Mina fakturor') : t('Mina utlägg'), null]];
   const activeTab = tab || (isWriter && toHandle.length ? 'handle' : 'mine');
-  const shown = activeTab === 'handle' ? toHandle : activeTab === 'mine' ? mine : list;
+  const shown = activeTab === 'handle' ? toHandle : activeTab === 'mine' ? mine : activeTab === 'rejected' ? rejectedList : list;
   const switchView = v => { setView(v); setTab(null); setError(''); };
   const statusOf = c => (c.kind === 'invoice' ? STATUS_INVOICE : STATUS)[c.status];
   const today = todayStr();
@@ -218,7 +219,7 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
       </div>
 
       {shown.length === 0 ? (
-        <div className="empty-state"><p>{activeTab === 'handle' ? (isInv ? t('Inga fakturor väntar på betalning.') : t('Inga utlägg väntar på dig.')) : (isInv ? t('Inga fakturor att visa.') : t('Inga utlägg att visa.'))}</p></div>
+        <div className="empty-state"><p>{activeTab === 'handle' ? (isInv ? t('Inga fakturor väntar på betalning.') : t('Inga utlägg väntar på dig.')) : activeTab === 'rejected' ? (isInv ? t('Inga avvisade fakturor.') : t('Inga avslagna utlägg.')) : (isInv ? t('Inga fakturor att visa.') : t('Inga utlägg att visa.'))}</p></div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {shown.map(c => {
@@ -277,15 +278,17 @@ export default function Utlagg({ orgId, orgName, claims, transactions, categorie
                   <button {...btnProps} className="btn btn-sm btn-secondary" onClick={() => setAttach({ claim: c, readOnly: !editable(c) })}>
                     <Paperclip size={12} /> {invoice ? t('Faktura') : t('Kvitton')}
                   </button>
-                  {editable(c) && <>
+                  {editable(c) && (
                     <button {...btnProps} className="btn btn-sm btn-secondary" onClick={() => setModal({ claim: c })}>
                       <Pencil size={12} /> {c.status === 'rejected' ? (invoice ? t('Ändra och lägg upp igen') : t('Ändra och skicka in igen')) : t('Redigera')}
                     </button>
+                  )}
+                  {(editable(c) || (isWriter && c.status === 'rejected')) && (
                     <button {...btnProps} className={`btn btn-sm ${deleteConfirm === c.id ? 'btn-danger' : 'btn-secondary'}`} onClick={() => remove(c)}
                       title={deleteConfirm === c.id ? t('Klicka igen för att bekräfta') : t('Ta bort')}>
                       {deleteConfirm === c.id ? <><Check size={12} /> {t('Bekräfta radering')}</> : <Trash2 size={12} />}
                     </button>
-                  </>}
+                  )}
                   {isWriter && c.status === 'submitted' && invoice && <>
                     <button {...btnProps} className="btn btn-sm btn-primary" onClick={() => { setPaidDate(todayStr()); setPaying(c); }}>
                       <Wallet size={12} /> {t('Betala och bokför')}
