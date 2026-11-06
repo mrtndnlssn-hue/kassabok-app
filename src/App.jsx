@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings, Layers, Receipt } from 'lucide-react';
-import { store, attachments, expenses, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
+import { store, attachments, expenses, invoicing, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
 import { useAuth } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import { isDemoSession } from './demo';
@@ -33,7 +33,7 @@ const NAV_GROUPS = [
   ] },
   { title: 'Bokföring', items: [
     { id: 'kassabok',  label: 'Kassabok',           icon: BookOpen },
-    { id: 'utlagg',    label: 'Utlägg',             icon: Receipt, needsExpenses: true },
+    { id: 'utlagg',    label: 'Utlägg & fakturor',  icon: Receipt, needsExpenses: true },
     { id: 'budget',    label: 'Budget & utfall',    icon: PieChart },
     { id: 'projekt',   label: 'Projekt',            icon: Layers, needsProjects: true },
   ] },
@@ -87,7 +87,8 @@ function MainApp({ orgId, role }) {
   }, [session]);
   const [orgNames, setOrgNames]       = useState({});
   const [loading, setLoading]         = useState(true);
-  const [transactions, setTxs]        = useState([]);
+  const [transactions, setTxs]        = useState([]);              // verifikat som räknas (utan makulerade)
+  const [voidedTxs, setVoidedTxs]    = useState([]);              // makulerade verifikat: visas i kassaboken men räknas inte
   const [categories, setCats]         = useState([]);
   const [budget, setBudget]           = useState({});
   const [budgetComments, setBudgetComments] = useState({});
@@ -97,6 +98,7 @@ function MainApp({ orgId, role }) {
   const [projectData, setProjectData] = useState(null);      // märkning med projekt/sektioner (plan + inställning + projekt)
   const [openProjectId, setOpenProjectId] = useState(null);
   const [hideStart, setHideStart]   = useState(false);          // Kom igång-sidan avstängd i inställningarna
+  const [outInvoices, setOutInvoices] = useState([]);          // utgående fakturor (fakturering)
   const [claims, setClaims]        = useState([]);             // utlägg (egna, eller alla för den som får godkänna)
   const [flash, setFlash]          = useState('');             // meddelande ovanför sidan
 
@@ -104,6 +106,8 @@ function MainApp({ orgId, role }) {
   const projOn = pd.allowed && pd.enabled;
   const labels = projectLabels(pd);
   const expensesOn = !!pd.expensesAllowed && canSubmitExpense;
+  const invoicingOn = !!pd.invoicingAllowed && !!pd.invoicingEnabled;   // fakturering är aktiverad i inställningarna och ingår i planen
+  const inboxOn = expensesOn || invoicingOn;                            // sidan Utlägg & fakturor
   const navLabel = n => (n.id === 'projekt' ? cap(labels.many) : t(n.label));
 
   async function fetchAll() {
@@ -111,7 +115,8 @@ function MainApp({ orgId, role }) {
     try {
       const data    = await store.getAll(orgId);
       const periods = getOrBuildPeriods(data);
-      setTxs(data.transactions || []);
+      setTxs((data.transactions || []).filter(t => !t.voidedAt));
+      setVoidedTxs((data.transactions || []).filter(t => t.voidedAt));
       setCats(data.categories || []);
       setBudget(data.budget || {});
       setBudgetComments(data.budgetComments || {});
@@ -121,6 +126,7 @@ function MainApp({ orgId, role }) {
       setProjectData(data.projectData || null);
       setHideStart(!!data.hideGettingStarted);
       await loadClaims(!!data.projectData?.expensesAllowed && canSubmitExpense);
+      await loadOutInvoices(!!data.projectData?.invoicingAllowed && !!data.projectData?.invoicingEnabled);
 
       const today  = todayStr();
       const active =
@@ -148,6 +154,10 @@ function MainApp({ orgId, role }) {
     if (!allowed) { setClaims([]); return; }
     try { setClaims(await expenses.list(orgId)); } catch { setClaims([]); }
   }
+  async function loadOutInvoices(allowed = invoicingOn) {
+    if (!allowed) { setOutInvoices([]); return; }
+    try { setOutInvoices(await invoicing.listInvoices(orgId)); } catch { setOutInvoices([]); }
+  }
   async function handleSubmitExpense(payload, files = []) {
     const { claim, uploadError } = await expenses.submit(orgId, payload, files);
     expenses.notify(claim.id);
@@ -168,11 +178,11 @@ function MainApp({ orgId, role }) {
 
   // Sidan Projekt finns bara när funktionen är påslagen, och Kom igång bara om den inte stängts av
   useEffect(() => {
-    if (!loading && ((page === 'projekt' && !projOn) || (page === 'utlagg' && !expensesOn) || (page === 'komigang' && hideStart))) {
+    if (!loading && ((page === 'projekt' && !projOn) || (page === 'utlagg' && !inboxOn) || (page === 'komigang' && hideStart))) {
       window.history.replaceState({ page: 'dashboard' }, '', '#dashboard');
       setPage('dashboard');
     }
-  }, [loading, page, projOn, expensesOn, hideStart]);
+  }, [loading, page, projOn, inboxOn, hideStart]);
 
   async function setStartHidden(hidden) {
     await store.setGettingStartedHidden(orgId, hidden);
@@ -205,6 +215,8 @@ function MainApp({ orgId, role }) {
   }
   async function handleUpdateTx(id, upd) { await store.updateTransaction(orgId, id, upd);  await fetchAll(); }
   async function handleDeleteTx(id)      { await store.deleteTransaction(orgId, id);        await fetchAll(); }
+  async function handleUpdateLockedTx(id, upd) { await store.updateLockedTransaction(orgId, id, upd); await fetchAll(); }
+  async function handleVoidTx(id, reason, replacement) { await store.voidTransaction(orgId, id, reason, replacement); await fetchAll(); }
   async function handleSaveCats(cats, renames = []) {
     if (renames.length) await store.renameCategories(orgId, renames);
     await store.saveCategories(orgId, cats);
@@ -251,7 +263,10 @@ function MainApp({ orgId, role }) {
     </div>
   );
 
-  const pendingClaims = canWrite ? claims.filter(c => (c.status === 'submitted' || c.status === 'approved') && !(c.userId === session?.user?.id && role !== 'main_owner')).length : 0;
+  // Att göra för den som får hantera: fakturor att betala, samt utlägg att godkänna eller betala ut (dock inte sina egna, utom huvudägaren)
+  const pendingClaims = canWrite ? claims.filter(c => c.kind === 'invoice'
+    ? c.status === 'submitted'
+    : (c.status === 'submitted' || c.status === 'approved') && !(c.userId === session?.user?.id && role !== 'main_owner')).length : 0;
   const navBadge = n => (n.id === 'utlagg' && pendingClaims > 0
     ? <span style={{ marginLeft: 'auto', background: 'var(--amber)', color: '#fff', borderRadius: 99, fontSize: '0.68rem', fontWeight: 700, padding: '1px 7px' }}>{pendingClaims}</span>
     : null);
@@ -261,7 +276,7 @@ function MainApp({ orgId, role }) {
       <button onClick={() => setFlash('')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }} aria-label={t('Stäng')}>×</button>
     </div>
   );
-  const pageProps = { transactions, categories, budget, orgName, activePeriod, fiscalPeriods };
+  const pageProps = { transactions, voidedTxs, categories, budget, orgName, activePeriod, fiscalPeriods };
   const myUserId = session?.user?.id;
   const projectCtx = {
     allowed: pd.allowed, enabled: projOn, labels, settings: pd, projects: pd.projects,
@@ -271,13 +286,13 @@ function MainApp({ orgId, role }) {
   const pageMap   = {
     komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
-    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
-    utlagg:     <Utlagg {...pageProps} orgId={orgId} claims={claims} onReload={loadClaims} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
+    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
+    utlagg:     <Utlagg {...pageProps} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,
     kategorier: <Kategorier {...pageProps} orgId={orgId} onSave={handleSaveCats} onReasignAndDelete={handleReasignAndDelete} />,
     arsrapport: <Arsrapport {...pageProps} budgetComments={budgetComments} orgId={orgId} />,
-    perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
+    perioder:   <Rakenskapsperioder fiscalPeriods={fiscalPeriods} onSave={handleSavePeriods} transactions={transactions} voidedTxs={voidedTxs} categories={categories} budget={budget} orgName={orgName} orgId={orgId} />,
     medlemmar:     <Medlemmar orgId={orgId} orgName={orgName} />,
     installningar: <Installningar orgId={orgId} orgName={orgName} onProjectSettingsChange={reloadProjects} hideStart={hideStart} onHideStartChange={setStartHidden} onOrgNameChange={name => { setOrgName(name); setOrgNames(prev => ({ ...prev, [orgId]: name })); }} />,
   };
@@ -286,7 +301,7 @@ function MainApp({ orgId, role }) {
     komigang:   t('Gör föreningen redo steg för steg'),
     dashboard:  t('Ekonomisk översikt – {period}', { period: activePeriod?.label || '–' }),
     kassabok:   t('Verifikat – {period}', { period: activePeriod?.label || '–' }),
-    utlagg:     t('Registrera, godkänn och betala ut utlägg'),
+    utlagg:     t('Utlägg och fakturor: registrera, godkänn, betala och bokför'),
     projekt:    t('Följ {namn}: intäkter, kostnader och rapporter', { namn: lower(labels.many) }),
     budget:     t('Budget vs utfall – {period}', { period: activePeriod?.label || '–' }),
     kategorier: t('Definiera intäkts- och kostnadskategorier'),
@@ -298,7 +313,7 @@ function MainApp({ orgId, role }) {
 
   // ── Mobilvariant: toppfält, innehåll och flikmeny längst ner (Översikt, Kassabok, Nytt, Budget, Mer) ──
   if (isMobile) {
-    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || expensesOn) && !(n.id === 'komigang' && hideStart));
+    const visible   = NAV.filter(n => (!n.ownerOnly || isOwnerRole) && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || inboxOn) && !(n.id === 'komigang' && hideStart));
     const moreItems = visible.filter(n => !['dashboard', 'kassabok', 'budget'].includes(n.id));
     const go  = id => { setMoreOpen(false); navigate(id); };
     const tab = (id, Icon, label) => (
@@ -425,7 +440,7 @@ function MainApp({ orgId, role }) {
         <nav className="sidebar-nav">
           {NAV_GROUPS.map((g, gi) => {
             const items = g.items.filter(n =>
-              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || expensesOn) && !(n.id === 'komigang' && hideStart));
+              (!n.ownerOnly || role === 'main_owner' || role === 'owner') && (!n.hideForViewer || canWrite) && (!n.needsProjects || projOn) && (!n.needsExpenses || inboxOn) && !(n.id === 'komigang' && hideStart));
             if (!items.length) return null;
             return (
               <div key={gi}>

@@ -9,6 +9,14 @@ export const compareCategoryIds = (a, b) =>
   String(a).localeCompare(String(b), 'sv', { numeric: true, sensitivity: 'base' })
 export const sortCats = cats => [...(cats || [])].sort((a, b) => compareCategoryIds(a.id, b.id))
 
+// Bokföringslagen: ett verifikat får inte ändras efter registreringen. Nya verifikat har 1 timmes frist (grace period)
+// där de kan ändras eller raderas. Därefter kan de bara kompletteras (kommentar, projekt, bilagor) eller makuleras.
+// Databasen spärrar detta på riktigt; här styr det bara vilka knappar som visas.
+export const GRACE_MS = 60 * 60 * 1000
+export const isTxLocked = tx => !!tx?.createdAt && Date.now() - new Date(tx.createdAt).getTime() > GRACE_MS
+export const graceMinutesLeft = tx => Math.max(0, Math.ceil((new Date(tx.createdAt).getTime() + GRACE_MS - Date.now()) / 60000))
+const lockedError = () => new Error('Verifikatet är äldre än 1 timme och kan inte ändras. Makulera och ersätt det i stället.')
+
 // Ett verifikat har en eller flera rader (konto + belopp). Äldre verifikat utan rader räknas som en rad.
 export const txLines = tx =>
   tx.lines && tx.lines.length ? tx.lines : [{ categoryId: tx.categoryId, amount: Number(tx.amount) || 0 }]
@@ -42,7 +50,7 @@ export function projectTotals(transactions, categories, projectId) {
   return { income, expense, net: income - expense, count: txIds.size, byCategory }
 }
 
-const emptyProjectData = () => ({ allowed: false, expensesAllowed: false, enabled: false, labelSingular: '', labelPlural: '', projects: [] })
+const emptyProjectData = () => ({ allowed: false, expensesAllowed: false, invoicingAllowed: false, invoicingEnabled: false, invoiceDetails: {}, enabled: false, labelSingular: '', labelPlural: '', projects: [] })
 const projectError = e => {
   if (e?.code === '23505') return new Error('Namnet används redan.')
   if (e?.code === '23503') return new Error('Verifikat är märkta med detta. Stäng det i stället för att ta bort det.')
@@ -96,6 +104,9 @@ const dbStore = {
         amount:      Number(t.amount),
         comment:     t.comment || '',
         createdAt:   t.created_at,
+        voidedAt:    t.voided_at || null,
+        voidReason:  t.void_reason || '',
+        replacesId:  t.replaces_id || null,
         lines:       linesByTx[t.id] || null,
       })),
       budget:         budgetObj,
@@ -116,7 +127,7 @@ const dbStore = {
   // Projekt (eller sektioner/event): inställning, namn på funktionen och projekten med kopplade medlemmar
   async getProjectData(orgId) {
     const [setRes, projRes, memRes, planRes] = await Promise.all([
-      supabase.from('org_settings').select('projects_enabled, project_label_singular, project_label_plural').eq('org_id', orgId).maybeSingle(),
+      supabase.from('org_settings').select('projects_enabled, project_label_singular, project_label_plural, invoicing_enabled, invoice_details').eq('org_id', orgId).maybeSingle(),
       supabase.from('projects').select('*').eq('org_id', orgId).order('created_at'),
       supabase.from('project_members').select('project_id, user_id, is_lead').eq('org_id', orgId),
       supabase.rpc('get_org_plan', { p_org: orgId }),
@@ -127,6 +138,9 @@ const dbStore = {
     return {
       allowed:       !!planRes.data?.projects_allowed,
       expensesAllowed: !!planRes.data?.expenses_allowed,
+      invoicingAllowed: !!planRes.data?.invoicing_allowed,
+      invoicingEnabled: !!setRes.data?.invoicing_enabled,
+      invoiceDetails: setRes.data?.invoice_details || {},
       enabled:       !!setRes.data?.projects_enabled,
       labelSingular: setRes.data?.project_label_singular || '',
       labelPlural:   setRes.data?.project_label_plural || '',
@@ -312,22 +326,46 @@ const dbStore = {
 
   // Flyttar verifikatets rader från ett konto till ett annat (när ett konto tas bort)
   async reassignCategory(orgId, txId, oldCat, newCat) {
-    const { error } = await supabase.from('transaction_lines').update({ category_id: newCat })
-      .eq('tx_id', txId).eq('org_id', orgId).eq('category_id', oldCat)
+    const { error } = await supabase.rpc('reassign_category', { p_org: orgId, p_tx: txId, p_old: oldCat, p_new: newCat })
     if (error) throw error
-    const { error: e2 } = await supabase.from('transactions').update({ category_id: newCat })
-      .eq('id', txId).eq('org_id', orgId).eq('category_id', oldCat)
-    if (e2) throw e2
+  },
+
+  // Komplettering av ett låst verifikat: bara kommentar och projektmärkning (databasen släpper inte igenom mer)
+  async updateLockedTransaction(orgId, id, { comment, lineProjects = [] }) {
+    const { error } = await supabase.from('transactions').update({ comment: comment || '' }).eq('id', id).eq('org_id', orgId)
+    if (error) throw error
+    for (const { lineId, projectId } of lineProjects) {
+      if (!lineId) continue
+      const { error: lineErr } = await supabase.from('transaction_lines').update({ project_id: projectId || null }).eq('id', lineId).eq('org_id', orgId)
+      if (lineErr) throw lineErr
+    }
+  },
+
+  // Makulerar ett verifikat (det ligger kvar i kassaboken men räknas inte) och lägger vid behov in ett ersättande.
+  // Bilagorna kopieras till det ersättande verifikatet. Returnerar det nya verifikatets id (eller null).
+  async voidTransaction(orgId, id, reason, replacement = null) {
+    const { data, error } = await supabase.rpc('void_transaction', {
+      p_id: id, p_reason: reason,
+      p_new: replacement && {
+        date: replacement.date, description: replacement.description || '', comment: replacement.comment || '',
+        lines: cleanLines(replacement.lines),
+      },
+    })
+    if (error) throw error
+    if (data) {
+      try { await dbAttachments.copyFolder(orgId, id, data) } catch (e) { console.warn('Bilagorna kunde inte kopieras', e) }
+    }
+    return data || null
   },
 
   async deleteTransaction(orgId, id) {
-    // Remove attachments first
+    // Verifikatet först: databasen nekar efter fristen, och då ska bilagorna vara kvar
+    const { error } = await supabase.from('transactions').delete().eq('id', id).eq('org_id', orgId)
+    if (error) throw error
     const { data: files } = await supabase.storage.from('attachments').list(`${orgId}/${id}`)
     if (files?.length) {
       await supabase.storage.from('attachments').remove(files.map(f => `${orgId}/${id}/${f.name}`))
     }
-    const { error } = await supabase.from('transactions').delete().eq('id', id).eq('org_id', orgId)
-    if (error) throw error
   },
 }
 
@@ -401,6 +439,17 @@ const dbAttachments = {
     return results
   },
 
+  // Kopierar alla filer från en mapp till en annan (bilagorna följer med till ett ersättande verifikat)
+  async copyFolder(orgId, fromId, toId) {
+    const bucket = supabase.storage.from('attachments')
+    const { data: files, error } = await bucket.list(`${orgId}/${fromId}`, { limit: 1000 })
+    if (error) throw error
+    for (const f of files || []) {
+      const { error: cpErr } = await bucket.copy(`${orgId}/${fromId}/${f.name}`, `${orgId}/${toId}/${f.name}`)
+      if (cpErr) throw cpErr
+    }
+  },
+
   // Flyttar alla filer från en mapp till en annan (utläggets kvitton flyttas till verifikatet när utlägget betalats ut)
   async moveFolder(orgId, fromId, toId) {
     const bucket = supabase.storage.from('attachments')
@@ -436,6 +485,7 @@ const claimFromRow = r => ({
   id: r.id, userId: r.user_id, date: r.date, description: r.description || '', comment: r.comment || '',
   lines: (r.lines || []).map(l => ({ categoryId: l.categoryId, amount: Number(l.amount), projectId: l.projectId || null })),
   total: Number(r.total), status: r.status, rejectReason: r.reject_reason || '',
+  kind: r.kind || 'expense', supplier: r.supplier || '', invoiceNo: r.invoice_no || '', dueDate: r.due_date || null, paymentRef: r.payment_ref || '',
   createdAt: r.created_at, decidedAt: r.decided_at, paidAt: r.paid_at, paidDate: r.paid_date, txId: r.tx_id || null,
 })
 
@@ -449,10 +499,17 @@ const dbExpenses = {
   // Skickar in ett nytt utlägg (eller uppdaterar ett befintligt när claim.id finns). Returnerar { claim, uploadError }.
   async submit(orgId, claim, files = []) {
     const id = claim.id || crypto.randomUUID()
-    const { data, error } = await supabase.rpc('submit_expense_claim', {
-      p_id: id, p_org: orgId, p_date: claim.date, p_description: claim.description || '', p_comment: claim.comment || '',
-      p_lines: cleanLines(claim.lines),
-    })
+    const inv = claim.invoice
+    const { data, error } = inv
+      ? await supabase.rpc('submit_invoice_claim', {
+          p_id: id, p_org: orgId, p_date: claim.date, p_supplier: inv.supplier || '', p_invoice_no: inv.invoiceNo || '',
+          p_due_date: inv.dueDate || null, p_payment_ref: inv.paymentRef || '',
+          p_description: claim.description || '', p_comment: claim.comment || '', p_lines: cleanLines(claim.lines),
+        })
+      : await supabase.rpc('submit_expense_claim', {
+          p_id: id, p_org: orgId, p_date: claim.date, p_description: claim.description || '', p_comment: claim.comment || '',
+          p_lines: cleanLines(claim.lines),
+        })
     if (error) throw error
     let uploadError = null
     if (files.length) {
@@ -500,10 +557,110 @@ const dbExpenses = {
   },
 }
 
+// ── Fakturering: kundregister och utgående fakturor ────────────
+// Bara ägare skapar och skickar. Fakturan får sitt nummer när den utfärdas och kan därefter inte ändras (bara betalas eller makuleras).
+// När en faktura markeras som betald skapas intäktsverifikatet i kassaboken.
+const customerFromRow = r => ({
+  id: r.id, name: r.name, orgNumber: r.org_number || '', contactPerson: r.contact_person || '', email: r.email || '', phone: r.phone || '',
+  address: r.address || '', zip: r.zip || '', city: r.city || '', reference: r.reference || '', note: r.note || '',
+})
+const invoiceFromRow = r => ({
+  id: r.id, customerId: r.customer_id, customer: r.customer || {}, invoiceNo: r.invoice_no || '', invoiceDate: r.invoice_date,
+  paymentDays: r.payment_days, dueDate: r.due_date, reference: r.reference || '', note: r.note || '',
+  lines: (r.lines || []).map(l => ({ description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), amount: Number(l.amount), categoryId: l.categoryId })),
+  total: Number(r.total), status: r.status, issuedAt: r.issued_at, sentAt: r.sent_at, sentTo: r.sent_to || '', sentCount: r.sent_count || 0,
+  paidDate: r.paid_date, txId: r.tx_id || null, voidReason: r.void_reason || '', createdAt: r.created_at,
+})
+const customerRow = (orgId, c) => ({
+  org_id: orgId, name: (c.name || '').trim(), org_number: (c.orgNumber || '').trim(), contact_person: (c.contactPerson || '').trim(),
+  email: (c.email || '').trim(), phone: (c.phone || '').trim(), address: (c.address || '').trim(), zip: (c.zip || '').trim(),
+  city: (c.city || '').trim(), reference: (c.reference || '').trim(), note: (c.note || '').trim(),
+})
+const invoiceLines = lines => (lines || []).map(l => ({
+  description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), categoryId: l.categoryId,
+  amount: Math.round(Number(l.quantity) * Number(l.unitPrice) * 100) / 100,
+}))
+
+const blobToBase64 = blob => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(String(reader.result).split(',')[1])
+  reader.onerror = () => reject(new Error('Kunde inte läsa filen.'))
+  reader.readAsDataURL(blob)
+})
+
+const dbInvoicing = {
+  async listCustomers(orgId) {
+    const { data, error } = await supabase.from('customers').select('*').eq('org_id', orgId).order('name')
+    if (error) throw error
+    return (data || []).map(customerFromRow)
+  },
+  async saveCustomer(orgId, c) {
+    if (!(c.name || '').trim()) throw new Error('Ange kundens namn.')
+    const q = c.id ? supabase.from('customers').update(customerRow(orgId, c)).eq('id', c.id).eq('org_id', orgId)
+                   : supabase.from('customers').insert(customerRow(orgId, c))
+    const { data, error } = await q.select().single()
+    if (error) throw error
+    return customerFromRow(data)
+  },
+  async deleteCustomer(orgId, id) {
+    const { error } = await supabase.from('customers').delete().eq('id', id).eq('org_id', orgId)
+    if (error) throw error
+  },
+  async listInvoices(orgId) {
+    const { data, error } = await supabase.from('outgoing_invoices').select('*').eq('org_id', orgId).order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(invoiceFromRow)
+  },
+  async saveInvoice(orgId, inv) {
+    const id = inv.id || crypto.randomUUID()
+    const { data, error } = await supabase.rpc('save_outgoing_invoice', {
+      p_id: id, p_org: orgId, p_customer: inv.customerId, p_invoice_date: inv.invoiceDate, p_payment_days: Number(inv.paymentDays),
+      p_reference: inv.reference || '', p_note: inv.note || '', p_lines: invoiceLines(inv.lines),
+    })
+    if (error) throw error
+    return invoiceFromRow(data)
+  },
+  async issueInvoice(_o, id) {
+    const { data, error } = await supabase.rpc('issue_outgoing_invoice', { p_id: id })
+    if (error) throw error
+    return invoiceFromRow(data)
+  },
+  async payInvoice(_o, id, paidDate) {
+    const { data, error } = await supabase.rpc('mark_outgoing_invoice_paid', { p_id: id, p_paid_date: paidDate })
+    if (error) throw error
+    return data
+  },
+  async voidInvoice(_o, id, reason) {
+    const { error } = await supabase.rpc('void_outgoing_invoice', { p_id: id, p_reason: reason })
+    if (error) throw error
+  },
+  async deleteInvoice(_o, id) {
+    const { error } = await supabase.rpc('delete_outgoing_invoice', { p_id: id })
+    if (error) throw error
+  },
+  // Skickar fakturan som mejl från föreningen (PDF som bilaga). Mottagaren hämtas av servern från fakturan.
+  async sendInvoice(_o, id, pdfBlob, filename) {
+    const pdfBase64 = await blobToBase64(pdfBlob)
+    const { data, error } = await supabase.functions.invoke('send-org-invoice', { body: { invoiceId: id, pdfBase64, filename } })
+    if (error) throw new Error('Tjänsten för att skicka fakturor kunde inte nås.')
+    if (data?.error) throw new Error(data.error)
+    return data
+  },
+  async getSettings(orgId) {
+    const { data, error } = await supabase.from('org_settings').select('invoicing_enabled, invoice_details').eq('org_id', orgId).maybeSingle()
+    if (error) throw error
+    return { enabled: !!data?.invoicing_enabled, details: data?.invoice_details || {} }
+  },
+  async setSettings(orgId, { enabled, details }) {
+    const { error } = await supabase.from('org_settings').upsert({ org_id: orgId, invoicing_enabled: !!enabled, invoice_details: details || {} })
+    if (error) throw error
+  },
+}
+
 // ── Demoläge ───────────────────────────────────────────────────
 // Demokontot läser riktig data men all skrivning sker i minnet och försvinner vid omladdning.
-let demo = null // { data, files: Map<txId, [{name, file}]>, seq, claims }
-export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [] } : null }
+let demo = null // { data, files: Map<txId, [{name, file}]>, seq, claims, customers, invoices, invSeq }
+export function setDemoMode(on) { demo = on ? { data: null, files: new Map(), seq: 0, claims: [], customers: [], invoices: [], invSeq: 0 } : null }
 export const isDemoMode = () => !!demo
 
 const clone = v => structuredClone(v)
@@ -580,7 +737,7 @@ const demoStore = {
   async addTransaction(_o, tx) {
     const id = `demo-${++demo.seq}`
     const createdAt = new Date().toISOString()
-    const lines = cleanLines(tx.lines || [{ categoryId: tx.categoryId, amount: tx.amount }])
+    const lines = cleanLines(tx.lines || [{ categoryId: tx.categoryId, amount: tx.amount }]).map((l, i) => ({ ...l, id: `${id}-l${i}` }))
     demo.data.transactions.push({
       id, date: tx.date, description: tx.description, categoryId: lines[0].categoryId,
       amount: sumLines(lines), comment: tx.comment || '', createdAt, lines,
@@ -589,6 +746,7 @@ const demoStore = {
     return { ...tx, id, lines, createdAt }
   },
   async updateTransaction(_o, id, updates) {
+    if (isTxLocked(demo.data.transactions.find(t => t.id === id))) throw lockedError()
     const lines = updates.lines ? cleanLines(updates.lines) : null
     demo.data.transactions = demo.data.transactions.map(t => t.id === id ? {
       ...t,
@@ -598,7 +756,26 @@ const demoStore = {
     } : t)
     demo.data.transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
   },
+  async updateLockedTransaction(_o, id, { comment, lineProjects = [] }) {
+    demo.data.transactions = demo.data.transactions.map(t => {
+      if (t.id !== id) return t
+      const byLine = Object.fromEntries(lineProjects.map(l => [l.lineId, l.projectId || null]))
+      return { ...t, comment: comment || '', lines: t.lines ? t.lines.map(l => (l.id in byLine ? { ...l, projectId: byLine[l.id] } : l)) : t.lines }
+    })
+  },
+  async voidTransaction(orgId, id, reason, replacement = null) {
+    const old = demo.data.transactions.find(t => t.id === id)
+    if (!old || old.voidedAt) throw new Error('Verifikatet är redan makulerat.')
+    if (!reason?.trim()) throw new Error('Ange en orsak till makuleringen.')
+    Object.assign(old, { voidedAt: new Date().toISOString(), voidReason: reason.trim() })
+    if (!replacement) return null
+    const added = await demoStore.addTransaction(orgId, replacement)
+    demo.data.transactions.find(t => t.id === added.id).replacesId = id
+    await demoAttachments.copyFolder(orgId, id, added.id)
+    return added.id
+  },
   async deleteTransaction(_o, id) {
+    if (isTxLocked(demo.data.transactions.find(t => t.id === id))) throw new Error('Verifikatet är äldre än 1 timme och kan inte raderas. Makulera det i stället.')
     demo.data.transactions = demo.data.transactions.filter(t => t.id !== id)
     demo.files.delete(id)
   },
@@ -645,6 +822,9 @@ const demoAttachments = {
     for (const id of txIds) { removed += (demo.files.get(id) || []).length; demo.files.delete(id) }
     return removed
   },
+  async copyFolder(_o, fromId, toId) {
+    demo.files.set(toId, [...(demo.files.get(toId) || []), ...(demo.files.get(fromId) || [])])
+  },
   async moveFolder(_o, fromId, toId) {
     demo.files.set(toId, [...(demo.files.get(toId) || []), ...(demo.files.get(fromId) || [])])
     demo.files.delete(fromId)
@@ -659,13 +839,16 @@ const demoExpenses = {
     const lines = cleanLines(claim.lines)
     if (!lines.length) throw new Error('Välj konto och ange belopp.')
     const existing = claim.id && demo.claims.find(c => c.id === claim.id)
-    const base = { date: claim.date, description: claim.description || '', comment: claim.comment || '', lines, total: sumLines(lines) }
+    const inv = claim.invoice
+    const base = { date: claim.date, description: claim.description || '', comment: claim.comment || '', lines, total: sumLines(lines),
+      ...(inv ? { kind: 'invoice', supplier: (inv.supplier || '').trim(), invoiceNo: inv.invoiceNo || '', dueDate: inv.dueDate || null, paymentRef: inv.paymentRef || '' } : {}) }
+    if (inv && !base.supplier) throw new Error('Ange leverantör.')
     let saved
     if (existing) {
       Object.assign(existing, base, { status: 'submitted', rejectReason: '' })
       saved = existing
     } else {
-      saved = { id: `demo-c-${++demo.seq}`, userId: await demoUserId(), ...base, status: 'submitted', rejectReason: '',
+      saved = { id: `demo-c-${++demo.seq}`, userId: await demoUserId(), kind: 'expense', supplier: '', invoiceNo: '', dueDate: null, paymentRef: '', ...base, status: 'submitted', rejectReason: '',
         createdAt: new Date().toISOString(), decidedAt: null, paidAt: null, paidDate: null, txId: null }
       demo.claims.push(saved)
     }
@@ -675,14 +858,18 @@ const demoExpenses = {
   async decide(_o, id, approve, reason = '') {
     const c = demo.claims.find(x => x.id === id)
     if (!c || c.status !== 'submitted') throw new Error('Utlägget är redan hanterat.')
+    if (c.kind === 'invoice' && approve) throw new Error('Fakturor betalas direkt och behöver inte godkännas.')
     if (!approve && !reason.trim()) throw new Error('Ange en anledning till avslaget.')
     Object.assign(c, { status: approve ? 'approved' : 'rejected', rejectReason: approve ? '' : reason.trim(), decidedAt: new Date().toISOString() })
     return clone(c)
   },
   async pay(orgId, id, paidDate) {
     const c = demo.claims.find(x => x.id === id)
-    if (!c || c.status !== 'approved') throw new Error('Bara godkända utlägg kan markeras som utbetalda.')
-    const added = await demoStore.addTransaction(orgId, { date: paidDate, description: c.description, comment: c.comment, lines: c.lines })
+    if (!c || c.status !== (c.kind === 'invoice' ? 'submitted' : 'approved')) throw new Error(c?.kind === 'invoice' ? 'Bara fakturor i inkorgen kan markeras som betalda.' : 'Bara godkända utlägg kan markeras som utbetalda.')
+    const added = await demoStore.addTransaction(orgId, {
+      date: paidDate, description: c.kind === 'invoice' ? (c.description || c.supplier) : c.description,
+      comment: c.kind === 'invoice' ? `Faktura från ${c.supplier}${c.invoiceNo ? ` (nr ${c.invoiceNo})` : ''}${c.comment ? ` – ${c.comment}` : ''}` : c.comment,
+      lines: c.lines })
     await demoAttachments.moveFolder(orgId, claimFolder(id), added.id)
     Object.assign(c, { status: 'paid', paidAt: new Date().toISOString(), paidDate, txId: added.id })
     return added.id
@@ -696,12 +883,86 @@ const demoExpenses = {
   async setSettings() {},
 }
 
+
+// Fakturering i demoläget: allt i minnet
+const demoInvoicing = {
+  async listCustomers() { return clone(demo.customers).sort((a, b) => a.name.localeCompare(b.name, 'sv')) },
+  async saveCustomer(_o, c) {
+    if (!(c.name || '').trim()) throw new Error('Ange kundens namn.')
+    const row = { name: c.name.trim(), orgNumber: c.orgNumber || '', contactPerson: c.contactPerson || '', email: c.email || '', phone: c.phone || '',
+      address: c.address || '', zip: c.zip || '', city: c.city || '', reference: c.reference || '', note: c.note || '' }
+    if (c.id) { demo.customers = demo.customers.map(x => x.id === c.id ? { ...x, ...row } : x); return { id: c.id, ...row } }
+    const saved = { id: `demo-k-${++demo.seq}`, ...row }
+    demo.customers.push(saved)
+    return clone(saved)
+  },
+  async deleteCustomer(_o, id) { demo.customers = demo.customers.filter(c => c.id !== id) },
+  async listInvoices() { return clone(demo.invoices).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) },
+  async saveInvoice(_o, inv) {
+    const customer = demo.customers.find(c => c.id === inv.customerId)
+    if (!customer) throw new Error('Välj en kund.')
+    const lines = invoiceLines(inv.lines)
+    if (!lines.length) throw new Error('Lägg till minst en fakturarad.')
+    const snap = { name: customer.name, org_number: customer.orgNumber, contact_person: customer.contactPerson, email: customer.email, phone: customer.phone,
+      address: customer.address, zip: customer.zip, city: customer.city, reference: customer.reference }
+    const base = { customerId: customer.id, customer: snap, invoiceDate: inv.invoiceDate, paymentDays: Number(inv.paymentDays), reference: inv.reference || '', note: inv.note || '',
+      lines, total: Math.round(lines.reduce((a, l) => a + l.amount, 0) * 100) / 100 }
+    const existing = inv.id && demo.invoices.find(x => x.id === inv.id)
+    if (existing) {
+      if (existing.status !== 'draft') throw new Error('En utfärdad faktura kan inte ändras. Makulera den och skapa en ny.')
+      Object.assign(existing, base)
+      return clone(existing)
+    }
+    const saved = { id: `demo-i-${++demo.seq}`, invoiceNo: '', dueDate: null, status: 'draft', issuedAt: null, sentAt: null, sentTo: '', sentCount: 0,
+      paidDate: null, txId: null, voidReason: '', createdAt: new Date().toISOString(), ...base }
+    demo.invoices.push(saved)
+    return clone(saved)
+  },
+  async issueInvoice(_o, id) {
+    const inv = demo.invoices.find(x => x.id === id)
+    if (!inv || inv.status !== 'draft') throw new Error('Fakturan är redan utfärdad.')
+    const due = new Date(inv.invoiceDate); due.setDate(due.getDate() + inv.paymentDays)
+    Object.assign(inv, { status: 'issued', issuedAt: new Date().toISOString(), invoiceNo: String(++demo.invSeq).padStart(4, '0'), dueDate: due.toISOString().slice(0, 10) })
+    return clone(inv)
+  },
+  async payInvoice(orgId, id, paidDate) {
+    const inv = demo.invoices.find(x => x.id === id)
+    if (!inv || inv.status !== 'issued') throw new Error('Bara utfärdade, obetalda fakturor kan markeras som betalda.')
+    const added = await demoStore.addTransaction(orgId, { date: paidDate, description: `Faktura ${inv.invoiceNo} – ${inv.customer.name}`,
+      comment: `Betald faktura till ${inv.customer.name}`, lines: inv.lines.map(l => ({ categoryId: l.categoryId, amount: l.amount })) })
+    Object.assign(inv, { status: 'paid', paidDate, txId: added.id })
+    return added.id
+  },
+  async voidInvoice(_o, id, reason) {
+    const inv = demo.invoices.find(x => x.id === id)
+    if (!inv || inv.status !== 'issued') throw new Error('Bara utfärdade, obetalda fakturor kan makuleras.')
+    if (!reason?.trim()) throw new Error('Ange en orsak till makuleringen.')
+    Object.assign(inv, { status: 'void', voidReason: reason.trim() })
+  },
+  async deleteInvoice(_o, id) {
+    const inv = demo.invoices.find(x => x.id === id)
+    if (!inv || inv.status !== 'draft') throw new Error('Bara fakturautkast kan tas bort.')
+    demo.invoices = demo.invoices.filter(x => x.id !== id)
+  },
+  async sendInvoice(_o, id) {
+    const inv = demo.invoices.find(x => x.id === id)
+    if (!inv?.customer.email) throw new Error('Kunden saknar en giltig e-postadress.')
+    Object.assign(inv, { sentAt: new Date().toISOString(), sentTo: inv.customer.email, sentCount: inv.sentCount + 1 })
+    return { ok: true, to: inv.customer.email, demo: true }   // i demoläget skickas inget mejl
+  },
+  async getSettings() { return { enabled: !!demo.data?.projectData?.invoicingEnabled, details: clone(demo.data?.projectData?.invoiceDetails || {}) } },
+  async setSettings(_o, { enabled, details }) {
+    Object.assign(demo.data.projectData, { invoicingEnabled: !!enabled, invoiceDetails: clone(details || {}) })
+  },
+}
+
 const withDemo = (real, fake) => new Proxy(real, {
   get: (target, key, receiver) => (demo && key in fake ? fake[key] : Reflect.get(target, key, receiver)),
 })
 export const store = withDemo(dbStore, demoStore)
 export const attachments = withDemo(dbAttachments, demoAttachments)
 export const expenses = withDemo(dbExpenses, demoExpenses)
+export const invoicing = withDemo(dbInvoicing, demoInvoicing)
 
 // ── Formatering ────────────────────────────────────────────────
 export function fmt(amount) {

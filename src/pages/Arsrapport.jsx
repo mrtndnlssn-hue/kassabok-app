@@ -6,7 +6,7 @@ import { exportPeriodExcel, exportPeriodVouchers, downloadBlob } from '../excelE
 import { useI18n } from '../i18n';
 import { useProjects, cap } from '../ProjectsContext';
 
-export default function Arsrapport({ transactions, categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod }) {
+export default function Arsrapport({ transactions, voidedTxs = [], categories, budget, budgetComments = {}, orgName, orgId, fiscalPeriods, activePeriod }) {
   const { t } = useI18n();
   const { enabled: projOn, projects, labels } = useProjects();
   const [selectedId, setSelectedId] = useState(activePeriod?.id || '');
@@ -32,7 +32,7 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
   async function handleExport() {
     setLoading(true); setDone(false);
     await new Promise(r => setTimeout(r, 400));
-    exportAnnualReport({ orgName, period, transactions: periodTxs, categories, budget: periodBudget });
+    exportAnnualReport({ orgName, period, transactions: periodTxs, voided: txsForPeriod(voidedTxs, period), categories, budget: periodBudget });
     setLoading(false); setDone(true);
     setTimeout(() => setDone(false), 4000);
   }
@@ -50,8 +50,8 @@ export default function Arsrapport({ transactions, categories, budget, budgetCom
     }
   }
 
-  const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget: periodBudget, projects: projOn ? projects : [], projectLabel: cap(labels.one) }));
-  const handleVouchers = () => runDownload('vouchers', () => exportPeriodVouchers({ orgId, period, transactions }));
+  const handleExcel    = () => runDownload('excel',    () => exportPeriodExcel({ orgId, orgName, period, transactions, voidedTxs, categories, budget: periodBudget, projects: projOn ? projects : [], projectLabel: cap(labels.one) }));
+  const handleVouchers = () => runDownload('vouchers', () => exportPeriodVouchers({ orgId, period, transactions, voidedTxs }));
 
   async function handleBudgetExport() {
     setBudgetLoading(true); setBudgetDone(false);

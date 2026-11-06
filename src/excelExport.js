@@ -25,9 +25,18 @@ function styleHeader(row) {
   row.eachCell(c => { c.fill = HEAD_FILL; c.font = HEAD_FONT; c.alignment = { vertical: 'middle', wrapText: true } })
 }
 
-export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx, projects = [], projectLabel = '' }) {
+// Verifikatnummer för en period. Makulerade verifikat har egna nummer, så numreringen är sammanhängande
+// och en lucka aldrig betyder att något försvunnit. Returnerar { id: nummer }.
+export function verNumbers(transactions, voided = []) {
+  return Object.fromEntries(sortPeriodTxs([...transactions, ...voided]).map((t, i) => [t.id, i + 1]))
+}
+const pad3 = n => String(n).padStart(3, '0')
+
+export async function buildPeriodWorkbook({ orgName, period, transactions, categories, budget, attachmentsByTx, projects = [], projectLabel = '', voided = [] }) {
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
   const txs = sortPeriodTxs(transactions)
+  const voidedTxs = sortPeriodTxs(voided)
+  const verNo = verNumbers(transactions, voided)
   const opening = Number(period.openingBalance ?? 0)
 
   const { default: ExcelJS } = await import('exceljs')
@@ -69,9 +78,10 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
 
   // Ett verifikat med flera konton får en rad per konto (samma verifikatnummer);
   // kommentar, registrerad och bilagor står bara på den första raden.
-  txs.forEach((tx, i) => {
+  txs.forEach(tx => {
     const atts = attachmentsByTx[tx.id] || []
-    const folder = verFolderName(tx, i)
+    const folder = verFolderName(tx, verNo[tx.id] - 1)
+    const replaces = tx.replacesId && verNo[tx.replacesId] ? `${tr('Ersätter')} ${tr('VER')}${pad3(verNo[tx.replacesId])}. ` : ''
     txLines(tx).forEach((line, li) => {
       const cat = catMap[line.categoryId]
       const isInc = cat?.type === 'income'
@@ -81,7 +91,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
 
       const first = li === 0
       const row = ws.addRow({
-        ver: String(i + 1).padStart(3, '0'),
+        ver: pad3(verNo[tx.id]),
         date: toDate(tx.date),
         desc: tx.description || '',
         catId: line.categoryId,
@@ -91,7 +101,7 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
         exp: !isInc ? amount : null,
         bal: balance,
         project: projectNames[line.projectId] || '',
-        comment: first ? (tx.comment || '') : '',
+        comment: first ? (replaces + (tx.comment || '')) : '',
         created: first && tx.createdAt ? new Date(tx.createdAt) : null,
         attCount: first ? atts.length : null,
       })
@@ -129,6 +139,11 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
   ]
   info.forEach(r => sum.addRow(r))
   for (let r = 8; r <= 12; r++) sum.getCell(`B${r}`).numFmt = MONEY
+  if (voidedTxs.length) {
+    sum.addRow([])
+    sum.addRow([tr('Antal makulerade verifikat'), voidedTxs.length])
+    sum.addRow([tr('Makulerade verifikat ingår inte i summorna. De redovisas på bladet Makulerade verifikat.')])
+  }
   sum.getColumn(1).font = { bold: true }
   sum.getColumn(2).alignment = { horizontal: 'left' }
 
@@ -153,22 +168,54 @@ export async function buildPeriodWorkbook({ orgName, period, transactions, categ
     cs.addRow({ id: c.id, name: c.name, type: c.type === 'income' ? tr('Inkomst') : tr('Utgift'), actual, budget: bud, diff: actual - bud })
   }
 
+  // ── Makulerade verifikat: redovisas separat och ingår inte i summorna ──
+  if (voidedTxs.length) {
+    const vs = wb.addWorksheet(tr('Makulerade verifikat'), { views: [{ state: 'frozen', ySplit: 1 }] })
+    vs.columns = [
+      { header: tr('Ver.nr'), key: 'ver', width: 8 },
+      { header: tr('Datum'), key: 'date', width: 12, style: { numFmt: 'yyyy-mm-dd' } },
+      { header: tr('Beskrivning'), key: 'desc', width: 38 },
+      { header: tr('Kategori'), key: 'cat', width: 34 },
+      { header: tr('Belopp (kr)'), key: 'amount', width: 15, style: { numFmt: MONEY } },
+      { header: tr('Registrerad'), key: 'created', width: 18, style: { numFmt: 'yyyy-mm-dd hh:mm' } },
+      { header: tr('Makulerad'), key: 'voided', width: 18, style: { numFmt: 'yyyy-mm-dd hh:mm' } },
+      { header: tr('Orsak'), key: 'reason', width: 36 },
+      { header: tr('Ersatt av'), key: 'by', width: 12 },
+      { header: tr('Antal bilagor'), key: 'attCount', width: 13 },
+    ]
+    styleHeader(vs.getRow(1))
+    const replacedBy = Object.fromEntries(transactions.filter(t => t.replacesId).map(t => [t.replacesId, t.id]))
+    voidedTxs.forEach(tx => {
+      const lines = txLines(tx)
+      vs.addRow({
+        ver: pad3(verNo[tx.id]), date: toDate(tx.date), desc: tx.description || '',
+        cat: lines.map(l => `${l.categoryId} ${catMap[l.categoryId]?.name || ''}`.trim()).join('; '),
+        amount: lines.reduce((a, l) => a + (Number(l.amount) || 0), 0),
+        created: tx.createdAt ? new Date(tx.createdAt) : null, voided: tx.voidedAt ? new Date(tx.voidedAt) : null,
+        reason: tx.voidReason || '', by: replacedBy[tx.id] && verNo[replacedBy[tx.id]] ? `${tr('VER')}${pad3(verNo[replacedBy[tx.id]])}` : '',
+        attCount: (attachmentsByTx[tx.id] || []).length,
+      })
+    })
+  }
+
   return wb
 }
 
 // Skapar en ZIP med Excel-filen och alla bilagor för perioden.
 // Bilagorna ligger i bilagor/VERxxx_.../ precis som i årsrapportens arkiv-ZIP.
-export async function exportPeriodZip({ orgId, orgName, period, transactions, categories, budget, projects = [], projectLabel = '', onProgress = () => {} }) {
+export async function exportPeriodZip({ orgId, orgName, period, transactions, voidedTxs = [], categories, budget, projects = [], projectLabel = '', onProgress = () => {} }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
+  const periodVoided = sortPeriodTxs(txsForPeriod(voidedTxs, period))
+  const verNo = verNumbers(periodTxs, periodVoided)
 
   onProgress(tr('Hämtar bilagor…'))
-  const attachList = await attachments.listForPeriod(orgId, periodTxs.map(t => t.id))
+  const attachList = await attachments.listForPeriod(orgId, [...periodTxs, ...periodVoided].map(t => t.id))
 
   const attachmentsByTx = {}
   for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename)
 
   onProgress(tr('Skapar Excel-fil…'))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx, projects, projectLabel })
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel })
   const xlsx = await wb.xlsx.writeBuffer()
 
   onProgress(tr('Packar ihop ZIP…'))
@@ -176,7 +223,7 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, ca
   const zip = new JSZip()
   zip.file(`foreningsbalans_${safePeriod}.xlsx`, xlsx)
 
-  const folderByTx = Object.fromEntries(periodTxs.map((t, i) => [t.id, verFolderName(t, i)]))
+  const folderByTx = Object.fromEntries([...periodTxs, ...periodVoided].map(t => [t.id, verFolderName(t, verNo[t.id] - 1)]))
   for (const { txId, filename, blob } of attachList) {
     zip.file(`${tr('bilagor')}/${folderByTx[txId] || txId}/${filename}`, blob)
   }
@@ -185,10 +232,11 @@ export async function exportPeriodZip({ orgId, orgName, period, transactions, ca
   return { blob, filename: `foreningsbalans_export_${safePeriod}.zip` }
 }
 
-export async function exportPeriodExcel({ orgId, orgName, period, transactions, categories, budget, projects = [], projectLabel = '' }) {
+export async function exportPeriodExcel({ orgId, orgName, period, transactions, voidedTxs = [], categories, budget, projects = [], projectLabel = '' }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
-  const attachmentsByTx = await attachments.namesByTx(orgId, periodTxs.map(t => t.id))
-  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget, attachmentsByTx, projects, projectLabel })
+  const periodVoided = sortPeriodTxs(txsForPeriod(voidedTxs, period))
+  const attachmentsByTx = await attachments.namesByTx(orgId, [...periodTxs, ...periodVoided].map(t => t.id))
+  const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget, attachmentsByTx, projects, projectLabel })
   const buf = await wb.xlsx.writeBuffer()
   const safePeriod = period.label.replace(/[^a-zA-Z0-9_-]/g, '_')
   return {
@@ -197,13 +245,15 @@ export async function exportPeriodExcel({ orgId, orgName, period, transactions, 
   }
 }
 
-export async function exportPeriodVouchers({ orgId, period, transactions, onProgress = () => {} }) {
+export async function exportPeriodVouchers({ orgId, period, transactions, voidedTxs = [], onProgress = () => {} }) {
   const periodTxs = sortPeriodTxs(txsForPeriod(transactions, period))
+  const periodVoided = sortPeriodTxs(txsForPeriod(voidedTxs, period))
+  const verNo = verNumbers(periodTxs, periodVoided)
   onProgress(tr('Hämtar bilagor…'))
-  const attachList = await attachments.listForPeriod(orgId, periodTxs.map(t => t.id))
+  const attachList = await attachments.listForPeriod(orgId, [...periodTxs, ...periodVoided].map(t => t.id))
   if (!attachList.length) return null
 
-  const folderByTx = Object.fromEntries(periodTxs.map((t, i) => [t.id, verFolderName(t, i)]))
+  const folderByTx = Object.fromEntries([...periodTxs, ...periodVoided].map(t => [t.id, verFolderName(t, verNo[t.id] - 1)]))
   const zip = new JSZip()
   for (const { txId, filename, blob } of attachList) {
     zip.file(`${folderByTx[txId] || txId}/${filename}`, blob)

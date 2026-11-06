@@ -201,7 +201,7 @@ export function exportBudget({ orgName, period, categories, budget, comments = {
   doc.save(`budget_${(period?.label || '').replace(/[^a-zA-Z0-9]/g, '_')}_${orgName.replace(/\s+/g, '_')}.pdf`);
 }
 
-export function exportAnnualReport({ orgName, period, transactions, categories, budget, doc: existingDoc } = {}) {
+export function exportAnnualReport({ orgName, period, transactions, voided = [], categories, budget, doc: existingDoc } = {}) {
   const openingBalance = Number(period?.openingBalance ?? 0);
   const doc = existingDoc || new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
@@ -381,6 +381,27 @@ export function exportAnnualReport({ orgName, period, transactions, categories, 
     alternateRowStyles: { fillColor: PAPER },
     margin: { left: 18, right: 18 },
   });
+
+  // ── Makulerade verifikat: ingår inte i summorna men redovisas, så att verifikationskedjan är obruten ──
+  if (voided.length) {
+    y = doc.lastAutoTable.finalY + 12;
+    if (y > 225) { doc.addPage(); y = 18; }
+    sectionHeader(t('Makulerade verifikat'));
+    autoTable(doc, {
+      startY: y,
+      head: [[t('Datum'), t('Beskrivning'), t('Belopp'), t('Orsak'), t('Makulerad')]],
+      body: [...voided].sort((a, b) => a.date.localeCompare(b.date)).map(tx => [
+        tx.date, tx.description || '–', fmt(Number(tx.amount) || 0), tx.voidReason || '–', String(tx.voidedAt || '').slice(0, 10),
+      ]),
+      foot: [[{ content: t('Makulerade verifikat ingår inte i summorna i rapporten.'), colSpan: 5, styles: { fontStyle: 'italic', fontSize: 7.5 } }]],
+      headStyles: { fillColor: [207, 226, 243], textColor: DARK, fontSize: 8 },
+      footStyles: { fillColor: [255, 255, 255], textColor: [110, 110, 135] },
+      columnStyles: { 2: { halign: 'right', font: 'courier' } },
+      styles: { fontSize: 8, cellPadding: 2 },
+      alternateRowStyles: { fillColor: PAPER },
+      margin: { left: 18, right: 18 },
+    });
+  }
 
   // ── Footer on each page ───────────────────────────────────
   const pageCount2 = doc.internal.getNumberOfPages();

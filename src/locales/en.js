@@ -12,8 +12,11 @@ import installningar from './en/installningar'
 import exporter from './en/exporter'
 import projekt from './en/projekt'
 import utlagg from './en/utlagg'
+import verifikat from './en/verifikat'
+import fakturor from './en/fakturor'
+import fakturering from './en/fakturering'
 
 export default {
   ...auth, ...app, ...dashboard, ...kassabok, ...budget, ...kategorier,
-  ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter, ...projekt, ...utlagg,
+  ...rapporter, ...perioder, ...medlemmar, ...installningar, ...exporter, ...projekt, ...utlagg, ...verifikat, ...fakturor, ...fakturering,
 }

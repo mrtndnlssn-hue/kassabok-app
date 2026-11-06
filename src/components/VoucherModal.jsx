@@ -18,14 +18,19 @@ export const emptyVoucherForm = () => ({
 //  expense = 'off'      vanligt verifikat
 //  expense = 'optional' kryssrutan "Eget utlägg" finns (kassören kan välja)
 //  expense = 'forced'   alltid utlägg (den som bara får registrera utlägg)
-export default function VoucherModal({ orgId, categories, initial, editing = false, expense = 'off', onSubmit, onClose }) {
+//  expense = 'invoice'  en faktura som läggs i inkorgen för betalning (leverantör, förfallodatum, betalningsuppgifter)
+//  restricted = true  verifikatet är låst (äldre än 1 timme): bara kommentar och projektmärkning kan ändras
+export default function VoucherModal({ orgId, categories, initial, editing = false, expense = 'off', restricted = false, title: titleProp, submitLabel: submitLabelProp, onSubmit, onClose }) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const { enabled: projOn, labels, projects } = useProjects();
   const showProjects = projOn && projects.length > 0;
 
   const [form, setForm] = useState(initial || emptyVoucherForm);
-  const [isExpense, setIsExpense]   = useState(expense === 'forced');
+  const isInvoice = expense === 'invoice';
+  const [isExpense, setIsExpense]   = useState(expense === 'forced' || isInvoice);
+  const [inv, setInv] = useState(initial?.invoice || { supplier: '', invoiceNo: '', dueDate: '', paymentRef: '' });
+  const setInvField = (k, v) => setInv(x => ({ ...x, [k]: v }));
   const [newFiles, setNewFiles]     = useState([]); // [{file, url}]
   const [previewIdx, setPreviewIdx] = useState(0);
   const [saving, setSaving]         = useState(false);
@@ -76,7 +81,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
       setForm(f => ({
         ...f,
         date:        r.date || f.date,
-        description: r.description || f.description,
+        description: isInvoice ? f.description : (r.description || f.description),
         // AI-förslaget är ett enda konto: ersätter en eventuell uppdelning
         lines: [{
           categoryId: r.category_id || f.lines[0]?.categoryId || '',
@@ -84,6 +89,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
           projectId:  f.lines[0]?.projectId || '',
         }],
       }));
+      if (isInvoice) setInv(x => ({ supplier: r.supplier || x.supplier, invoiceNo: r.invoice_no || x.invoiceNo, dueDate: r.due_date || x.dueDate, paymentRef: r.payment_ref || x.paymentRef }));
       setAiUsage(u => u && { ...u, used: r.used, limit: r.limit });
       setAiMsg({ type: 'ok', text: r.confidence === 'high'
         ? t('Förslag ifyllt. Kontrollera uppgifterna innan du sparar.')
@@ -100,8 +106,10 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
     if (!isValidIsoDate(form.date)) { setSaveError(t('Ange ett giltigt datum på formatet YYYY-MM-DD.')); return; }
     if (form.lines.some(l => !l.categoryId || !(parseFloat(l.amount) > 0))) { setSaveError(t('Välj konto och ange belopp för varje rad.')); return; }
     if (mixedTypes) { setSaveError(t('Alla konton på ett verifikat måste vara av samma typ (alla intäkter eller alla kostnader).')); return; }
-    const lines = form.lines.map(l => ({ categoryId: l.categoryId, amount: parseFloat(l.amount), projectId: l.projectId || null }));
-    const payload = { date: form.date, description: form.description, comment: form.comment, lines };
+    const lines = form.lines.map(l => ({ id: l.id, categoryId: l.categoryId, amount: parseFloat(l.amount), projectId: l.projectId || null }));
+    if (isInvoice && !inv.supplier.trim()) { setSaveError(t('Ange leverantör.')); return; }
+    if (isInvoice && inv.dueDate && !isValidIsoDate(inv.dueDate)) { setSaveError(t('Ange ett giltigt förfallodatum på formatet YYYY-MM-DD.')); return; }
+    const payload = { date: form.date, description: form.description, comment: form.comment, lines, ...(isInvoice ? { invoice: { ...inv } } : {}) };
     setSaving(true);
     setSaveError('');
     try {
@@ -152,10 +160,14 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
     </>
   );
 
-  const title = expense === 'forced'
+  const title = titleProp || (isInvoice
+    ? (editing ? t('Redigera faktura') : t('Ny faktura'))
+    : expense === 'forced'
     ? (editing ? t('Redigera utlägg') : t('Nytt utlägg'))
-    : (editing ? t('Redigera verifikat') : t('Nytt verifikat'));
+    : restricted ? t('Komplettera verifikat') : (editing ? t('Redigera verifikat') : t('Nytt verifikat')));
   const submitLabel = saving ? t('Sparar…')
+    : submitLabelProp ? submitLabelProp
+    : isInvoice ? (editing ? t('Spara och lägg upp igen') : t('Lägg i inkorgen'))
     : isExpense ? (editing ? t('Spara och skicka in') : t('Skicka in utlägg'))
     : editing ? t('Spara ändringar') : t('Lägg till');
 
@@ -167,7 +179,12 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
           <button className="modal-close" onClick={closeModal}><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit}>
-          {expense !== 'off' && (
+          {restricted && (
+            <div className="notice notice-warn" style={{ marginBottom: 14, fontSize: '0.85rem' }}>
+              {t('Verifikatet är låst eftersom det är äldre än 1 timme. Du kan bara ändra kommentar och projektmärkning. Behöver något annat rättas, makulera verifikatet och lägg in ett ersättande.')}
+            </div>
+          )}
+          {(expense === 'optional' || expense === 'forced') && (
             <div className="form-row">
               <div>
                 <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'flex-start', fontSize: '0.9rem', fontWeight: 600, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink)', cursor: expense === 'forced' ? 'default' : 'pointer', background: 'var(--paper-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 12px' }}>
@@ -183,17 +200,41 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
               </div>
             </div>
           )}
+          {isInvoice && (
+            <>
+              <div className="form-row form-row-cols">
+                <div>
+                  <label>{t('Leverantör')} *</label>
+                  <input type="text" value={inv.supplier} maxLength={120} required onChange={e => setInvField('supplier', e.target.value)} />
+                </div>
+                <div>
+                  <label>{t('Fakturanummer')}</label>
+                  <input type="text" value={inv.invoiceNo} maxLength={60} onChange={e => setInvField('invoiceNo', e.target.value)} />
+                </div>
+              </div>
+              <div className="form-row form-row-cols">
+                <div>
+                  <label>{t('Förfallodatum')}</label>
+                  <DateInput value={inv.dueDate || ''} onChange={v => setInvField('dueDate', v)} />
+                </div>
+                <div>
+                  <label>{t('Bankgiro, plusgiro eller OCR')}</label>
+                  <input type="text" value={inv.paymentRef} maxLength={80} placeholder={t('Så att kassören vet vart pengarna ska')} onChange={e => setInvField('paymentRef', e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
           <div className="form-row form-row-cols">
             <div>
-              <label>{t('Datum')} *</label>
-              <DateInput value={form.date} onChange={date => setForm(f => ({ ...f, date }))} required />
+              <label>{isInvoice ? t('Fakturadatum') : t('Datum')} *</label>
+              <DateInput value={form.date} onChange={date => setForm(f => ({ ...f, date }))} required disabled={restricted} />
             </div>
             <div>
               <label>{isSplit ? t('Summa (kr)') : `${t('Belopp (kr)')} *`}</label>
               {isSplit
                 ? <div className="mono" style={{ padding: '9px 0', fontWeight: 600 }}>{fmt(linesTotal)}</div>
                 : <input type="number" step="0.01" min="0" placeholder="0.00" value={form.lines[0].amount}
-                    onChange={e => setLine(0, { amount: e.target.value })} required />}
+                    onChange={e => setLine(0, { amount: e.target.value })} required disabled={restricted} />}
             </div>
           </div>
           {!isSplit ? (
@@ -201,12 +242,12 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
             <div className="form-row">
               <div>
                 <label>{t('Kategori')} *</label>
-                <select value={form.lines[0].categoryId} onChange={e => setLine(0, { categoryId: e.target.value })} required>
+                <select value={form.lines[0].categoryId} onChange={e => setLine(0, { categoryId: e.target.value })} required disabled={restricted}>
                   {categoryOptions}
                 </select>
-                <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={addLine}>
+                {!restricted && <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={addLine}>
                   <Plus size={12} /> {t('Dela upp på flera konton')}
-                </button>
+                </button>}
               </div>
             </div>
             {showProjects && (
@@ -226,15 +267,15 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
                   {form.lines.map((l, i) => (
                     <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <select value={l.categoryId} onChange={e => setLine(i, { categoryId: e.target.value })} required style={{ flex: 1, minWidth: 0 }}>
+                        <select value={l.categoryId} onChange={e => setLine(i, { categoryId: e.target.value })} required disabled={restricted} style={{ flex: 1, minWidth: 0 }}>
                           {categoryOptions}
                         </select>
                         <input type="number" step="0.01" min="0" placeholder="0.00" value={l.amount} required
-                          onChange={e => setLine(i, { amount: e.target.value })} style={{ width: 110, textAlign: 'right' }} />
-                        <button type="button" title={t('Ta bort rad')} onClick={() => removeLine(i)}
+                          onChange={e => setLine(i, { amount: e.target.value })} disabled={restricted} style={{ width: 110, textAlign: 'right' }} />
+                        {!restricted && <button type="button" title={t('Ta bort rad')} onClick={() => removeLine(i)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex', padding: 4 }}>
                           <X size={15} />
-                        </button>
+                        </button>}
                       </div>
                       {showProjects && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 28 }}>
@@ -246,7 +287,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
                   ))}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={addLine}><Plus size={12} /> {t('Lägg till konto')}</button>
+                  {!restricted ? <button type="button" className="btn btn-secondary btn-sm" onClick={addLine}><Plus size={12} /> {t('Lägg till konto')}</button> : <span />}
                   <span style={{ fontSize: '0.85rem' }}>{t('Summa')}: <strong className="mono">{fmt(linesTotal)}</strong></span>
                 </div>
                 {mixedTypes && (
@@ -260,7 +301,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
           <div className="form-row">
             <div>
               <label>{t('Beskrivning')}</label>
-              <input type="text" placeholder={t('Vad avser transaktionen?')} value={form.description}
+              <input type="text" placeholder={t('Vad avser transaktionen?')} value={form.description} disabled={restricted}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
           </div>

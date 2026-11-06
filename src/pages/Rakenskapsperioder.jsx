@@ -7,7 +7,7 @@ import { useI18n } from '../i18n';
 import { useProjects, cap } from '../ProjectsContext';
 import DateInput from '../components/DateInput';
 import { exportAnnualReport } from '../pdfExport';
-import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, buildPeriodWorkbook } from '../excelExport';
+import { exportPeriodZip, downloadBlob, sortPeriodTxs, verFolderName, verNumbers, buildPeriodWorkbook } from '../excelExport';
 
 
 function periodsOverlap(a, b) {
@@ -30,7 +30,7 @@ function monthsBetween(start, end) {
 }
 
 // ── Stäng verksamhetsår – modal ──────────────────────────────
-function CloseYearModal({ period, transactions, categories, budget, orgName, orgId, onDone, onCancel, onClear }) {
+function CloseYearModal({ period, transactions, voidedTxs = [], categories, budget, orgName, orgId, onDone, onCancel, onClear }) {
   const { t } = useI18n();
   const reportName = t('arsrapport');   // filnamn i ZIP-filen
   const { enabled: projOn, projects, labels } = useProjects();
@@ -42,6 +42,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
   const [errorMsg, setErrorMsg] = useState('');
 
   const periodTxs    = txsForPeriod(transactions, period);
+  const periodVoided = txsForPeriod(voidedTxs, period);
   const periodBudget = budget[period.id] || {};
 
   async function handleExport() {
@@ -52,6 +53,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       const doc = exportAnnualReport({
         orgName, period,
         transactions: periodTxs,
+        voided: periodVoided,
         categories,
         budget: periodBudget,
       });
@@ -59,7 +61,7 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
 
       // ── Steg 2: Hämta bilagor från Supabase Storage ────────
       setProgress(t('Hämtar bilagor…'));
-      const txIds     = periodTxs.map(t => t.id);
+      const txIds     = [...periodTxs, ...periodVoided].map(t => t.id);
       const attachList = await attachments.listForPeriod(resolvedOrgId, txIds);
 
       // ── Steg 3: Bygg ZIP i webbläsaren med JSZip ───────────
@@ -74,12 +76,13 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
       setProgress(t('Skapar Excel-fil…'));
       const attachmentsByTx = {};
       for (const a of attachList) (attachmentsByTx[a.txId] ||= []).push(a.filename);
-      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, categories, budget: periodBudget, attachmentsByTx, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
+      const wb = await buildPeriodWorkbook({ orgName, period, transactions: periodTxs, voided: periodVoided, categories, budget: periodBudget, attachmentsByTx, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
       zip.file(`foreningsbalans_${safePeriod}.xlsx`, await wb.xlsx.writeBuffer());
 
       // Mappa txId → verifikatnummer för läsbart mappnamn i ZIP
+      const verNo = verNumbers(periodTxs, periodVoided);
       const txVerMap = Object.fromEntries(
-        sortPeriodTxs(periodTxs).map((t, i) => [t.id, verFolderName(t, i)])
+        [...periodTxs, ...periodVoided].map(t => [t.id, verFolderName(t, verNo[t.id] - 1)])
       );
 
       for (let i = 0; i < attachList.length; i++) {
@@ -195,10 +198,10 @@ function CloseYearModal({ period, transactions, categories, budget, orgName, org
 
 // ── Rensa bilagor – modal ────────────────────────────────────
 // Raderar uppladdade bilagor för en period för att frigöra lagringsutrymme. Verifikaten och beloppen finns kvar.
-function ClearAttachmentsModal({ period, transactions, categories, budget, orgName, orgId, onClose }) {
+function ClearAttachmentsModal({ period, transactions, voidedTxs = [], categories, budget, orgName, orgId, onClose }) {
   const { t } = useI18n();
   const { enabled: projOn, projects, labels } = useProjects();
-  const txIds = txsForPeriod(transactions, period).map(x => x.id);
+  const txIds = txsForPeriod([...transactions, ...voidedTxs], period).map(x => x.id);
   const [count, setCount]           = useState(null);   // antal bilagor, null = räknar
   const [downloaded, setDownloaded] = useState(false);
   const [busy, setBusy]             = useState('');     // 'zip' | 'delete' | ''
@@ -217,7 +220,7 @@ function ClearAttachmentsModal({ period, transactions, categories, budget, orgNa
   async function download() {
     setError(''); setBusy('zip');
     try {
-      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period, transactions, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
+      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period, transactions, voidedTxs, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
       downloadBlob(blob, filename);
       setDownloaded(true);
     } catch (e) {
@@ -303,7 +306,7 @@ function ClearAttachmentsModal({ period, transactions, categories, budget, orgNa
 }
 
 // ── Huvudkomponent ───────────────────────────────────────────
-export default function Rakenskapsperioder({ fiscalPeriods, transactions, categories, budget, orgName, orgId, onSave }) {
+export default function Rakenskapsperioder({ fiscalPeriods, transactions, voidedTxs = [], categories, budget, orgName, orgId, onSave }) {
   const { t } = useI18n()
   const { role } = useAuth()
   const { enabled: projOn, projects, labels } = useProjects()
@@ -322,7 +325,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
     setError('');
     setExportingId(p.id);
     try {
-      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period: p, transactions, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
+      const { blob, filename } = await exportPeriodZip({ orgId, orgName, period: p, transactions, voidedTxs, categories, budget, projects: projOn ? projects : [], projectLabel: cap(labels.one) });
       downloadBlob(blob, filename);
     } catch (e) {
       console.error('Excel-export error:', e);
@@ -550,6 +553,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
         <CloseYearModal
           period={closeModal}
           transactions={transactions}
+          voidedTxs={voidedTxs}
           categories={categories}
           budget={budget}
           orgName={orgName}
@@ -564,6 +568,7 @@ export default function Rakenskapsperioder({ fiscalPeriods, transactions, catego
         <ClearAttachmentsModal
           period={clearModal}
           transactions={transactions}
+          voidedTxs={voidedTxs}
           categories={categories}
           budget={budget}
           orgName={orgName}

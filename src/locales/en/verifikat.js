@@ -1,0 +1,42 @@
+// Låsta och makulerade verifikat (bokföringslagen)
+export default {
+  'Komplettera verifikat': 'Complete voucher',
+  'Verifikatet är låst eftersom det är äldre än 1 timme. Du kan bara ändra kommentar och projektmärkning. Behöver något annat rättas, makulera verifikatet och lägg in ett ersättande.':
+    'The voucher is locked because it is older than 1 hour. You can only change the comment and project tagging. If anything else needs correcting, void the voucher and enter a replacement.',
+  'Makulerat': 'Voided',
+  'Låst': 'Locked',
+  'Komplettera med kommentar eller projekt': 'Complete with a comment or project',
+  '{n} min kvar att ändra': '{n} min left to edit',
+  'Makulera verifikatet': 'Void the voucher',
+  'Makulera': 'Void',
+  'Makulera verifikat': 'Void voucher',
+  'Enligt bokföringslagen får ett verifikat inte ändras eller raderas. Ett makulerat verifikat ligger kvar i kassaboken, märkt som makulerat med din orsak, men räknas inte i summorna.':
+    'Under the Swedish Bookkeeping Act a voucher must not be changed or deleted. A voided voucher stays in the cash book, marked as voided with your reason, but is not counted in the totals.',
+  'Orsak till makuleringen': 'Reason for voiding',
+  't.ex. Fel belopp, dubbelregistrerat': 'e.g. Wrong amount, entered twice',
+  'Makulerar…': 'Voiding…',
+  'Makulera utan ersättning': 'Void without replacement',
+  'Makulera och ersätt…': 'Void and replace…',
+  'Ersättande verifikat': 'Replacement voucher',
+  'Makulera och spara ersättningen': 'Void and save the replacement',
+  // Felmeddelanden från databasen
+  'Verifikatet är äldre än 1 timme och kan inte ändras. Makulera och ersätt det i stället.': 'The voucher is older than 1 hour and cannot be changed. Void and replace it instead.',
+  'Verifikatet är äldre än 1 timme och kan inte raderas. Makulera det i stället.': 'The voucher is older than 1 hour and cannot be deleted. Void it instead.',
+  'Ett makulerat verifikat kan inte ändras.': 'A voided voucher cannot be changed.',
+  'Ett makulerat verifikat kan inte raderas.': 'A voided voucher cannot be deleted.',
+  'Verifikatet är redan makulerat.': 'The voucher is already voided.',
+  'Ange en orsak till makuleringen.': 'Enter a reason for voiding.',
+  'Orsaken är för lång.': 'The reason is too long.',
+  'Verifikatet finns inte.': 'The voucher does not exist.',
+  'Räkenskapsperioden är låst. Lås upp den för att makulera verifikatet.': 'The financial period is locked. Unlock it to void the voucher.',
+  'Räkenskapsperioden för det nya verifikatet är låst.': 'The financial period for the new voucher is locked.',
+  'Kategorin finns inte.': 'The category does not exist.',
+  // Exporter
+  'Ersätter': 'Replaces',
+  'Antal makulerade verifikat': 'Number of voided vouchers',
+  'Makulerade verifikat ingår inte i summorna. De redovisas på bladet Makulerade verifikat.': 'Voided vouchers are not included in the totals. They are listed on the Voided vouchers sheet.',
+  'Makulerade verifikat': 'Voided vouchers',
+  'Orsak': 'Reason',
+  'Ersatt av': 'Replaced by',
+  'Makulerade verifikat ingår inte i summorna i rapporten.': 'Voided vouchers are not included in the totals in the report.',
+}

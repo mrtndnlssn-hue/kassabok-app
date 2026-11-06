@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Check, Search, Paperclip } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Search, Paperclip, Ban, Lock, X } from 'lucide-react';
 import AttachmentPanel from './AttachmentPanel';
-import { fmt, txsForPeriod, txLines } from '../store';
+import { fmt, txsForPeriod, txLines, isTxLocked, graceMinutesLeft } from '../store';
 import VoucherModal from '../components/VoucherModal';
 import { useAuth } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
@@ -9,7 +9,7 @@ import useIsMobile from '../hooks/useIsMobile';
 import { useProjects, cap, lower } from '../ProjectsContext';
 
 
-export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, onSubmitExpense, canSubmitExpense, activePeriod, addRequest, onAddHandled }) {
+export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, voidedTxs = [], onUpdateLocked, onVoid, onSubmitExpense, canSubmitExpense, activePeriod, addRequest, onAddHandled }) {
   const { t } = useI18n()
   const isMobile = useIsMobile()
   const { role } = useAuth()
@@ -18,7 +18,12 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const projMap = useMemo(() => Object.fromEntries(projects.map(p => [p.id, p])), [projects])
   const showProjects = projOn && projects.length > 0
   const period = activePeriod;
-  const [modal, setModal] = useState(null);   // { initial, editId } när rutan är öppen
+  const [modal, setModal] = useState(null);   // { initial, editId, restricted } när rutan är öppen
+  const [voidTx, setVoidTx] = useState(null);   // verifikat som ska makuleras
+  const [voidReason, setVoidReason] = useState('');
+  const [replaceFor, setReplaceFor] = useState(null);   // { tx, reason }: ersättande verifikat läggs in
+  const [voidBusy, setVoidBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -33,7 +38,8 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     onAddHandled?.()
   }, [addRequest])
 
-  const yearTxs = useMemo(() => txsForPeriod(transactions, period), [transactions, period]);
+  // Makulerade verifikat visas i kassaboken (och behåller sitt nummer) men räknas inte i summorna
+  const yearTxs = useMemo(() => txsForPeriod([...transactions, ...voidedTxs], period), [transactions, voidedTxs, period]);
   const catMap   = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories]);
 
   const filtered = useMemo(() => {
@@ -68,25 +74,64 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     matchesProject(l));
   const sumType = (lines, type) => lines.filter(l => catMap[l.categoryId]?.type === type).reduce((s, l) => s + Number(l.amount), 0);
 
-  const totalIncome  = filtered.reduce((s, x) => s + sumType(shownLines(x), 'income'), 0);
-  const totalExpense = filtered.reduce((s, x) => s + sumType(shownLines(x), 'expense'), 0);
+  const active = filtered.filter(x => !x.voidedAt);
+  const totalIncome  = active.reduce((s, x) => s + sumType(shownLines(x), 'income'), 0);
+  const totalExpense = active.reduce((s, x) => s + sumType(shownLines(x), 'expense'), 0);
 
   const projectChip = l => projOn && l.projectId && projMap[l.projectId]
     ? <span className="badge badge-project" title={cap(labels.one)} style={{ marginLeft: 6 }}>{projMap[l.projectId].name}</span>
     : null;
 
+  const txForm = tx => ({ date: tx.date, description: tx.description || '', comment: tx.comment || '',
+    lines: txLines(tx).map(l => ({ id: l.id, categoryId: l.categoryId, amount: String(l.amount), projectId: l.projectId || '' })) });
   function openAdd() { setModal({ initial: null, editId: null }); }
-  function openEdit(tx) {
-    setModal({
-      editId: tx.id,
-      initial: { date: tx.date, description: tx.description || '', comment: tx.comment || '',
-        lines: txLines(tx).map(l => ({ categoryId: l.categoryId, amount: String(l.amount), projectId: l.projectId || '' })) },
-    });
+  // Efter 1 timme är verifikatet låst: bara kommentar och projektmärkning kan ändras
+  function openEdit(tx) { setModal({ editId: tx.id, initial: txForm(tx), restricted: isTxLocked(tx) }); }
+  async function handleDelete(id) {
+    if (deleteConfirm !== id) { setDeleteConfirm(id); return; }
+    setDeleteConfirm(null);
+    setActionError('');
+    try { await onDelete(id); } catch (e) { setActionError(t(e.message)); }
   }
-  function handleDelete(id) {
-    if (deleteConfirm === id) { onDelete(id); setDeleteConfirm(null); }
-    else setDeleteConfirm(id);
+  async function doVoid(replacement) {
+    setVoidBusy(true); setActionError('');
+    try {
+      await onVoid((replaceFor?.tx || voidTx).id, replaceFor?.reason ?? voidReason, replacement);
+      setVoidTx(null); setReplaceFor(null); setVoidReason('');
+    } catch (e) {
+      setActionError(t(e.message)); setReplaceFor(null);
+    } finally { setVoidBusy(false); }
   }
+
+  const periodLocked = !!activePeriod?.locked;
+  const lockBadge = tx => isTxLocked(tx)
+    ? <Lock size={10} style={{ marginLeft: 4, verticalAlign: 'middle' }} aria-label={t('Låst')} />
+    : null;
+  const voidBadge = tx => tx.voidedAt ? (
+    <div style={{ fontSize: '0.75rem', color: 'var(--red)', marginTop: 2 }}>
+      <strong>{t('Makulerat')}</strong>: {tx.voidReason}
+    </div>
+  ) : null;
+  const actionButtons = (tx, mobile) => {
+    if (!canWrite || tx.voidedAt) return null;
+    const sz = mobile ? 15 : 12, cls = mobile ? 'btn' : 'btn btn-sm', locked = isTxLocked(tx);
+    return (
+      <>
+        <button className={`${cls} btn-secondary`} onClick={() => openEdit(tx)} disabled={periodLocked}
+          title={locked ? t('Komplettera med kommentar eller projekt') : `${t('Redigera')} (${t('{n} min kvar att ändra', { n: graceMinutesLeft(tx) })})`}
+          aria-label={t('Redigera')}><Pencil size={sz} /></button>
+        {locked ? (
+          <button className={`${cls} btn-secondary`} onClick={() => { setVoidReason(''); setVoidTx(tx); }} disabled={periodLocked}
+            title={t('Makulera verifikatet')} aria-label={t('Makulera')}><Ban size={sz} /></button>
+        ) : (
+          <button className={`${cls} ${deleteConfirm === tx.id ? 'btn-danger' : 'btn-secondary'}`} onClick={() => handleDelete(tx.id)} disabled={periodLocked}
+            title={deleteConfirm === tx.id ? t('Bekräfta radering') : t('Radera')} aria-label={deleteConfirm === tx.id ? t('Bekräfta radering') : t('Radera')}>
+            {deleteConfirm === tx.id ? <Check size={sz} /> : <Trash2 size={sz} />}
+          </button>
+        )}
+      </>
+    );
+  };
 
 
   return (
@@ -138,11 +183,17 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
         </div>
       )}
 
+      {actionError && (
+        <div className="notice" style={{ background: 'var(--red-soft)', borderColor: '#f5c6cb', color: 'var(--red)', marginBottom: 16 }}>
+          {actionError} <button onClick={() => setActionError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>×</button>
+        </div>
+      )}
+
       {/* Tabell (dator) / kortlista (telefon) */}
       {isMobile ? (
         <div>
           <div className="m-summary">
-            <span>{t('Totalt ({n} verifikat)', { n: filtered.length })}</span>
+            <span>{t('Totalt ({n} verifikat)', { n: active.length })}</span>
             <span className="mono" style={{ color: 'var(--accent)' }}>{fmt(totalIncome)}</span>
             <span className="mono" style={{ color: 'var(--red)' }}>{fmt(totalExpense)}</span>
           </div>
@@ -155,12 +206,13 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
             const incAmt = sumType(shown, 'income');
             const expAmt = sumType(shown, 'expense');
             return (
-              <div className="m-card" key={tx.id}>
+              <div className="m-card" key={tx.id} style={tx.voidedAt ? { opacity: 0.6 } : undefined}>
                 <div className="m-card-top">
-                  <span className="m-date">{tx.date} · {String(i + 1).padStart(3, '0')}</span>
+                  <span className="m-date">{tx.date} · {String(i + 1).padStart(3, '0')}{lockBadge(tx)}</span>
                   <span className={`m-amount ${incAmt ? 'positive' : 'negative'}`}>{incAmt ? `+${fmt(incAmt)}` : `−${fmt(expAmt)}`}</span>
                 </div>
-                <div className="m-card-desc">{tx.description || '–'}</div>
+                <div className="m-card-desc" style={tx.voidedAt ? { textDecoration: 'line-through' } : undefined}>{tx.description || '–'}</div>
+                {voidBadge(tx)}
                 {lines.map((l, k) => {
                   const c = catMap[l.categoryId];
                   return (
@@ -175,15 +227,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                 {tx.comment && <div className="m-card-comment">{tx.comment}</div>}
                 <div className="m-card-actions">
                   <button className="btn btn-secondary" onClick={() => setAttachTx({ tx, verNum: i + 1 })} aria-label={t('Bilagor')}><Paperclip size={15} /> {t('Bilagor')}</button>
-                  {canWrite && (
-                    <>
-                      <button className="btn btn-secondary" onClick={() => openEdit(tx)} disabled={!!activePeriod?.locked} aria-label={t('Redigera')}><Pencil size={15} /></button>
-                      <button className={`btn ${deleteConfirm === tx.id ? 'btn-danger' : 'btn-secondary'}`} onClick={() => handleDelete(tx.id)} disabled={!!activePeriod?.locked}
-                        aria-label={deleteConfirm === tx.id ? t('Bekräfta radering') : t('Radera')}>
-                        {deleteConfirm === tx.id ? <Check size={15} /> : <Trash2 size={15} />}
-                      </button>
-                    </>
-                  )}
+                  {actionButtons(tx, true)}
                 </div>
               </div>
             );
@@ -219,10 +263,13 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
               const incAmt = sumType(shown, 'income');
               const expAmt = sumType(shown, 'expense');
               return (
-                <tr key={tx.id}>
-                  <td className="mono" style={{ color: 'var(--ink-muted)' }}>{String(i + 1).padStart(3, '0')}</td>
+                <tr key={tx.id} style={tx.voidedAt ? { opacity: 0.55 } : undefined}>
+                  <td className="mono" style={{ color: 'var(--ink-muted)' }}>{String(i + 1).padStart(3, '0')}{lockBadge(tx)}</td>
                   <td className="mono">{tx.date}</td>
-                  <td>{tx.description || <em style={{ color: 'var(--ink-muted)' }}>–</em>}</td>
+                  <td>
+                    <span style={tx.voidedAt ? { textDecoration: 'line-through' } : undefined}>{tx.description || <em style={{ color: 'var(--ink-muted)' }}>–</em>}</span>
+                    {voidBadge(tx)}
+                  </td>
                   <td>
                     {lines.map((l, k) => {
                       const c = catMap[l.categoryId];
@@ -257,21 +304,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                     </button>
                   </td>
                   <td>
-                    {canWrite && (
-                      <div className="gap-row" style={{ gap: 4 }}>
-                        <button className="btn btn-sm btn-secondary" onClick={() => openEdit(tx)} title={t('Redigera')} disabled={!!activePeriod?.locked}>
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          className={`btn btn-sm ${deleteConfirm === tx.id ? 'btn-danger' : 'btn-secondary'}`}
-                          onClick={() => handleDelete(tx.id)}
-                          disabled={!!activePeriod?.locked}
-                          title={deleteConfirm === tx.id ? t('Bekräfta radering') : t('Radera')}
-                        >
-                          {deleteConfirm === tx.id ? <Check size={12} /> : <Trash2 size={12} />}
-                        </button>
-                      </div>
-                    )}
+                    {canWrite && !tx.voidedAt && <div className="gap-row" style={{ gap: 4 }}>{actionButtons(tx, false)}</div>}
                   </td>
                 </tr>
               );
@@ -280,7 +313,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
           {filtered.length > 0 && (
             <tfoot>
               <tr>
-                <td colSpan={5} style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{t('Totalt ({n} verifikat)', { n: filtered.length })}</td>
+                <td colSpan={5} style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{t('Totalt ({n} verifikat)', { n: active.length })}</td>
                 <td className="text-right" style={{ color: 'var(--accent)' }}>{fmt(totalIncome)}</td>
                 <td className="text-right" style={{ color: 'var(--red)' }}>{fmt(totalExpense)}</td>
                 <td colSpan={2} style={{ fontFamily: 'var(--font-body)', fontWeight: 600, color: (totalIncome - totalExpense) >= 0 ? 'var(--accent)' : 'var(--red)' }}>
@@ -308,13 +341,57 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
           categories={categories}
           initial={modal.initial}
           editing={!!modal.editId}
+          restricted={!!modal.restricted}
           expense={modal.editId ? 'off' : canSubmitExpense ? 'optional' : 'off'}
           onSubmit={async (payload, files, isExpense) => {
-            if (modal.editId) await onUpdate(modal.editId, payload);
+            if (modal.restricted) await onUpdateLocked(modal.editId, { comment: payload.comment, lineProjects: payload.lines.map(l => ({ lineId: l.id, projectId: l.projectId })) });
+            else if (modal.editId) await onUpdate(modal.editId, payload);
             else if (isExpense) await onSubmitExpense(payload, files);
             else await onAdd(payload, files);
           }}
           onClose={() => setModal(null)}
+        />
+      )}
+
+      {voidTx && !replaceFor && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !voidBusy && setVoidTx(null)}>
+          <div className="modal" style={{ maxWidth: 500 }}>
+            <div className="modal-header">
+              <div className="modal-title">{t('Makulera verifikat')}</div>
+              <button className="modal-close" onClick={() => setVoidTx(null)} disabled={voidBusy}><X size={18} /></button>
+            </div>
+            <div className="notice notice-warn" style={{ marginBottom: 14, fontSize: '0.85rem' }}>
+              {t('Enligt bokföringslagen får ett verifikat inte ändras eller raderas. Ett makulerat verifikat ligger kvar i kassaboken, märkt som makulerat med din orsak, men räknas inte i summorna.')}
+            </div>
+            <p style={{ fontSize: '0.88rem', marginBottom: 12 }}>
+              {voidTx.date} · {voidTx.description || '–'} · <strong className="mono">{fmt(txLines(voidTx).reduce((a, l) => a + Number(l.amount), 0))}</strong>
+            </p>
+            <label>{t('Orsak till makuleringen')} *</label>
+            <textarea value={voidReason} onChange={e => setVoidReason(e.target.value)} rows={3} maxLength={300} autoFocus style={{ width: '100%' }}
+              placeholder={t('t.ex. Fel belopp, dubbelregistrerat')} />
+            <div className="btn-row" style={{ marginTop: 16, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button className="btn btn-secondary" onClick={() => setVoidTx(null)} disabled={voidBusy}>{t('Avbryt')}</button>
+              <button className="btn btn-danger" disabled={voidBusy || !voidReason.trim()} onClick={() => doVoid(null)}>
+                <Ban size={14} /> {voidBusy ? t('Makulerar…') : t('Makulera utan ersättning')}
+              </button>
+              <button className="btn btn-primary" disabled={voidBusy || !voidReason.trim()} onClick={() => setReplaceFor({ tx: voidTx, reason: voidReason.trim() })}>
+                {t('Makulera och ersätt…')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {replaceFor && (
+        <VoucherModal
+          orgId={orgId}
+          categories={categories}
+          initial={txForm(replaceFor.tx)}
+          editing
+          title={t('Ersättande verifikat')}
+          submitLabel={t('Makulera och spara ersättningen')}
+          onSubmit={payload => doVoid(payload)}
+          onClose={() => setReplaceFor(null)}
         />
       )}
     </div>

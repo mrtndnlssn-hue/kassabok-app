@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { Check, Trash2, AlertTriangle, X } from 'lucide-react'
-import { store, attachments, expenses } from '../store'
+import { store, attachments, expenses, invoicing } from '../store'
 import { getReceiptUsage, setReceiptAiEnabled } from '../receiptAi'
 import { useI18n } from '../i18n'
 import { useProjects, defaultLabels } from '../ProjectsContext'
@@ -57,6 +57,28 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
     } catch (e) {
       setAiError(e.message)
     }
+  }
+
+  // --- Fakturering: aktivera och föreningens uppgifter på fakturorna ---
+  const [invSettings, setInvSettings] = useState(null)   // { enabled, details }
+  const [invSaving, setInvSaving]     = useState(false)
+  const [invDone, setInvDone]         = useState(false)
+  const [invError, setInvError]       = useState('')
+  useEffect(() => {
+    invoicing.getSettings(orgId).then(setInvSettings).catch(e => setInvError(e.message))
+  }, [orgId])
+  const setInvDetail = (k, v) => setInvSettings(s => ({ ...s, details: { ...s.details, [k]: v } }))
+  async function saveInvoicing(e) {
+    e.preventDefault()
+    setInvError(''); setInvDone(false)
+    const d = invSettings.details
+    if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) { setInvError(t('Ange en giltig e-postadress.')); return }
+    setInvSaving(true)
+    try {
+      await invoicing.setSettings(orgId, invSettings)
+      await onProjectSettingsChange?.()
+      setInvDone(true); setTimeout(() => setInvDone(false), 3000)
+    } catch (err) { setInvError(t(err.message)) } finally { setInvSaving(false) }
   }
 
   // --- Utlägg: e-postbesked ---
@@ -221,14 +243,14 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="section-title">{t('Utlägg')}</div>
           <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-            {t('Medlemmar kan registrera utlägg med kvitto. Ägare och medlemmar godkänner och bekräftar utbetalning. Välj vilka e-postbesked som ska skickas.')}
+            {t('Medlemmar kan registrera utlägg med kvitto och lägga upp fakturor i en inkorg. Ägare och medlemmar godkänner utlägg, betalar och bokför. Välj vilka e-postbesked som ska skickas.')}
           </p>
           {expError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{expError}</div>}
           {expSettings ? (
             <div style={{ display: 'grid', gap: 10 }}>
               {[
-                ['notifySubmitted', t('E-post till de som kan godkänna när ett nytt utlägg kommer in')],
-                ['notifyDecided', t('E-post till den som lagt ut pengarna när utlägget godkänns, avslås och betalas ut')],
+                ['notifySubmitted', t('E-post till de som kan godkänna eller betala när ett nytt utlägg eller en ny faktura kommer in')],
+                ['notifyDecided', t('E-post till den som lagt ut pengarna eller laddat upp fakturan när den godkänns, avslås och betalas')],
               ].map(([key, label]) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
                   <input type="checkbox" checked={expSettings[key]} disabled={!canManageAi}
@@ -241,6 +263,54 @@ export default function Installningar({ orgId, orgName, onOrgNameChange, onProje
           {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
         </div>
       )}
+
+      {/* Fakturering */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="section-title">{t('Fakturering')}</div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+          {t('Skapa och skicka fakturor från föreningen, med ett kundregister. Fakturorna har föreningen som avsändare och bokförs som intäkt när de är betalda. Ingen moms.')}
+        </p>
+        {!plan?.invoicing_allowed ? (
+          <div className="notice notice-info" style={{ fontSize: '0.85rem' }}>
+            {t('Fakturering ingår i planerna Medel och Stor.')} <a href="https://foreningsbalans.se/#priser">{t('Se planerna')}</a>
+          </div>
+        ) : !invSettings ? <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>{t('Laddar…')}</span> : (
+          <form onSubmit={saveInvoicing}>
+            {invError && <div className="notice" style={{ background:'var(--red-soft)', borderColor:'var(--red)', color:'var(--red)', marginBottom:12 }}>{invError}</div>}
+            {invDone && <div className="notice notice-success" style={{ marginBottom: 12 }}>{t('Inställningarna har sparats.')}</div>}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: canManageAi ? 'pointer' : 'default', fontSize: '0.9rem', textTransform: 'none', letterSpacing: 0, fontWeight: 400, marginBottom: 14 }}>
+              <input type="checkbox" checked={invSettings.enabled} disabled={!canManageAi} onChange={e => setInvSettings(s => ({ ...s, enabled: e.target.checked }))} style={{ width: 'auto' }} />
+              {t('Aktivera fakturering för {namn}', { namn: orgName })}
+            </label>
+            {invSettings.enabled && (
+              <fieldset disabled={!canManageAi} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginBottom: 10 }}>{t('Uppgifterna visas på fakturorna och i mejlet som skickas till kunden.')}</p>
+                {[
+                  [['org_number', t('Organisationsnummer')], ['email', t('E-post (kunder svarar hit)')]],
+                  [['address', t('Adress')], null],
+                  [['zip', t('Postnummer')], ['city', t('Ort')]],
+                  [['phone', t('Telefon')], null],
+                  [['bankgiro', t('Bankgiro')], ['plusgiro', t('Plusgiro')]],
+                  [['bank_account', t('Bankkonto (clearing och kontonummer)')], ['swish', t('Swish-nummer')]],
+                  [['payment_days', t('Betalningsvillkor (dagar)'), 'number'], ['invoice_prefix', t('Prefix på fakturanummer (valfritt)')]],
+                ].map((row, i) => (
+                  <div key={i} className="form-row form-row-cols">
+                    {row.map((f, j) => f ? (
+                      <div key={f[0]}><label>{f[1]}</label>
+                        <input type={f[2] || 'text'} min={f[2] === 'number' ? 0 : undefined} max={f[2] === 'number' ? 365 : undefined} value={invSettings.details[f[0]] ?? ''} maxLength={120}
+                          onChange={e => setInvDetail(f[0], e.target.value)} /></div>
+                    ) : <div key={j} />)}
+                  </div>
+                ))}
+                <div className="form-row"><div><label>{t('Standardtext på fakturor (valfritt)')}</label>
+                  <textarea rows={2} maxLength={1000} style={{ width: '100%' }} value={invSettings.details.note || ''} onChange={e => setInvDetail('note', e.target.value)} /></div></div>
+              </fieldset>
+            )}
+            {canManageAi && <button className="btn btn-primary" type="submit" disabled={invSaving} style={{ marginTop: 8 }}><Check size={14} /> {invSaving ? t('Sparar…') : t('Spara')}</button>}
+            {!canManageAi && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 8 }}>{t('Bara ägare kan ändra detta.')}</p>}
+          </form>
+        )}
+      </div>
 
       {/* Märkning med projekt/sektioner */}
       <div className="card" style={{ marginBottom: 24 }}>
