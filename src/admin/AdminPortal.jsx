@@ -122,8 +122,24 @@ function DemoActivity() {
     const { error } = await supabase.rpc('admin_clear_demo_visits')
     if (error) setErr(error.message); else load()
   }
+  // Egna besök ska inte räknas: en webbläsare kan markeras, och enskilda rader i listan kan markeras som "jag"
+  async function setIgnored(visitor, on) {
+    const { error } = await supabase.rpc('admin_set_demo_ignored', { p_visitor: visitor, p_ignored: on })
+    if (error) setErr(error.message); else load()
+  }
+  async function ignoreThisBrowser() {
+    let vid = null
+    try {
+      vid = localStorage.getItem('kb_demo_vid')
+      if (!vid) { vid = crypto.randomUUID?.() || String(Math.random()).slice(2) + Date.now(); localStorage.setItem('kb_demo_vid', vid) }
+    } catch { /* ignoreras */ }
+    if (vid) await setIgnored(vid, true)
+  }
   if (err) return <Err msg={err} />
   if (!d) return <Busy />
+  let myVid = null
+  try { myVid = localStorage.getItem('kb_demo_vid') } catch { /* ignoreras */ }
+  const mineIgnored = !!myVid && (d.ignored_ids || []).includes(myVid)
   const max = Math.max(1, ...d.per_day.map(x => x.visits))
   const tiles = [['Besök (perioden)', d.visits], ['Unika besökare', d.unique], ['Idag', d.today], ['Senaste 7 dagarna', d.last7], ['Totalt sedan start', d.total]]
   const small = { fontSize: '0.74rem', color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }
@@ -143,8 +159,13 @@ function DemoActivity() {
         <select value={days} onChange={e => setDays(Number(e.target.value))} style={{ width: 'auto' }}>
           {[7, 30, 90, 365].map(n => <option key={n} value={n}>Senaste {n} dagarna</option>)}
         </select>
-        <span style={{ fontSize: '0.8rem', color: 'var(--ink-muted)' }}>Ett besök loggas när någon startar demon. Samma webbläsare räknas högst en gång per 30 minuter. Ingen IP-adress sparas.</span>
-        <button className="btn btn-secondary btn-sm" style={{ marginLeft: 'auto' }} onClick={clear}>Rensa loggen</button>
+        <span style={{ fontSize: '0.8rem', color: 'var(--ink-muted)' }}>Ett besök loggas när någon startar demon. Samma webbläsare räknas högst en gång per 30 minuter. Ingen IP-adress sparas. Besök från testverktyg och localhost loggas inte.</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {mineIgnored
+            ? <button className="btn btn-secondary btn-sm" onClick={() => setIgnored(myVid, false)}>Den här webbläsaren räknas inte (ångra)</button>
+            : <button className="btn btn-secondary btn-sm" onClick={ignoreThisBrowser}>Räkna inte den här webbläsaren</button>}
+          <button className="btn btn-secondary btn-sm" onClick={clear}>Rensa loggen</button>
+        </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))', gap: 14, marginBottom: 20 }}>
         {tiles.map(([label, v]) => (
@@ -170,17 +191,23 @@ function DemoActivity() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Tid</th><th>Hur</th><th>Enhet</th><th>Webbläsare</th><th>Språk</th><th>Kom från</th></tr></thead>
+          <thead><tr><th>Tid</th><th>Hur</th><th>Enhet</th><th>Webbläsare</th><th>Språk</th><th>Kom från</th><th></th></tr></thead>
           <tbody>
-            {d.recent.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 30, color: 'var(--ink-muted)' }}>Inga besök loggade ännu.</td></tr>}
+            {d.recent.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: 30, color: 'var(--ink-muted)' }}>Inga besök loggade ännu.</td></tr>}
             {d.recent.map((r, i) => (
-              <tr key={i}>
+              <tr key={i} style={r.ignored ? { opacity: 0.5 } : undefined}>
                 <td className="mono">{new Date(r.visited_at).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' })}</td>
                 <td>{SOURCE_LABEL[r.source] || r.source}</td>
                 <td>{r.device || '–'}</td>
                 <td>{browserOf(r.user_agent)}</td>
                 <td>{r.lang || '–'}</td>
                 <td>{r.referrer || 'direkt'}</td>
+                <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setIgnored(r.visitor, !r.ignored)}
+                    title={r.ignored ? 'Besökaren räknas inte. Klicka för att räkna igen.' : 'Markera som ditt eget besök så att besökaren inte räknas, nu och framöver'}>
+                    {r.ignored ? 'Räknas inte · ångra' : 'Det här är jag'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
