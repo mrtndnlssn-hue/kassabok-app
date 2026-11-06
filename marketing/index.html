@@ -192,8 +192,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .plan { padding: 26px 26px 28px; display: flex; flex-direction: column; border-left: 1px solid var(--rule); }
 .plan:first-child { border-left: none; }
 .plan.pick { background: var(--ink); color: var(--paper); }
-.plan.pick .plan-spec, .plan.pick .plan-note { color: rgba(250,249,246,.72); }
-.plan.pick .plan-row { border-color: rgba(250,249,246,.2); }
+.plan.pick .plan-spec, .plan.pick .plan-note { color: color-mix(in srgb, var(--paper) 72%, transparent); }
+.plan.pick .plan-row { border-color: color-mix(in srgb, var(--paper) 20%, transparent); }
 .plan.pick .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
 .plan-name { font: 400 1.5rem 'DM Serif Display', serif; }
 .plan-tag { font: 500 .68rem 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; opacity: .7; min-height: 1.2em; }
@@ -209,6 +209,24 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .plan { border-left: none; border-top: 1px solid var(--rule); }
   .plan:first-child { border-top: none; }
 }
+.guide { border: 1px solid var(--ink); background: var(--sheet); padding: 26px 28px; margin-bottom: 56px; }
+.guide h2 { font-size: 1.5rem; margin-bottom: 6px; }
+.guide .guide-lead { color: var(--ink2); margin-bottom: 18px; max-width: 40em; }
+.guide .g-q { display: block; font-size: .9rem; font-weight: 600; margin-bottom: 8px; }
+.guide .g-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+.guide .g-row input[type=number] { width: 130px; }
+.guide .chip { font: 500 .85rem 'DM Mono', monospace; border: 1px solid var(--ink); background: transparent; color: var(--ink); padding: 6px 12px; cursor: pointer; }
+.guide .chip:hover { background: var(--paper2); }
+.guide label.opt { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; margin-bottom: 8px; font-size: .95rem; }
+.guide .g-result { margin-top: 20px; padding: 16px 18px; background: var(--paper2); border-left: 4px solid var(--green); }
+.guide .g-result p { margin-bottom: 10px; color: var(--ink2); }
+.guide .g-result p:last-child { margin-bottom: 0; }
+.fit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+@media (max-width: 760px) { .fit-cols { grid-template-columns: 1fr; gap: 28px; } }
+.fit-cols h3 { font-size: 1.2rem; margin-bottom: 10px; }
+.fit-cols ul { padding-left: 1.1em; color: var(--ink2); }
+.fit-cols li { margin-bottom: 8px; max-width: 34em; }
+.order-assure { margin-top: 18px; padding: 12px 14px; border: 1px solid var(--rule); background: var(--paper2); font-size: .9rem; color: var(--ink2); max-width: 40em; }
 .plans-foot { font-size: .9rem; color: var(--ink3); margin-bottom: 56px; max-width: 46em; }
 
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; margin-bottom: 64px; }
@@ -445,6 +463,48 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="list-row"><h3 data-en="The whole board">Hela styrelsen</h3><p data-en="Invite the board as owner, member or viewer: 2, 5 or 15 users depending on the plan. The auditor can get read access.">Bjud in styrelsen som ägare, medlem eller läsare: 2, 5 eller 15 användare beroende på plan. Revisorn kan få läsrättighet.</p></div>
       </div>
     </section>
+    <section class="band">
+      <div class="band-head">
+        <div class="kicker" data-en="Does it suit you?">Passar det er?</div>
+        <h2 data-en="What Föreningsbalans is, and what it is not.">Vad Föreningsbalans är, och vad det inte är.</h2>
+      </div>
+      <div class="list">
+        <div class="fit-cols">
+          <div>
+            <h3 data-en="It is">Det är</h3>
+            <ul>
+              <li data-en="A cash book for non-profit associations: income and expenses as vouchers, with the receipts attached.">En kassabok för ideella föreningar: inkomster och utgifter som verifikat, med kvitton som bilagor.</li>
+              <li data-en="Categories you adapt yourselves, budget against actuals, financial years and an annual report (income statement and cash report).">Kategorier ni anpassar själva, budget mot utfall, räkenskapsår och en årsrapport (resultaträkning och kassarapport).</li>
+              <li data-en="Several users with roles, and vouchers that are locked as the Swedish Bookkeeping Act requires.">Flera användare med roller, och verifikat som låses som bokföringslagen kräver.</li>
+            </ul>
+          </div>
+          <div>
+            <h3 data-en="It is not">Det är inte</h3>
+            <ul>
+              <li data-en="Double-entry bookkeeping: there are no debit and credit accounts and no BAS chart of accounts, only categories of your own.">Dubbel bokföring: det finns inga debet- och kreditkonton och ingen BAS-kontoplan, bara egna kategorier.</li>
+              <li data-en="VAT reporting: the app does not calculate or report VAT.">Momsredovisning: appen räknar inte ut eller redovisar moms.</li>
+              <li data-en="Connected to your bank or the Tax Agency: you enter or upload the documents yourselves, and nothing is submitted on your behalf.">Kopplad till banken eller Skatteverket: ni lägger in eller laddar upp underlagen själva, och inget skickas in åt er.</li>
+              <li data-en="Payroll or tax returns.">Lön eller deklaration.</li>
+            </ul>
+          </div>
+        </div>
+        <p style="margin-top:22px;color:var(--ink2);max-width:40em" data-en="If you need double-entry bookkeeping, VAT reporting or a full year-end closing, talk to your auditor about a larger system.">Behöver ni dubbel bokföring, momsredovisning eller ett fullständigt bokslut bör ni prata med er revisor om ett större system.</p>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="band-head">
+        <div class="kicker" data-en="Compared with Excel">Jämfört med Excel</div>
+        <h2 data-en="Excel is flexible. A cash book is easier to keep in order.">Excel är flexibelt. En kassabok är lättare att hålla ordning i.</h2>
+      </div>
+      <div class="list">
+        <div class="list-row"><h3 data-en="Receipts in the right place">Kvitton på rätt ställe</h3><p data-en="Every receipt is attached to its voucher, instead of sitting in a folder nobody can find.">Varje kvitto hör till sitt verifikat, i stället för att ligga i en mapp som ingen hittar.</p></div>
+        <div class="list-row"><h3 data-en="Nothing changed on the quiet">Inget ändras i smyg</h3><p data-en="A voucher is locked after an hour, and a correction is visible with the reason. In a spreadsheet anyone can overwrite a cell.">Ett verifikat låses efter en timme, och en rättelse syns med orsak. I ett kalkylblad kan vem som helst skriva över en cell.</p></div>
+        <div class="list-row"><h3 data-en="The whole board, at once">Hela styrelsen på en gång</h3><p data-en="Several people can work in it at the same time, with the right roles, and the auditor gets read access.">Flera kan arbeta i den samtidigt, med rätt roller, och revisorn får läsrätt.</p></div>
+        <div class="list-row"><h3 data-en="The annual report in one click">Årsrapporten med ett klick</h3><p data-en="Income statement, cash report, Excel and all receipts as a ZIP file, without building a report yourselves.">Resultaträkning, kassarapport, Excel och alla kvitton som ZIP-fil, utan att bygga rapporten själva.</p></div>
+        <div class="list-row"><h3 data-en="Where Excel is better">Där Excel är bättre</h3><p data-en="Excel gives you complete freedom over layout and calculations. Föreningsbalans is deliberately simpler, so that it is hard to go wrong.">Excel ger full frihet över utseende och beräkningar. Föreningsbalans är med flit enklare, så att det är svårt att göra fel.</p></div>
+      </div>
+    </section>
   </div>
 
   <div class="closing">
@@ -468,7 +528,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="plan-tag" data-en="For the very smallest">För de allra minsta</div>
         <div class="plan-name" data-en="Small">Liten</div>
         <div class="plan-price">499 <small data-en="SEK/year">kr/år</small></div>
-        <div class="plan-note" data-en="399.20 SEK excl. VAT">399,20 kr exkl. moms</div>
+        <div class="plan-note" data-en="399.20 SEK excl. VAT<br>about 42 SEK/month incl. VAT">399,20 kr exkl. moms<br>ca 42 kr/mån inkl. moms</div>
         <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>100</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>5</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>2</b></div></div>
         <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('liten'); return false;" data-en="Order →">Beställ →</a>
       </div>
@@ -476,7 +536,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="plan-tag" data-en="Most common">Vanligast</div>
         <div class="plan-name" data-en="Medium">Medel</div>
         <div class="plan-price">990 <small data-en="SEK/year">kr/år</small></div>
-        <div class="plan-note" data-en="792 SEK excl. VAT">792 kr exkl. moms</div>
+        <div class="plan-note" data-en="792 SEK excl. VAT<br>about 83 SEK/month incl. VAT">792 kr exkl. moms<br>ca 83 kr/mån inkl. moms</div>
         <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>500</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>10</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>5</b></div><div class="plan-row"><span data-en="Projects">Projekt</span><b>✓</b></div><div class="plan-row"><span data-en="Expenses">Utlägg</span><b>✓</b></div><div class="plan-row"><span data-en="Invoice inbox">Fakturainkorg</span><b>✓</b></div><div class="plan-row"><span data-en="Outgoing invoicing">Utgående fakturering</span><b>✓</b></div></div>
         <a class="btn btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('medel'); return false;" data-en="Order →">Beställ →</a>
       </div>
@@ -484,11 +544,29 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="plan-tag" data-en="For busy associations">För aktiva föreningar</div>
         <div class="plan-name" data-en="Large">Stor</div>
         <div class="plan-price">2 190 <small data-en="SEK/year">kr/år</small></div>
-        <div class="plan-note" data-en="1 752 SEK excl. VAT">1 752 kr exkl. moms</div>
+        <div class="plan-note" data-en="1 752 SEK excl. VAT<br>about 183 SEK/month incl. VAT">1 752 kr exkl. moms<br>ca 183 kr/mån inkl. moms</div>
         <div class="plan-rows"><div class="plan-row"><span data-en="Vouchers per financial year">Verifikat per räkenskapsår</span><b>2 500</b></div><div class="plan-row"><span data-en="Receipt readings per month">Kvittoavläsningar per månad</span><b>40</b></div><div class="plan-row"><span data-en="Users">Användare</span><b>15</b></div><div class="plan-row"><span data-en="Projects">Projekt</span><b>✓</b></div><div class="plan-row"><span data-en="Expenses">Utlägg</span><b>✓</b></div><div class="plan-row"><span data-en="Invoice inbox">Fakturainkorg</span><b>✓</b></div><div class="plan-row"><span data-en="Outgoing invoicing">Utgående fakturering</span><b>✓</b></div></div>
         <a class="btn btn-line btn-wide" href="#bestall" onclick="navigate('bestall'); selectPlan('stor'); return false;" data-en="Order →">Beställ →</a>
       </div>
     </div>
+    <div class="guide" id="plan-guide">
+      <h2 data-en="Not sure which plan?">Osäker på vilken plan?</h2>
+      <p class="guide-lead" data-en="Answer two quick questions and we suggest a plan. You can always change plan during the year.">Svara på två snabba frågor så föreslår vi en plan. Det går alltid att byta plan under året.</p>
+      <label class="g-q" for="g-count" data-en="Roughly how many payments in and out does the association have per month?">Ungefär hur många in- och utbetalningar har föreningen per månad?</label>
+      <div class="g-row">
+        <input type="number" id="g-count" min="0" max="2000" inputmode="numeric" placeholder="20" data-en-ph="20">
+        <button type="button" class="chip" data-n="5">5</button>
+        <button type="button" class="chip" data-n="20">20</button>
+        <button type="button" class="chip" data-n="60">60</button>
+        <button type="button" class="chip" data-n="150">150</button>
+      </div>
+      <span class="g-q" data-en="Do you need any of these?">Behöver ni något av detta?</span>
+      <label class="opt"><input type="checkbox" id="g-exp"><span data-en="Expenses or incoming invoices to pay">Utlägg eller inkommande fakturor att betala</span></label>
+      <label class="opt"><input type="checkbox" id="g-proj"><span data-en="Projects, sections or events">Projekt, sektioner eller event</span></label>
+      <label class="opt"><input type="checkbox" id="g-inv"><span data-en="Invoicing customers from the association">Fakturera kunder från föreningen</span></label>
+      <div class="g-result" id="g-result" aria-live="polite" hidden></div>
+    </div>
+
     <p class="plans-foot" data-en="Nearly all features are in every plan. What differs is the volume: how many vouchers, receipt readings and users you get. Projects, expenses, the invoice inbox and outgoing invoicing are included in Medium and Large. The plan decides which features you can turn on. You turn them on yourself under Settings → Features, and an association starts with only the basics. Prices cover 12 months and include 25% VAT. If you want to try it first, you can create an account and book up to 15 vouchers at no cost.">De flesta funktioner finns i alla planer. Det som skiljer är volymen: hur många verifikat, kvittoavläsningar och användare ni får. Projekt, utlägg, fakturainkorg och utgående fakturering ingår i Medel och Stor. Planen avgör vilka funktioner ni kan slå på. Ni slår på dem själva under Inställningar → Funktioner, och en förening börjar med bara grunderna. Priserna gäller 12 månader och anges inklusive 25 % moms. Vill ni prova först kan ni skapa ett konto och bokföra upp till 15 verifikat utan kostnad.</p>
 
     <div class="two-col">
@@ -521,6 +599,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="faq-item"><div class="faq-q" data-en="Can I change a voucher after I have added it?">Kan jag ändra ett verifikat efter att jag lagt in det?</div><div class="faq-a" data-en="For one hour after you add it, yes. After that the voucher is locked, because the Swedish Bookkeeping Act does not allow a booked voucher to be altered. You can still add a comment, tag a project and attach files. A mistake is corrected by voiding the voucher, with a reason, and entering a replacement. The voided voucher stays in the cash book and is included in the Excel and PDF exports, but is not counted in the totals.">Under en timme efter att du lagt in det, ja. Därefter är verifikatet låst, eftersom bokföringslagen inte tillåter att ett bokfört verifikat ändras. Du kan fortfarande lägga till kommentar, projektmärkning och bilagor. Ett fel rättas genom att makulera verifikatet, med en orsak, och lägga in ett ersättande. Det makulerade verifikatet ligger kvar i kassaboken och finns med i Excel- och PDF-exporterna, men räknas inte i summorna.</div></div>
       <div class="faq-item"><div class="faq-q" data-en="What if I enter the same invoice or voucher twice?">Vad händer om jag råkar lägga in samma faktura eller verifikat två gånger?</div><div class="faq-a" data-en="You get a warning before you save. When you add an invoice, the app checks whether the same invoice number from the same supplier is already in the inbox, or whether it has already been paid and booked, and it also looks for an already booked voucher with the same amount that mentions the supplier. For other vouchers and expenses it looks for the same amount and date together with the same category or a similar description. The warning shows what it found and never blocks you: if it really is a separate entry, you save it anyway.">Du får en varning innan du sparar. När du lägger in en faktura kontrollerar appen om samma fakturanummer från samma leverantör redan ligger i inkorgen, eller om den redan är betald och bokförd, och letar även efter ett bokfört verifikat med samma belopp där leverantören nämns. För andra verifikat och utlägg letar den efter samma belopp och datum tillsammans med samma kategori eller en liknande beskrivning. Varningen visar vad den hittat och stoppar dig aldrig: är det verkligen en egen post sparar du den ändå.</div></div>
       <div class="faq-item"><div class="faq-q" data-en="Can we turn off the features we do not need?">Kan vi stänga av de funktioner vi inte behöver?</div><div class="faq-a" data-en="Yes. Under Settings → Features an owner turns the optional parts on and off: expenses, the invoice inbox, outgoing invoicing, AI reading and projects. What is turned off is only hidden, and nothing is deleted. The cash book, budget, reports, categories, financial years and members are always included. A feature can only be turned off when it has no open items.">Ja. Under Inställningar → Funktioner slår en ägare på och av de valfria delarna: utlägg, fakturainkorg, utgående fakturering, AI-avläsning och projekt. Det som är avstängt döljs bara, och inget raderas. Kassabok, budget, rapporter, kategorier, räkenskapsår och medlemmar ingår alltid. En funktion går bara att stänga av när den inte har några öppna poster.</div></div>
+      <div class="faq-item"><div class="faq-q" data-en="Is this a proper bookkeeping program?">Är det här ett riktigt bokföringsprogram?</div><div class="faq-a" data-en="It is a cash book with vouchers for non-profit associations, meant for simple bookkeeping and an annual report for the annual general meeting. It is not double-entry bookkeeping, it has no BAS chart of accounts and it does not handle VAT. If you need that, or a full year-end closing, talk to your auditor about a larger system.">Det är en kassabok med verifikat för ideella föreningar, gjord för enkel bokföring och en årsrapport till årsmötet. Det är inte dubbel bokföring, det har ingen BAS-kontoplan och det hanterar inte moms. Behöver ni det, eller ett fullständigt bokslut, bör ni prata med er revisor om ett större system.</div></div>
       <div class="faq-item"><div class="faq-q" data-en="Where is our data stored?">Var lagras vår data?</div><div class="faq-a" data-en="All data is stored in Sweden via Supabase (PostgreSQL), which complies with GDPR. No third parties have access to your financial data. The exception is receipt reading, which is optional and off until you turn it on: the single receipt you choose to read is then sent to Anthropic.">All data lagras i Sverige via Supabase (PostgreSQL), som uppfyller GDPR. Inga tredjeparter har tillgång till er ekonomidata. Undantaget är kvittoavläsningen, som är valfri och avstängd tills ni slår på den: då skickas det enskilda kvitto ni väljer att läsa av till Anthropic.</div></div>
       <div class="faq-item"><div class="faq-q" data-en="Can we leave whenever we want?">Kan vi sluta när vi vill?</div><div class="faq-a" data-en="Yes, you are not locked in. Before you leave you can export each financial year as an Excel file with all vouchers, together with receipts and attachments, as well as a PDF annual report. Voided vouchers are included, listed separately. The main owner can also delete the association with all its data and attachments.">Ja, ni binder er inte. Innan ni slutar kan ni exportera varje räkenskapsår som en Excel-fil med alla verifikat, tillsammans med kvitton och bilagor, samt som PDF-årsrapport. Makulerade verifikat finns med, redovisade för sig. Huvudägaren kan också radera föreningen med all data och alla bilagor.</div></div>
     </div>
@@ -588,6 +667,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
         <label class="check"><input type="checkbox" id="terms" name="terms"><span data-en="I am ordering on behalf of the association and accept the terms below.">Jag beställer för föreningens räkning och godkänner villkoren nedan.</span></label>
+        <p class="order-assure" data-en="<strong>Nothing is charged automatically.</strong> The plan is activated as soon as you order. You receive an invoice by email and have 30 days to pay it. After 12 months you choose for yourselves whether to extend."><strong>Inget dras automatiskt.</strong> Planen aktiveras direkt när ni beställer. Ni får en faktura på e-post och har 30 dagar på er att betala den. Efter 12 månader väljer ni själva om ni vill förlänga.</p>
         <p style="margin-top:18px"><button class="btn" type="submit" id="order-submit" data-en="Send order">Skicka beställning</button></p>
 
         <div class="terms">
@@ -955,6 +1035,7 @@ async function applyDiscount(quiet) {
 
 function applyLang(lang) {
   currentLang = lang;
+  if (typeof guideRecommend === 'function') setTimeout(guideRecommend, 0);
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-en]').forEach(el => {
     if (el.dataset.sv === undefined) el.dataset.sv = el.innerHTML;
@@ -1055,6 +1136,42 @@ document.getElementById('order-form').addEventListener('submit', async e => {
     btn.disabled = false; btn.innerHTML = label;
   }
 });
+
+// ── Planvägledning ──
+const GUIDE = {
+  sv: { about: 'ca', rec: 'Vi föreslår', yr: 'kr/år', mo: 'kr/mån', perYear: 'Det blir ungefär', vouchers: 'verifikat per år, och planen rymmer', needs: 'Utlägg, fakturor, projekt och fakturering ingår i Medel och Stor.', near: 'Ni ligger nära gränsen. Välj nästa plan om ni vill ha marginal.', order: 'Beställ', change: 'Ni kan byta plan under året.' },
+  en: { about: 'about', rec: 'We suggest', yr: 'SEK/year', mo: 'SEK/month', perYear: 'That is about', vouchers: 'vouchers a year, and the plan holds', needs: 'Expenses, invoices, projects and invoicing are included in Medium and Large.', near: 'You are close to the limit. Choose the next plan if you want some margin.', order: 'Order', change: 'You can change plan during the year.' }
+};
+const GUIDE_LIMIT = { liten: 100, medel: 500, stor: 2500 };
+function guideRecommend() {
+  const input = document.getElementById('g-count');
+  const box = document.getElementById('g-result');
+  if (!input || !box) return;
+  if (input.value === '' || !(Number(input.value) >= 0)) { box.hidden = true; return; }
+  const L = GUIDE[currentLang] || GUIDE.sv;
+  const perYear = Math.round(Number(input.value) * 12);
+  const need = ['g-exp', 'g-proj', 'g-inv'].some(id => document.getElementById(id).checked);
+  let plan = perYear <= 100 ? 'liten' : perYear <= 500 ? 'medel' : 'stor';
+  let note = '';
+  if (need && plan === 'liten') { plan = 'medel'; note = L.needs; }
+  else if (perYear > GUIDE_LIMIT[plan] * 0.85 && plan !== 'stor') note = L.near;
+  const pl = PLANS[plan];
+  const name = currentLang === 'en' ? pl.en : pl.sv;
+  const month = Math.round(pl.incl / 12);
+  const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
+  box.innerHTML =
+    '<p><strong>' + L.rec + ' ' + name + '</strong> \u2013 ' + fmt(pl.incl) + ' ' + L.yr + ' (' + L.about + ' ' + month + ' ' + L.mo + ').</p>' +
+    '<p>' + L.perYear + ' ' + fmt(perYear) + ' ' + L.vouchers + ' ' + fmt(GUIDE_LIMIT[plan]) + '. ' + (note ? note + ' ' : '') + L.change + '</p>' +
+    '<p><a class="btn" href="#bestall" onclick="navigate(\'bestall\'); selectPlan(\'' + plan + '\'); return false;">' + L.order + ' ' + name + ' \u2192</a></p>';
+  box.hidden = false;
+}
+(function () {
+  const input = document.getElementById('g-count');
+  if (!input) return;
+  input.addEventListener('input', guideRecommend);
+  document.querySelectorAll('#plan-guide .chip').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.n; guideRecommend(); }));
+  ['g-exp', 'g-proj', 'g-inv'].forEach(id => document.getElementById(id).addEventListener('change', guideRecommend));
+})();
 
 applyLang(detectLang());
 
