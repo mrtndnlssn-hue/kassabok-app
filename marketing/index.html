@@ -121,12 +121,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .hero-note { margin-top: 16px; font-size: .85rem; color: var(--ink3); }
 @media (max-width: 880px) { .hero { grid-template-columns: 1fr; gap: 40px; padding-block: 40px 48px; } }
 
-.shot { margin: 0; }
-.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--ink); box-shadow: 6px 6px 0 var(--rule); background: var(--sheet); }
-.shot figcaption { margin-top: 14px; font-size: .88rem; color: var(--ink3); max-width: 46em; }
-.shot-hero { margin-bottom: 40px; }
-.shot-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
-@media (max-width: 760px) { .shot-pair { grid-template-columns: 1fr; gap: 28px; } }
 .sheet { overflow-x: auto; background: var(--sheet); border: 1px solid var(--ink); box-shadow: 6px 6px 0 var(--rule); }
 .sheet-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--ink); }
 .sheet-head strong { font: 400 1.05rem 'DM Serif Display', serif; }
@@ -368,28 +362,6 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
 
     <section class="band">
       <div class="band-head">
-        <div class="kicker" data-en="See it">Så ser det ut</div>
-        <h2 data-en="Clear lists and figures, not a business accounting system.">Tydliga listor och siffror, inget bokföringssystem för företag.</h2>
-      </div>
-      <figure class="shot shot-hero">
-        <img src="img/kassabok.webp" width="1920" height="1200" alt="Kassaboken i appen: en lista med verifikat med datum, beskrivning, kategori, inkomst och utgift" data-en-alt="The cash book in the app: a list of vouchers with date, description, category, income and expense" loading="lazy" decoding="async">
-        <figcaption data-en="The cash book. Every voucher with its category, amount and receipt. Search, filter and sort. A voided voucher stays visible with the reason.">Kassaboken. Varje verifikat med kategori, belopp och kvitto. Sök, filtrera och sortera. Ett makulerat verifikat ligger kvar med orsak.</figcaption>
-      </figure>
-      <div class="shot-pair">
-        <figure class="shot">
-          <img src="img/budget.webp" width="1920" height="1200" alt="Budget mot utfall per kategori, med avvikelse och hur stor del av budgeten som är använd" data-en-alt="Budget against actuals per category, with the variance and how much of the budget has been used" loading="lazy" decoding="async">
-          <figcaption data-en="Budget against actuals, per category, with the variance as the year goes on.">Budget mot utfall per kategori, med avvikelsen löpande under året.</figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="img/oversikt.webp" width="1920" height="1200" alt="Översikten med intäkter, kostnader, resultat och en månadsöversikt" data-en-alt="The overview with income, expenses, result and a monthly summary" loading="lazy" decoding="async">
-          <figcaption data-en="The overview: income, expenses and result at a glance, month by month.">Översikten: intäkter, kostnader och resultat med ett ögonkast, månad för månad.</figcaption>
-        </figure>
-      </div>
-      <p style="margin-top:28px"><a class="textlink" data-app-demo href="https://app.foreningsbalans.se/?demo=1" data-en="Look around in the demo →">Titta runt i demon →</a></p>
-    </section>
-
-    <section class="band">
-      <div class="band-head">
         <div class="kicker" data-en="What is included">Det ingår</div>
         <h2 data-en="What a treasurer needs, and not much more.">Det en kassör behöver, och inte mer.</h2>
       </div>
@@ -456,10 +428,6 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="kicker" data-en="All features">Alla funktioner</div>
         <h2 data-en="Everything in the app, and you choose what to use.">Allt som finns i appen, och ni väljer vad ni använder.</h2>
       </div>
-      <figure class="shot shot-hero">
-        <img src="img/funktioner.webp" width="1920" height="1200" alt="Fliken Funktioner i Inställningar, med reglage för utlägg, fakturainkorg och utgående fakturering" data-en-alt="The Features tab under Settings, with switches for expenses, the invoice inbox and outgoing invoicing" loading="lazy" decoding="async">
-        <figcaption data-en="Under Settings → Features an owner turns the optional parts on and off.">Under Inställningar → Funktioner slår en ägare på och av de valfria delarna.</figcaption>
-      </figure>
       <div class="list">
         <div class="list-row"><h3 data-en="Turn on what you need">Slå på det ni behöver</h3><p data-en="Under Settings → Features an owner turns the optional parts on and off: expenses, the invoice inbox, outgoing invoicing, AI reading and projects. What is turned off is only hidden, so no data is lost. The cash book, budget, reports, categories, financial years and members are always included. Some features are marked New or Beta while they are being tried out.">Under Inställningar → Funktioner slår en ägare på och av de delar som är valfria: utlägg, fakturainkorg, utgående fakturering, AI-avläsning och projekt. Det som är avstängt döljs bara, så ingen data försvinner. Kassabok, budget, rapporter, kategorier, räkenskapsår och medlemmar ingår alltid. Vissa funktioner markeras Ny eller Beta medan de provas.</p></div>
         <div class="list-row"><h3 data-en="Cash book">Kassabok</h3><p data-en="Enter income and expenses, attach the receipt and follow the balance as you go. A voucher can be split across several accounts.">Mata in inkomster och utgifter, bifoga kvitto och se saldot löpande. Ett verifikat kan delas upp på flera konton.</p></div>
@@ -987,10 +955,6 @@ function applyLang(lang) {
   document.querySelectorAll('[data-en]').forEach(el => {
     if (el.dataset.sv === undefined) el.dataset.sv = el.innerHTML;
     el.innerHTML = lang === 'en' ? el.dataset.en : el.dataset.sv;
-  });
-  document.querySelectorAll('[data-en-alt]').forEach(el => {
-    if (el.dataset.altSv === undefined) el.dataset.altSv = el.getAttribute('alt') || '';
-    el.setAttribute('alt', lang === 'en' ? el.dataset.enAlt : el.dataset.altSv);
   });
   document.querySelectorAll('[data-en-ph]').forEach(el => {
     if (el.dataset.phSv === undefined) el.dataset.phSv = el.getAttribute('placeholder') || '';
