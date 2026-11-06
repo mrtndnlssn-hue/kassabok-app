@@ -329,33 +329,33 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
       {/* Invites */}
       {canManage && (
         <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--ink)', margin: 0 }}>
-              {t('Inbjudningslänkar')}
-            </h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--ink)', margin: '0 0 10px' }}>
+            {t('Inbjudningslänkar')}
+          </h3>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <input
                 type="text" value={newNickname} maxLength={60}
                 onChange={e => setNewNickname(e.target.value)}
                 placeholder={t('Namn (valfritt)')}
-                style={{ fontSize: '0.82rem', padding: '4px 8px', width: 150 }}
+                style={{ fontSize: '0.85rem', padding: '6px 10px', flex: '1 1 160px', minWidth: 0, width: 'auto' }}
               />
               <select
                 value={newRole}
                 onChange={e => setNewRole(e.target.value)}
-                style={{ fontSize: '0.82rem', padding: '4px 8px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer' }}
+                style={{ fontSize: '0.85rem', padding: '6px 10px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--paper-2)', color: 'var(--ink)', cursor: 'pointer', width: 'auto', flex: 'none' }}
               >
                 <option value="member">{t('Medlem')}</option>
                 <option value="viewer">{t('Läsare (skrivskyddad)')}</option>
                 <option value="owner">{t('Ägare')}</option>
               </select>
               {newRole === 'viewer' && expensesAllowed && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer', whiteSpace: 'nowrap', width: 'auto' }}>
                   <input type="checkbox" checked={newExpenses} onChange={e => setNewExpenses(e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
                   {rightLabel}
                 </label>
               )}
-              <button className="btn btn-primary btn-sm" onClick={createInvite} disabled={members.length >= maxMembers}
+              <button className="btn btn-primary btn-sm" style={{ flex: 'none' }} onClick={createInvite} disabled={members.length >= maxMembers}
                 title={members.length >= maxMembers ? t('Max {max} användare per förening', { max: maxMembers }) : undefined}>
                 + {t('Ny inbjudan')}
               </button>
