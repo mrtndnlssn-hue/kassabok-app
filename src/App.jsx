@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Plus, Menu, X, Shield, Rocket, LayoutDashboard, BookOpen, PieChart, Tags, FileText, ChevronLeft, ChevronRight, Loader, CalendarDays, LogOut, Users, ChevronsUpDown, Settings, Layers, Receipt } from 'lucide-react';
 import { store, attachments, expenses, invoicing, orgFeatures, sortCats, getYear, getOrBuildPeriods, todayStr, isoDateTime } from './store';
-import { useAuth } from './auth/AuthProvider';
+import { useAuth, hasChosenOrg } from './auth/AuthProvider';
 import { supabase } from './supabase';
 import { isDemoSession } from './demo';
 import LoginPage from './auth/LoginPage';
@@ -50,7 +50,7 @@ const NAV_GROUPS = [
 const NAV = NAV_GROUPS.flatMap(g => g.items);
 const NO_PERIOD_PAGES = ['komigang', 'utlagg', 'projekt', 'kategorier', 'perioder', 'medlemmar', 'installningar'];
 
-function MainApp({ orgId, role }) {
+function MainApp({ orgId, role, onChangeOrg }) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [moreOpen, setMoreOpen]     = useState(false);
@@ -400,6 +400,9 @@ function MainApp({ orgId, role }) {
                   </select>
                 </div>
               )}
+              {onChangeOrg && (
+                <button className="m-sheet-item" onClick={() => { setMoreOpen(false); onChangeOrg(); }}><ChevronsUpDown size={20}/> {t('Byt eller skapa förening')}</button>
+              )}
               <div className="m-sheet-block m-sheet-row"><span>{t('Språk')}</span><LanguageSwitch /></div>
               <div className="m-sheet-block" style={{ fontSize:'0.78rem', color:'var(--ink-muted)' }}>
                 {t('Inloggad som')} {isDemoSession(session) ? t('Demo') : session?.user?.email}
@@ -497,6 +500,13 @@ function MainApp({ orgId, role }) {
             </div>
           )}
 
+          {onChangeOrg && (
+            <button onClick={onChangeOrg}
+              style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.75)', fontSize:'0.78rem', padding:'2px 0', textAlign:'left' }}>
+              <ChevronsUpDown size={12}/> {t('Byt eller skapa förening')}
+            </button>
+          )}
+
           {/* Konto: vem som är inloggad, adminportal (bara plattformsägaren), logga ut och språk */}
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
             <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase' }}>{t('Inloggad som')}</div>
@@ -559,6 +569,7 @@ function sessionPickedKey(userId) { return `orgPicked_${userId}` }
 export default function App() {
   const { session, orgs, orgId, role, loading, setOrgId, recoveryMode } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
+  const [pickerRequested, setPickerRequested] = useState(false);   // användaren har bett om att få byta eller skapa förening
   const [adminRoute, setAdminRoute] = useState(() => window.location.hash.startsWith('#admin'));
   useEffect(() => {
     const onHash = () => setAdminRoute(window.location.hash.startsWith('#admin'));
@@ -571,12 +582,13 @@ export default function App() {
 
   // Nollställ pickervalet när sessionen avslutas
   useEffect(() => {
-    if (!session) setPickerDone(false);
+    if (!session) { setPickerDone(false); setPickerRequested(false); }
   }, [session]);
 
   function pickOrg(id) {
     try { sessionStorage.setItem('orgPicked', '1') } catch {}
     setPickerDone(true);
+    setPickerRequested(false);
     setOrgId(id);
   }
 
@@ -584,6 +596,7 @@ export default function App() {
   function orgReady() {
     try { sessionStorage.setItem('orgPicked', '1') } catch {}
     setPickerDone(true);
+    setPickerRequested(false);
     setShowCreate(false);
   }
 
@@ -608,13 +621,15 @@ export default function App() {
   // Skapa ny förening (från OrgPicker)
   if (showCreate) return <OrgSetup onDone={orgReady} onCancel={() => setShowCreate(false)} />;
 
-  // Visa väljare efter inloggning om användaren har föreningar och inte redan valt
-  if (orgs.length > 0 && !pickerDone && !isDemoSession(session)) {
-    return <OrgPicker onCreateNew={() => setShowCreate(true)} onPick={pickOrg} />;
+  // Väljaren visas efter inloggning bara när det finns något att välja: en enda förening går direkt in, och den som
+  // själv har valt förening förut går direkt in i den. Byta eller skapa förening gör man från menyn i appen.
+  const skipPicker = orgs.length === 1 || hasChosenOrg(session?.user?.id, orgs);
+  if (orgs.length > 0 && !isDemoSession(session) && ((!pickerDone && !skipPicker) || pickerRequested)) {
+    return <OrgPicker onCreateNew={() => setShowCreate(true)} onPick={pickOrg} onBack={pickerRequested ? () => setPickerRequested(false) : undefined} />;
   }
 
   // Inga föreningar alls – skapa direkt
   if (!orgId) return <OrgSetup onDone={orgReady} />;
 
-  return <MainApp orgId={orgId} role={role} />;
+  return <MainApp orgId={orgId} role={role} onChangeOrg={isDemoSession(session) ? undefined : () => setPickerRequested(true)} />;
 }

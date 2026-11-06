@@ -34,6 +34,13 @@ function getSavedOrgId(userId) {
 function saveOrgId(userId, orgId) {
   try { localStorage.setItem(`activeOrg_${userId}`, orgId) } catch {}
 }
+// Anger att användaren själv har valt eller skapat föreningen (inte bara att den är förvald). Då hoppar appen över föreningsväljaren.
+function markChosen(userId, orgId) {
+  try { localStorage.setItem(`orgChosen_${userId}`, orgId) } catch {}
+}
+export function hasChosenOrg(userId, orgs) {
+  try { const id = localStorage.getItem(`orgChosen_${userId}`); return !!id && orgs.some(o => o.orgId === id) } catch { return false }
+}
 
 export default function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined) // undefined = still loading
@@ -48,7 +55,7 @@ export default function AuthProvider({ children }) {
     const membership = orgs.find(o => o.orgId === id)
     setOrgIdState(id)
     setRole(membership?.role || null)
-    if (session?.user?.id) saveOrgId(session.user.id, id)
+    if (session?.user?.id) { saveOrgId(session.user.id, id); markChosen(session.user.id, id) }
   }
 
   async function loadOrgs(userId, demo = false) {
@@ -90,7 +97,7 @@ export default function AuthProvider({ children }) {
     })
     setOrgIdState(newOrgId)
     setRole(newRole)
-    if (session?.user?.id) saveOrgId(session.user.id, newOrgId)
+    if (session?.user?.id) { saveOrgId(session.user.id, newOrgId); markChosen(session.user.id, newOrgId) }
   }
 
   const [recoveryMode, setRecoveryMode] = useState(false)

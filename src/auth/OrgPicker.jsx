@@ -19,7 +19,7 @@ const ROLE_STYLE = {
   viewer:     { background: 'var(--paper-2)', color: 'var(--ink-muted)' },
 }
 
-export default function OrgPicker({ onCreateNew, onPick }) {
+export default function OrgPicker({ onCreateNew, onPick, onBack }) {
   const { t } = useI18n()
   const { orgs } = useAuth()
   const [orgNames, setOrgNames] = useState({})
@@ -118,6 +118,12 @@ export default function OrgPicker({ onCreateNew, onPick }) {
         >
           <Plus size={16}/> {t('Skapa ny förening')}
         </button>
+
+        {onBack && (
+          <div style={{ marginTop:16, textAlign:'center' }}>
+            <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-soft)', fontSize:'0.85rem', textDecoration:'underline' }}>{t('Tillbaka')}</button>
+          </div>
+        )}
 
         {/* Sign out */}
         <div style={{ marginTop:24, textAlign:'center' }}>

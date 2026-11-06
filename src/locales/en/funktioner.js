@@ -1,5 +1,7 @@
 // Engelska översättningar: funktioner (reglage i Inställningar)
 export default {
+  'Tillbaka': 'Back',
+  'Byt eller skapa förening': 'Switch or create association',
   '{namn} har en filtyp som inte kan laddas upp. Använd PDF, bild, Word, Excel eller textfil.': '{namn} has a file type that cannot be uploaded. Use a PDF, image, Word, Excel or text file.',
   'Bokföringslagen kräver att verifikat och underlag sparas i sju år.': 'The Swedish Bookkeeping Act requires vouchers and supporting documents to be kept for seven years.',
   'Det går bra att ha dem utanför appen, men ZIP-kopian ska då finnas kvar, vara läsbar och kunna visas för revisor och Skatteverket under hela tiden.': 'It is fine to keep them outside the app, but the ZIP copy must then be kept, stay readable and be available to the auditor and the Swedish Tax Agency throughout that time.',
