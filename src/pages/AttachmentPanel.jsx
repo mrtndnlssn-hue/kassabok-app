@@ -109,7 +109,7 @@ export default function AttachmentPanel({ tx, verNum, label, readOnly = false, o
             transition:'all 0.15s', marginBottom:16,
           }}
         >
-          <input ref={inputRef} type="file" multiple style={{ display:'none' }}
+          <input ref={inputRef} type="file" multiple accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.csv,.txt" style={{ display:'none' }}
             onChange={e => handleUpload(e.target.files)} />
           {uploading ? (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, color:'var(--accent)' }}>

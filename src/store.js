@@ -407,6 +407,10 @@ const dbAttachments = {
         .from('attachments')
         .upload(`${orgId}/${txId}/${safeName}`, file, { upsert: true })
       if (error) {
+        // Bara PDF, bilder och vanliga kontorsfiler tillåts i bilagor
+        if (/mime|not supported|invalid_mime/i.test(error.message || '')) {
+          throw new Error(translate('{namn} har en filtyp som inte kan laddas upp. Använd PDF, bild, Word, Excel eller textfil.', { namn: file.name }))
+        }
         // Radnivåsäkerheten nekar när föreningens lagringsgräns (eller plattformens) är nådd
         if (/row-level security|violates/i.test(error.message || '')) {
           throw new Error(translate('Föreningens lagringsutrymme är fullt. Radera bilagor eller välj en större plan under Inställningar.'))
