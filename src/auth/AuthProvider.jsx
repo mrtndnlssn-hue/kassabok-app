@@ -3,6 +3,28 @@ import { supabase } from '../supabase'
 import { isDemoSession } from '../demo'
 import { setDemoMode, isDemoMode } from '../store'
 
+// Anmäler ett demobesök till adminportalens logg: en gång per flik och session. Ingen IP-adress sparas,
+// besökaren räknas med ett slumpat id i webbläsaren, så samma person räknas som en besökare vid flera besök.
+function logDemoVisit() {
+  try {
+    if (sessionStorage.getItem('kb_demo_logged')) return
+    sessionStorage.setItem('kb_demo_logged', '1')
+    let vid = localStorage.getItem('kb_demo_vid')
+    if (!vid) { vid = (crypto.randomUUID?.() || String(Math.random()).slice(2) + Date.now()); localStorage.setItem('kb_demo_vid', vid) }
+    const w = window.innerWidth
+    let referrer = ''
+    try { referrer = document.referrer ? new URL(document.referrer).hostname : '' } catch { /* ignore */ }
+    supabase.rpc('log_demo_visit', {
+      p_visitor: vid,
+      p_source: sessionStorage.getItem('kb_demo_src') || (new URLSearchParams(window.location.search).get('demo') === '1' ? 'hemsidan' : 'okand'),
+      p_lang: (document.documentElement.lang || navigator.language || '').slice(0, 5),
+      p_device: w < 700 ? 'mobil' : w < 1100 ? 'surfplatta' : 'dator',
+      p_ua: navigator.userAgent,
+      p_referrer: referrer,
+    }).then(() => {}, () => {})
+  } catch { /* loggningen får aldrig störa demon */ }
+}
+
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
 
@@ -78,6 +100,7 @@ export default function AuthProvider({ children }) {
     const syncDemo = session => {
       const demo = isDemoSession(session)
       if (demo !== isDemoMode()) setDemoMode(demo)
+      if (demo && session) logDemoVisit()
       return demo
     }
     supabase.auth.getSession().then(({ data: { session } }) => {

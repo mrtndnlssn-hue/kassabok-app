@@ -9,7 +9,7 @@ import DateInput from '../components/DateInput'
 
 const TABS = [
   ['oversikt', 'Översikt'], ['foreningar', 'Föreningar'], ['anvandare', 'Användare'],
-  ['bestallningar', 'Beställningar'], ['fakturor', 'Fakturor'], ['planer', 'Planer'], ['rabatter', 'Rabattkoder'], ['installningar', 'Inställningar'],
+  ['bestallningar', 'Beställningar'], ['fakturor', 'Fakturor'], ['demo', 'Demo'], ['planer', 'Planer'], ['rabatter', 'Rabattkoder'], ['installningar', 'Inställningar'],
 ]
 const ORDER_STATUS = { new: 'Ny', invoiced: 'Fakturerad', paid: 'Betald', cancelled: 'Avbruten' }
 const INV_STATUS = { draft: 'Underlag', sent: 'Skickad', paid: 'Betald', void: 'Makulerad' }
@@ -97,6 +97,97 @@ function useQuery(table, select, order) {
 
 const Err = ({ msg }) => msg ? <div className="notice notice-warn">{msg}</div> : null
 const Busy = () => <div style={{ padding: 24, color: 'var(--ink-muted)' }}><Loader size={18} style={{ animation: 'spin 1s linear infinite' }} /></div>
+
+// ── Demo: besök i demokontot ──────────────────────────────────────
+const SOURCE_LABEL = { hemsidan: 'Hemsidans knapp', inloggning: 'Inloggningssidan', okand: 'Okänd' }
+const browserOf = ua => {
+  const u = ua || ''
+  const b = /Edg\//.test(u) ? 'Edge' : /OPR\/|Opera/.test(u) ? 'Opera' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Okänd'
+  const o = /Windows/.test(u) ? 'Windows' : /Android/.test(u) ? 'Android' : /iPhone|iPad|iOS/.test(u) ? 'iOS' : /Mac OS X/.test(u) ? 'macOS' : /Linux/.test(u) ? 'Linux' : ''
+  return o ? `${b} · ${o}` : b
+}
+function DemoActivity() {
+  const [days, setDays] = useState(30)
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    setErr('')
+    const { data, error } = await supabase.rpc('admin_demo_activity', { p_days: days })
+    if (error) setErr(error.message); else setD(data)
+  }, [days])
+  useEffect(() => { load() }, [load])
+  async function clear() {
+    if (!window.confirm('Radera hela demologgen? Det går inte att ångra.')) return
+    const { error } = await supabase.rpc('admin_clear_demo_visits')
+    if (error) setErr(error.message); else load()
+  }
+  if (err) return <Err msg={err} />
+  if (!d) return <Busy />
+  const max = Math.max(1, ...d.per_day.map(x => x.visits))
+  const tiles = [['Besök (perioden)', d.visits], ['Unika besökare', d.unique], ['Idag', d.today], ['Senaste 7 dagarna', d.last7], ['Totalt sedan start', d.total]]
+  const small = { fontSize: '0.74rem', color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }
+  const breakdown = (title, obj, label = x => x) => (
+    <div className="card" style={{ flex: '1 1 200px' }}>
+      <div style={{ ...small, marginBottom: 6 }}>{title}</div>
+      {Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', padding: '2px 0' }}><span>{label(k)}</span><span className="mono">{n}</span></div>
+      ))}
+      {Object.keys(obj).length === 0 && <div style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>Inga besök</div>}
+    </div>
+  )
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <label style={{ margin: 0, width: 'auto' }}>Period</label>
+        <select value={days} onChange={e => setDays(Number(e.target.value))} style={{ width: 'auto' }}>
+          {[7, 30, 90, 365].map(n => <option key={n} value={n}>Senaste {n} dagarna</option>)}
+        </select>
+        <span style={{ fontSize: '0.8rem', color: 'var(--ink-muted)' }}>Ett besök loggas när någon startar demon. Samma webbläsare räknas högst en gång per 30 minuter. Ingen IP-adress sparas.</span>
+        <button className="btn btn-secondary btn-sm" style={{ marginLeft: 'auto' }} onClick={clear}>Rensa loggen</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))', gap: 14, marginBottom: 20 }}>
+        {tiles.map(([label, v]) => (
+          <div key={label} className="card">
+            <div style={small}>{label}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.6rem', marginTop: 4 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ ...small, marginBottom: 10 }}>Besök per dag</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 120 }} role="img" aria-label="Staplar med antal demobesök per dag">
+          {d.per_day.map(x => (
+            <div key={x.day} title={`${x.day}: ${x.visits} besök, ${x.unique} unika`} style={{ flex: 1, minWidth: 2, background: x.visits ? 'var(--accent)' : 'var(--border)', height: `${x.visits ? Math.max(4, (x.visits / max) * 100) : 2}%`, borderRadius: '2px 2px 0 0' }} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 4 }}><span>{d.per_day[0]?.day}</span><span>{d.per_day[d.per_day.length - 1]?.day}</span></div>
+      </div>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+        {breakdown('Hur de kom in', d.by_source, k => SOURCE_LABEL[k] || k)}
+        {breakdown('Enhet', d.by_device)}
+        {breakdown('Språk', d.by_lang)}
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Tid</th><th>Hur</th><th>Enhet</th><th>Webbläsare</th><th>Språk</th><th>Kom från</th></tr></thead>
+          <tbody>
+            {d.recent.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 30, color: 'var(--ink-muted)' }}>Inga besök loggade ännu.</td></tr>}
+            {d.recent.map((r, i) => (
+              <tr key={i}>
+                <td className="mono">{new Date(r.visited_at).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                <td>{SOURCE_LABEL[r.source] || r.source}</td>
+                <td>{r.device || '–'}</td>
+                <td>{browserOf(r.user_agent)}</td>
+                <td>{r.lang || '–'}</td>
+                <td>{r.referrer || 'direkt'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
 
 // ── Översikt ─────────────────────────────────────────────────────
 function Overview({ onGo }) {
@@ -545,6 +636,7 @@ export default function AdminPortal() {
             {tab === 'anvandare' && <Users />}
             {tab === 'bestallningar' && <Orders plans={plans} />}
             {tab === 'fakturor' && <Invoices settings={settings} />}
+            {tab === 'demo' && <DemoActivity />}
             {tab === 'planer' && <Plans plans={plans} reload={loadBase} />}
             {tab === 'rabatter' && <Discounts plans={plans} />}
             {tab === 'installningar' && <Settings settings={settings} reload={loadBase} />}

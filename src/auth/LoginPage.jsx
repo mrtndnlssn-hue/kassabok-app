@@ -23,6 +23,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (demoStarted.current || new URLSearchParams(window.location.search).get('demo') !== '1') return
     demoStarted.current = true
+    try { sessionStorage.setItem('kb_demo_src', 'hemsidan') } catch { /* ignore */ }
     setLoading(true)
     supabase.auth.signInWithPassword(demoCredentials('demo', 'demo')).then(({ error }) => {
       if (error) setError(error.message)
@@ -44,6 +45,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     if (mode === 'login') {
+      if (demoCredentials(email, password)) { try { sessionStorage.setItem('kb_demo_src', 'inloggning') } catch { /* ignore */ } }
       const { error } = await supabase.auth.signInWithPassword(demoCredentials(email, password) || { email, password })
       if (error) setError(error.message)
     } else if (mode === 'register') {
@@ -127,7 +129,7 @@ export default function LoginPage() {
                   {t('Vill du bara titta runt? Användarnamn')} <strong>demo</strong>, {t('lösenord')} <strong>demo</strong>.
                 </div>
                 <button type="button" className="btn btn-secondary btn-sm" disabled={loading}
-                  onClick={() => { setEmail('demo'); setPassword('demo'); setError(''); setLoading(true);
+                  onClick={() => { try { sessionStorage.setItem('kb_demo_src', 'inloggning') } catch { /* ignore */ } setEmail('demo'); setPassword('demo'); setError(''); setLoading(true);
                     supabase.auth.signInWithPassword(demoCredentials('demo', 'demo')).then(({ error }) => { if (error) setError(error.message); setLoading(false) }) }}>
                   {t('Prova demon')}
                 </button>
