@@ -666,9 +666,72 @@ export const isDemoMode = () => !!demo
 const clone = v => structuredClone(v)
 const remapKeys = (obj, map) => Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => [map[k] ?? k, v]))
 
+// Exempeldata i minnet så att demon visar utlägg, fakturor, fakturering och makulerade verifikat. Inget av det sparas i databasen.
+async function seedDemo() {
+  const day = off => { const d = new Date(); d.setDate(d.getDate() + off); return d.toISOString().slice(0, 10) }
+  const cats = demo.data.categories
+  const exp = cats.filter(c => c.type === 'expense' && !c.hidden)
+  const inc = cats.filter(c => c.type === 'income' && !c.hidden)
+  if (!exp.length || !inc.length) return
+  const me = await demoUserId()
+  const pd = demo.data.projectData
+  Object.assign(pd, { expensesAllowed: true, invoicingAllowed: true, invoicingEnabled: true, invoiceDetails: {
+    address: 'Björkvägen 4', zip: '123 45', city: 'Björkby', org_number: '802400-0000', email: 'kassor@bjorkbyif.example', phone: '070-123 45 67',
+    bankgiro: '123-4567', swish: '123 456 78 90', payment_days: 30, invoice_prefix: '',
+  } })
+
+  // Utlägg och fakturor i inkorgen
+  const claim = o => ({ id: `demo-c-${++demo.seq}`, userId: me, registeredBy: null, kind: 'expense', supplier: '', invoiceNo: '', dueDate: null, paymentRef: '', comment: '',
+    status: 'submitted', rejectReason: '', decidedAt: null, paidAt: null, paidDate: null, txId: null, createdAt: new Date().toISOString(), ...o,
+    lines: o.lines, total: o.lines.reduce((a, l) => a + l.amount, 0) })
+  const line = (cat, amount) => ({ categoryId: cat.id, amount, projectId: null })
+  demo.claims.push(
+    claim({ date: day(-2), description: 'Fika till årsmötet', comment: 'Kaffe, kakor och muggar', lines: [line(exp[0], 640)] }),
+    claim({ date: day(-6), description: 'Bensin till materialtransport', status: 'approved', decidedAt: new Date().toISOString(), lines: [line(exp[Math.min(1, exp.length - 1)], 420)] }),
+    claim({ date: day(-5), kind: 'invoice', supplier: 'Elbolaget Norr AB', invoiceNo: '2026-4471', dueDate: day(9), paymentRef: 'OCR 1234567890', description: 'El, lokalen', lines: [line(exp[Math.min(2, exp.length - 1)], 1850)] }),
+    claim({ date: day(-30), kind: 'invoice', supplier: 'Björkbyns bygdegård', invoiceNo: '118', dueDate: day(-3), paymentRef: 'Bankgiro 555-1234', description: 'Hyra av lokal', lines: [line(exp[Math.min(3, exp.length - 1)], 2500)] }),
+  )
+
+  // Kundregister och fakturor
+  const cust = (name, o) => ({ id: `demo-k-${++demo.seq}`, name, orgNumber: '', contactPerson: '', email: '', phone: '', address: '', zip: '', city: '', reference: '', note: '', ...o })
+  const k1 = cust('Björkbyns Bygg AB', { orgNumber: '556000-1111', email: 'ekonomi@bjorkbygg.example', address: 'Verkstadsgatan 2', zip: '123 46', city: 'Björkby', contactPerson: 'Anna Berg' })
+  const k2 = cust('Fjällgården Turism AB', { orgNumber: '556000-2222', email: 'info@fjallgarden.example', address: 'Fjällvägen 9', zip: '123 47', city: 'Björkby' })
+  const k3 = cust('Skidklubben Norr', { email: 'kassor@skidnorr.example' })
+  demo.customers.push(k1, k2, k3)
+  const snap = c => ({ name: c.name, org_number: c.orgNumber, contact_person: c.contactPerson, email: c.email, phone: c.phone, address: c.address, zip: c.zip, city: c.city, reference: c.reference })
+  const inv = (c, o) => {
+    const lines = o.lines.map(l => ({ ...l, categoryId: inc[0].id, amount: Math.round(l.quantity * l.unitPrice * 100) / 100 }))
+    return { id: `demo-i-${++demo.seq}`, customerId: c.id, customer: snap(c), paymentDays: 30, reference: '', note: '', invoiceNo: '', dueDate: null, status: 'draft',
+      issuedAt: null, sentAt: null, sentTo: '', sentCount: 0, paidDate: null, txId: null, voidReason: '', createdAt: new Date().toISOString(), ...o,
+      lines, total: lines.reduce((a, l) => a + l.amount, 0) }
+  }
+  const issued = (c, n, offset, o) => inv(c, { status: 'issued', invoiceNo: String(n).padStart(4, '0'), invoiceDate: day(offset), dueDate: day(offset + 30), issuedAt: new Date().toISOString(),
+    sentAt: new Date().toISOString(), sentTo: c.email, sentCount: 1, ...o })
+  demo.invoices.push(
+    issued(k1, 1, -45, { lines: [{ description: 'Annons i klubbtidningen', quantity: 1, unitPrice: 3000 }] }),   // förfallen
+    issued(k2, 2, -10, { lines: [{ description: 'Sponsring säsongen', quantity: 1, unitPrice: 5000 }, { description: 'Banderoll vid arenan', quantity: 2, unitPrice: 750 }] }),
+    inv(k3, { invoiceDate: day(0), lines: [{ description: 'Bidrag till gemensamt läger', quantity: 4, unitPrice: 400 }] }),
+  )
+  demo.invSeq = 2
+
+  // Ett makulerat verifikat med ersättare (samma belopp, så summorna är oförändrade)
+  const old = demo.data.transactions.find(t => !t.voidedAt && t.categoryId && cats.find(c => c.id === t.categoryId)?.type === 'expense')
+  if (old) {
+    const other = exp.find(c => c.id !== old.categoryId)
+    Object.assign(old, { voidedAt: new Date().toISOString(), voidReason: 'Bokfördes på fel konto' })
+    const id = `demo-${++demo.seq}`
+    const lines = txLines(old).map((l, i) => ({ ...l, id: `${id}-l${i}`, categoryId: other ? other.id : l.categoryId }))
+    demo.data.transactions.push({ ...clone(old), id, voidedAt: null, voidReason: '', replacesId: old.id, categoryId: lines[0].categoryId, lines,
+      comment: old.comment, createdAt: old.createdAt })
+    demo.data.transactions.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  }
+}
+
 const demoStore = {
   async getAll(orgId) {
-    if (!demo.data) demo.data = clone(await dbStore.getAll(orgId))
+    // Flera anrop kan komma samtidigt vid start: ladda och fyll på exempeldata bara en gång
+    demo.loading ||= (async () => { demo.data = clone(await dbStore.getAll(orgId)); await seedDemo() })()
+    await demo.loading
     return clone(demo.data)
   },
   async getProjectData() { return clone(demo.data?.projectData || emptyProjectData()) },
