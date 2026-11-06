@@ -34,7 +34,13 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
 .sidebar-logo{padding:28px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.1);}
 .sidebar-logo h1{font-family:var(--font-display);font-size:1.35rem;color:#fff;line-height:1.2;font-style:italic;}
 .sidebar-logo span{font-family:var(--font-body);font-size:0.72rem;color:rgba(255,255,255,0.45);letter-spacing:0.1em;text-transform:uppercase;display:block;margin-top:4px;}
-.sidebar-nav{flex:1;padding:16px 10px;display:flex;flex-direction:column;gap:2px;}
+.sidebar-nav{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 10px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.25) transparent;}
+.sidebar-nav::-webkit-scrollbar{width:6px;}
+.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.25);border-radius:3px;}
+.sidebar-logo,.sidebar-footer{flex-shrink:0;}
+/* Låg skärm: tätare meny så att fler val ryms utan att rulla */
+@media (max-height:820px){.sidebar-logo{padding:16px 20px 12px;}.sidebar-nav{padding:10px;gap:1px;}.nav-btn{padding:6px 12px;}.sidebar-footer{padding:10px 16px;}}
+@media (max-height:640px){.sidebar-logo span{display:none;}.nav-btn{padding:5px 12px;font-size:0.82rem;}}
 .nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r);border:none;background:transparent;color:rgba(255,255,255,0.6);font-family:var(--font-body);font-size:0.875rem;cursor:pointer;transition:all 0.15s;text-align:left;width:100%;}
 .nav-btn:hover{background:rgba(255,255,255,0.08);color:#fff;}
 .nav-btn.active{background:var(--accent);color:#fff;}
