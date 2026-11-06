@@ -460,6 +460,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <div class="list-row"><h3 data-en="Financial years">Räkenskapsår</h3><p data-en="Several periods with their own dates. Lock a finished year so nothing changes afterwards.">Flera perioder med egna datum. Lås ett avslutat år så att inget ändras i efterhand.</p></div>
         <div class="list-row"><h3 data-en="Ready-made categories">Färdiga kategorier</h3><p data-en="Choose the association type when you create the association, for example sports, housing cooperative, culture and hobby, scouts or property owners' association, and you get a suggested set of categories. A checklist guides you through the first steps.">Välj föreningstyp när ni skapar föreningen, till exempel idrott, brf, kultur och hobby, scout eller samfällighet, så får ni ett förslag på kategorier. En checklista guidar er genom de första stegen.</p></div>
         <div class="list-row"><h3 data-en="Swedish and English">Svenska och engelska</h3><p data-en="The app and this website are available in both languages. You choose with a button, and the suggested categories follow the language.">Appen och hemsidan finns på båda språken. Ni väljer själva med en knapp, och föreslagna kategorier följer språket.</p></div>
+        <div class="list-row"><h3 data-en="A role for the auditor">Roll för revisorn</h3><p data-en="The auditor gets a read-only account. Mark vouchers as reviewed, write remarks that the bookkeeping can answer, and download a voucher list as a PDF with receipts, review status and remarks.">Revisorn får ett skrivskyddat konto. Markera verifikat som granskade, skriv anmärkningar som de som bokför kan svara på, och hämta en verifikationslista som PDF med bilagor, granskning och anmärkningar.</p></div>
         <div class="list-row"><h3 data-en="The whole board">Hela styrelsen</h3><p data-en="Invite the board as administrator, bookkeeper or viewer: 2, 5 or 15 users depending on the plan. The auditor gets read access and can review the vouchers.">Bjud in styrelsen som administratör, bokförare eller läsare: 2, 5 eller 15 användare beroende på plan. Revisorn får läsrätt och kan granska verifikaten.</p></div>
       </div>
     </section>
@@ -742,6 +743,7 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
       <a data-en="Expenses" class="toc-chip" href="#sec-utlagg">Utlägg</a>
       <a data-en="Invoicing" class="toc-chip" href="#sec-fakturering">Fakturering</a>
       <a data-en="Members" class="toc-chip" href="#sec-medlemmar">Medlemmar</a>
+      <a data-en="Auditor" class="toc-chip" href="#sec-revisor">Revisor</a>
       <a data-en="Features" class="toc-chip" href="#sec-funktioner">Funktioner</a>
     </div>
 
@@ -878,6 +880,23 @@ footer { border-top: 1px solid var(--ink); padding-block: 36px 44px; font-size: 
         <li><div class="step-dot">6</div><span data-en="Administrators can change a role in the list, give someone a name that is shown in the association (<strong>add name</strong> or <strong>change</strong>) and remove access. The primary administrator can hand over the responsibility with <strong>Hand over</strong>.">Administratörer kan ändra en roll i listan, ge någon ett namn som visas i föreningen (<strong>lägg till namn</strong> eller <strong>ändra</strong>) och ta bort åtkomst. Huvudansvarig kan lämna över ansvaret med <strong>Lämna över</strong>.</span></li>
       </ul>
       <div data-en="Invite links are time-limited. Generate a new one if the old one has expired." class="help-tip">Inbjudningslänkar är tidsbegränsade. Generera en ny om den gamla har gått ut.</div>
+    </div>
+
+    <div class="help-section" id="sec-revisor">
+      <div class="help-section-header">
+        <h3 data-en="Auditor — review the books">Revisor — granska bokföringen</h3>
+      </div>
+      <p data-en="The auditor gets an account of their own in the association. The auditor sees everything, but cannot change anything in the books. Instead the auditor marks vouchers as reviewed and writes remarks, and the bookkeeping can answer.">Revisorn får ett eget konto i föreningen. Revisorn ser allt men kan inte ändra något i bokföringen. I stället markerar revisorn verifikat som granskade och skriver anmärkningar, och de som bokför kan svara.</p>
+      <ul class="help-steps">
+        <li><div class="step-dot">1</div><span data-en="An administrator invites the auditor under <strong>Members</strong> and chooses the role <strong>Auditor</strong>. The role can also be changed later in the list.">En administratör bjuder in revisorn under <strong>Medlemmar</strong> och väljer rollen <strong>Revisor</strong>. Rollen kan också ändras senare i listan.</span></li>
+        <li><div class="step-dot">2</div><span data-en="In the <strong>Cash book</strong> the auditor clicks <strong>Review</strong> on a voucher, reads it with its receipts and clicks <strong>Mark as reviewed</strong>. It is saved with the auditor's name and the date, and can be removed again.">I <strong>Kassaboken</strong> klickar revisorn på <strong>Granskning</strong> vid ett verifikat, läser det med dess kvitton och klickar <strong>Markera som granskat</strong>. Det sparas med revisorns namn och datum och kan tas bort igen.</span></li>
+        <li><div class="step-dot">3</div><span data-en="If something is missing or looks wrong, the auditor writes a <strong>remark</strong> on the voucher, for example that a receipt is missing. The voucher is marked with the number of open remarks.">Saknas något eller ser något fel ut skriver revisorn en <strong>anmärkning</strong> på verifikatet, till exempel att ett kvitto saknas. Verifikatet märks då med antalet öppna anmärkningar.</span></li>
+        <li><div class="step-dot">4</div><span data-en="Whoever does the bookkeeping can answer in the same place and click <strong>Mark as resolved</strong>. The auditor can reopen a remark that has not been dealt with.">Den som bokför kan svara på samma ställe och klicka <strong>Markera som åtgärdad</strong>. Revisorn kan öppna en anmärkning igen om den inte är löst.</span></li>
+        <li><div class="step-dot">5</div><span data-en="Use the filter above the list to show only <strong>Reviewed</strong>, <strong>Not reviewed</strong> or vouchers <strong>With open remarks</strong>, so you can see what is left.">Använd filtret ovanför listan för att bara visa <strong>Granskade</strong>, <strong>Inte granskade</strong> eller verifikat <strong>Med öppna anmärkningar</strong>, så syns det vad som återstår.</span></li>
+        <li><div class="step-dot">6</div><span data-en="Under <strong>Reports &amp; export</strong> anyone can download a <strong>Voucher list (PDF)</strong> with all vouchers, receipts, review status and remarks, to hand over to the auditor.">Under <strong>Rapporter &amp; export</strong> kan man hämta en <strong>Verifikationslista (PDF)</strong> med alla verifikat, bilagor, granskning och anmärkningar, att lämna till revisorn.</span></li>
+        <li><div class="step-dot">7</div><span data-en="If expenses or the invoice inbox are turned on, the auditor also sees the pending expenses and invoices, but cannot submit, approve or pay them.">Är utlägg eller fakturainkorgen påslagna ser revisorn också väntande utlägg och fakturor, men kan inte lämna in, godkänna eller betala dem.</span></li>
+      </ul>
+      <div data-en="A voucher is not changed by the review. Only the auditor can mark vouchers as reviewed. Remarks are kept as a record and are never deleted." class="help-tip">Ett verifikat ändras inte av granskningen. Bara revisorn kan markera verifikat som granskade. Anmärkningar sparas som underlag och raderas aldrig.</div>
     </div>
 
     <div class="help-section" id="sec-funktioner">
