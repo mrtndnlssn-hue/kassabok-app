@@ -244,7 +244,7 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
           <thead>
             <tr>
               <th>{t('E-post')}</th>
-              <th>{t('Roll')}</th>
+              <th style={{ minWidth: 190 }}>{t('Roll')}</th>
               <th></th>
             </tr>
           </thead>
@@ -255,15 +255,22 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
             }).map(m => (
               <tr key={m.userId}>
                 <td style={{ fontSize: '0.85rem' }}>
-                  {m.nickname && <strong style={{ marginRight: 6 }}>{m.nickname}</strong>}
-                  <span style={m.nickname ? { color: 'var(--ink-muted)', fontSize: '0.78rem' } : undefined}>{m.email}</span>
-                  {canManage && (
-                    <button onClick={() => editNickname(m.userId)} title={t('Ändra namn i föreningen')}
-                      style={{ marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', fontSize: '0.72rem', textDecoration: 'underline' }}>
-                      {m.nickname ? t('ändra') : t('lägg till namn')}
-                    </button>
+                  {m.nickname && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <strong>{m.nickname}</strong>
+                      {m.isMe && <span style={{ fontSize:'0.72rem', color:'var(--ink-muted)', background:'var(--paper-2)', padding:'1px 6px', borderRadius:99, border:'1px solid var(--border)' }}>{t('du')}</span>}
+                    </div>
                   )}
-                  {m.isMe && <span style={{ marginLeft:6, fontSize:'0.72rem', color:'var(--ink-muted)', background:'var(--paper-2)', padding:'1px 6px', borderRadius:99, border:'1px solid var(--border)' }}>{t('du')}</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', ...(m.nickname ? { color: 'var(--ink-muted)', fontSize: '0.78rem' } : {}) }}>
+                    <span style={{ overflowWrap: 'anywhere' }}>{m.email}</span>
+                    {!m.nickname && m.isMe && <span style={{ fontSize:'0.72rem', color:'var(--ink-muted)', background:'var(--paper-2)', padding:'1px 6px', borderRadius:99, border:'1px solid var(--border)' }}>{t('du')}</span>}
+                    {canManage && (
+                      <button onClick={() => editNickname(m.userId)} title={t('Ändra namn i föreningen')}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--ink-muted)', fontSize: '0.72rem', textDecoration: 'underline', whiteSpace: 'nowrap' }}>
+                        {m.nickname ? t('ändra') : t('lägg till namn')}
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td>
                   {m.isMe || m.role === 'main_owner' || !canManage ? (
@@ -281,7 +288,7 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
                   )}
                   {m.role === 'viewer' && expensesAllowed && (canManage ? (
                     <label title={t('Läsaren kan registrera egna utlägg och lägga upp fakturor som hanteras av en ägare eller medlem')}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.75rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: '0.75rem', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', color: 'var(--ink-soft)', cursor: 'pointer', whiteSpace: 'nowrap', width: 'auto' }}>
                       <input type="checkbox" checked={m.canExpenses} onChange={e => setCanExpenses(m.userId, e.target.checked)} style={{ width: 'auto', flex: 'none' }} />
                       {rightLabel}
                     </label>
@@ -289,8 +296,8 @@ export default function Medlemmar({ orgId, orgName, features = [] }) {
                     <div style={{ marginTop: 4, fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{rightLabel}</div>
                   ))}
                 </td>
-                <td style={{ textAlign: 'right' }}>
-                  <div style={{ display:'flex', gap:4, justifyContent:'flex-end' }}>
+                <td style={{ textAlign: 'right', verticalAlign: 'top' }}>
+                  <div style={{ display:'flex', gap:4, justifyContent:'flex-end', whiteSpace: 'nowrap' }}>
                     {isMainOwner && !m.isMe && m.role !== 'main_owner' && (
                       <button
                         className="btn btn-secondary btn-sm"
