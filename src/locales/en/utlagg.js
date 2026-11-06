@@ -1,5 +1,13 @@
 // Utlägg (expense claims)
 export default {
+  'Det här verkar redan vara inlagt': 'This seems to be entered already',
+  'Utlägg som väntar på hantering: {vad}': 'Expense awaiting handling: {vad}',
+  'Du kan ändå spara om det är en egen post.': 'You can still save it if it is a separate entry.',
+  'Den här fakturan verkar redan finnas': 'This invoice seems to exist already',
+  'I inkorgen: {vad}': 'In the inbox: {vad}',
+  'Redan betald och bokförd: {vad}': 'Already paid and booked: {vad}',
+  'Redan bokfört verifikat: {vad}': 'Already booked voucher: {vad}',
+  'Du kan ändå spara den om det är en ny faktura.': 'You can still save it if this is a new invoice.',
   'registrerat av': 'registered by',
   'dig': 'you',
   'Utlägget avser': 'Expense is for',

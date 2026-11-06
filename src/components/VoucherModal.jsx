@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, X, Check, Upload, FileText, Sparkles, Camera } from 'lucide-react';
-import { getReceiptUsage, readReceipt, canReadWithAi } from '../receiptAi';
-import { fmt, todayStr, isValidIsoDate } from '../store';
+import { getReceiptUsage, readReceipt, canReadWithAi, buildHistory } from '../receiptAi';
+import { fmt, todayStr, isValidIsoDate, txLines } from '../store';
 import DateInput from './DateInput';
 import { useI18n } from '../i18n';
 import { useAuth } from '../auth/AuthProvider';
@@ -22,7 +22,7 @@ export const emptyVoucherForm = () => ({
 //  expense = 'forced'   alltid utlägg (den som bara får registrera utlägg)
 //  expense = 'invoice'  en faktura som läggs i inkorgen för betalning (leverantör, förfallodatum, betalningsuppgifter)
 //  restricted = true  verifikatet är låst (äldre än 1 timme): bara kommentar och projektmärkning kan ändras
-export default function VoucherModal({ orgId, categories, initial, editing = false, expense = 'off', restricted = false, title: titleProp, submitLabel: submitLabelProp, onSubmit, onClose }) {
+export default function VoucherModal({ orgId, categories, initial, editing = false, expense = 'off', restricted = false, transactions = [], claims = [], selfId = null, title: titleProp, submitLabel: submitLabelProp, onSubmit, onClose }) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const { enabled: projOn, labels, projects } = useProjects();
@@ -63,6 +63,50 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
   const linesTotal   = form.lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
   const lineTypes    = new Set(form.lines.filter(l => l.categoryId).map(l => catMap[l.categoryId]?.type));
   const mixedTypes   = lineTypes.size > 1;
+
+  // Varning om samma sak verkar vara inlagd redan: fakturor mot inkorgen och bokföringen, övriga verifikat och utlägg mot
+  // bokföringen och andra utlägg (samma belopp och datum, och samma konto eller liknande beskrivning)
+  const dupes = (() => {
+    if (restricted) return [];
+    const norm = v => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const total = Math.round(linesTotal * 100);
+    if (total <= 0) return [];
+    const found = [];
+    const sumOf = ls => Math.round(ls.reduce((a, l) => a + Number(l.amount), 0) * 100);
+    if (isInvoice) {
+      const sup = norm(inv.supplier), no = norm(inv.invoiceNo);
+      const inboxIds = new Set();
+      for (const c of claims) {
+        if (c.kind !== 'invoice' || c.id === selfId || c.status === 'rejected') continue;
+        const sameNo = no && norm(c.invoiceNo) === no && (!sup || !c.supplier || norm(c.supplier) === sup);
+        const sameAll = sup && norm(c.supplier) === sup && Math.round(c.total * 100) === total && c.date === form.date;
+        if (sameNo || sameAll) { found.push({ kind: c.status === 'paid' ? 'paid' : 'inbox', c }); if (c.txId) inboxIds.add(c.txId); }
+      }
+      for (const tx of transactions) {
+        if (inboxIds.has(tx.id) || tx.voidedAt || sumOf(txLines(tx)) !== total) continue;
+        const d = norm(tx.description);
+        if ((sup && d.includes(sup)) || (no && d.includes(no))) found.push({ kind: 'booked', tx });
+      }
+    } else {
+      const desc = norm(form.description);
+      const cats = new Set(form.lines.map(l => l.categoryId).filter(Boolean));
+      const similar = (d, ls) => {
+        const x = norm(d);
+        return (desc && x && (x.includes(desc) || desc.includes(x))) || ls.some(l => cats.has(l.categoryId));
+      };
+      const paidIds = new Set(claims.filter(c => c.txId).map(c => c.txId));
+      for (const tx of transactions) {
+        if (tx.id === selfId || tx.voidedAt || tx.date !== form.date) continue;
+        const ls = txLines(tx);
+        if (sumOf(ls) === total && similar(tx.description, ls)) found.push({ kind: 'booked', tx, viaClaim: paidIds.has(tx.id) });
+      }
+      for (const c of claims) {
+        if (c.kind === 'invoice' || c.id === selfId || c.status === 'rejected' || c.status === 'paid' || c.date !== form.date) continue;
+        if (Math.round(c.total * 100) === total && similar(c.description, c.lines)) found.push({ kind: 'claim', c });
+      }
+    }
+    return found.slice(0, 3);
+  })();
   const setLine      = (i, patch) => setForm(f => ({ ...f, lines: f.lines.map((l, j) => j === i ? { ...l, ...patch } : l) }));
   const addLine      = () => setForm(f => ({ ...f, lines: [...f.lines, { categoryId: '', amount: '', projectId: f.lines[f.lines.length - 1]?.projectId || '' }] }));
   const removeLine   = i => setForm(f => ({ ...f, lines: f.lines.filter((_, j) => j !== i) }));
@@ -87,7 +131,8 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
     if (!preview) return;
     setAiBusy(true); setAiMsg(null);
     try {
-      const r = await readReceipt(orgId, preview.file, categories.filter(c => !c.hidden && (!isExpense || c.type === 'expense')));
+      const aiCats = categories.filter(c => !c.hidden && (!isExpense || c.type === 'expense'));
+      const r = await readReceipt(orgId, preview.file, aiCats, buildHistory(transactions, aiCats));
       setForm(f => ({
         ...f,
         date:        r.date || f.date,
@@ -244,6 +289,20 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
                 </div>
               </div>
             </>
+          )}
+          {dupes.length > 0 && (
+            <div className="notice" style={{ background: 'var(--amber-soft)', borderColor: 'var(--amber)', color: 'var(--ink)', marginBottom: 12, fontSize: '0.84rem' }}>
+              <strong>{isInvoice ? t('Den här fakturan verkar redan finnas') : t('Det här verkar redan vara inlagt')}</strong>
+              {dupes.map((d, i) => (
+                <div key={i} style={{ marginTop: 4 }}>
+                  {d.kind === 'inbox' && t('I inkorgen: {vad}', { vad: `${d.c.supplier}${d.c.invoiceNo ? ` · ${t('nr')} ${d.c.invoiceNo}` : ''} · ${fmt(d.c.total)} · ${d.c.date}` })}
+                  {d.kind === 'paid' && t('Redan betald och bokförd: {vad}', { vad: `${d.c.supplier}${d.c.invoiceNo ? ` · ${t('nr')} ${d.c.invoiceNo}` : ''} · ${fmt(d.c.total)} · ${d.c.date}` })}
+                  {d.kind === 'booked' && t('Redan bokfört verifikat: {vad}', { vad: `${d.tx.description || '–'} · ${fmt(linesTotal)} · ${d.tx.date}` })}
+                  {d.kind === 'claim' && t('Utlägg som väntar på hantering: {vad}', { vad: `${d.c.description || '–'} · ${fmt(d.c.total)} · ${d.c.date}` })}
+                </div>
+              ))}
+              <div style={{ marginTop: 4, color: 'var(--ink-soft)' }}>{(isInvoice ? t('Du kan ändå spara den om det är en ny faktura.') : t('Du kan ändå spara om det är en egen post.'))}</div>
+            </div>
           )}
           <div className="form-row form-row-cols">
             <div>

@@ -286,7 +286,7 @@ function MainApp({ orgId, role }) {
   const pageMap   = {
     komigang:   <Komigang {...pageProps} orgId={orgId} role={role} onSavePeriods={handleSavePeriods} onNavigate={navigate} onHide={() => setStartHidden(true)} />,
     dashboard:  <Dashboard  {...pageProps} />,
-    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
+    kassabok:   <Kassabok   {...pageProps} orgId={orgId} onAdd={handleAddTx} onUpdate={handleUpdateTx} onDelete={handleDeleteTx} voidedTxs={voidedTxs} claims={claims} onUpdateLocked={handleUpdateLockedTx} onVoid={handleVoidTx} onSubmitExpense={handleSubmitExpense} canSubmitExpense={expensesOn} addRequest={addRequest} onAddHandled={() => setAddRequest(false)} />,
     utlagg:     <Utlagg {...pageProps} orgId={orgId} orgName={orgName} claims={claims} expensesOn={expensesOn} invoicingOn={invoicingOn} outInvoices={outInvoices} invoiceDetails={pd.invoiceDetails} onReload={loadClaims} onReloadInvoices={loadOutInvoices} onTransactionsChanged={fetchAll} onFlash={setFlash} />,
     projekt:    <Projekt {...pageProps} orgId={orgId} />,
     budget:     <BudgetResultat {...pageProps} budgetComments={budgetComments} onBudgetChange={handleBudgetChange} onCommentChange={handleBudgetCommentChange} onLockChange={handleBudgetLockChange} />,

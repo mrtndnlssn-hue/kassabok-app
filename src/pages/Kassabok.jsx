@@ -9,7 +9,7 @@ import useIsMobile from '../hooks/useIsMobile';
 import { useProjects, cap, lower } from '../ProjectsContext';
 
 
-export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, voidedTxs = [], onUpdateLocked, onVoid, onSubmitExpense, canSubmitExpense, activePeriod, addRequest, onAddHandled }) {
+export default function Kassabok({ orgId, transactions, categories, onAdd, onUpdate, onDelete, voidedTxs = [], claims = [], onUpdateLocked, onVoid, onSubmitExpense, canSubmitExpense, activePeriod, addRequest, onAddHandled }) {
   const { t } = useI18n()
   const isMobile = useIsMobile()
   const { role } = useAuth()
@@ -382,6 +382,9 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
         <VoucherModal
           orgId={orgId}
           categories={categories}
+          transactions={transactions}
+          claims={claims}
+          selfId={modal.editId}
           initial={modal.initial}
           editing={!!modal.editId}
           restricted={!!modal.restricted}
@@ -429,6 +432,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
         <VoucherModal
           orgId={orgId}
           categories={categories}
+          transactions={transactions}
           initial={txForm(replaceFor.tx)}
           editing
           title={t('Ersättande verifikat')}

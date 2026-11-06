@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { translate as t } from './i18n'
+import { txLines } from './store'
 
 const MAX_BYTES = 5 * 1024 * 1024
 const MAX_SIDE = 1600
@@ -39,8 +40,27 @@ export async function setReceiptAiEnabled(orgId, enabled) {
   if (error) throw error
 }
 
+// Tidigare bokföring som stöd för förslaget: vilka konton liknande poster har bokförts på.
+// Poster grupperas per beskrivning och konto (med antal), de senaste först, max 80 stycken.
+export function buildHistory(transactions, categories) {
+  const valid = new Set(categories.map(c => c.id))
+  const groups = new Map()
+  const sorted = [...(transactions || [])].filter(x => !x.voidedAt && x.description?.trim()).sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  for (const tx of sorted) {
+    for (const l of txLines(tx)) {
+      if (!valid.has(l.categoryId)) continue
+      const d = tx.description.trim().slice(0, 60)
+      const key = `${d.toLowerCase()}|${l.categoryId}`
+      const g = groups.get(key)
+      if (g) g.n++
+      else if (groups.size < 80) groups.set(key, { d, c: l.categoryId, n: 1 })
+    }
+  }
+  return [...groups.values()]
+}
+
 // Returnerar { date, amount, description, category_id, confidence, used, limit }
-export async function readReceipt(orgId, file, categories) {
+export async function readReceipt(orgId, file, categories, history = []) {
   let mediaType = file.type
   let blob = file
   if (mediaType.startsWith('image/')) {
@@ -54,6 +74,7 @@ export async function readReceipt(orgId, file, categories) {
     body: {
       orgId, mediaType, data,
       categories: categories.map(c => ({ id: c.id, name: c.name, type: c.type })),
+      history,
     },
   })
   if (error) throw new Error(t('Tjänsten för AI-avläsning kunde inte nås.'))

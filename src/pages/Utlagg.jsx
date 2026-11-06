@@ -22,7 +22,7 @@ const STATUS_INVOICE = {
   paid:      { label: 'Betald',     bg: 'var(--accent-3)',   color: 'var(--accent)' },
 };
 
-export default function Utlagg({ orgId, orgName, claims, categories, fiscalPeriods, expensesOn, invoicingOn, outInvoices = [], invoiceDetails, onReload, onReloadInvoices, onTransactionsChanged, onFlash }) {
+export default function Utlagg({ orgId, orgName, claims, transactions, categories, fiscalPeriods, expensesOn, invoicingOn, outInvoices = [], invoiceDetails, onReload, onReloadInvoices, onTransactionsChanged, onFlash }) {
   const { t } = useI18n();
   const { session, role } = useAuth();
   const myId = session?.user?.id;
@@ -319,6 +319,9 @@ export default function Utlagg({ orgId, orgName, claims, categories, fiscalPerio
         <VoucherModal
           orgId={orgId}
           categories={categories}
+          transactions={transactions}
+          claims={claims}
+          selfId={modal.claim?.id}
           expense={(modal.claim ? modal.claim.kind === 'invoice' : isInv) ? 'invoice' : 'forced'}
           editing={!!modal.claim}
           initial={modal.claim && {
