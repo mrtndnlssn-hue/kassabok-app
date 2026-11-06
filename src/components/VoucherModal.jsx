@@ -4,6 +4,8 @@ import { getReceiptUsage, readReceipt, canReadWithAi } from '../receiptAi';
 import { fmt, todayStr, isValidIsoDate } from '../store';
 import DateInput from './DateInput';
 import { useI18n } from '../i18n';
+import { useAuth } from '../auth/AuthProvider';
+import { supabase } from '../supabase';
 import useIsMobile from '../hooks/useIsMobile';
 import { useProjects, cap } from '../ProjectsContext';
 
@@ -27,6 +29,14 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
   const showProjects = projOn && projects.length > 0;
 
   const [form, setForm] = useState(initial || emptyVoucherForm);
+  const { session, role } = useAuth();
+  const [members, setMembers] = useState([]);   // föreningens medlemmar: ägare och medlemmar kan registrera utlägg åt andra
+  const [forUser, setForUser] = useState('');
+  useEffect(() => {
+    if (editing || role === 'viewer' || !(expense === 'forced' || expense === 'optional')) return;
+    supabase.rpc('get_org_members_with_email', { p_org_id: orgId }).then(({ data }) =>
+      setMembers((data || []).map(m => ({ id: m.user_id, name: m.nickname || m.email }))));
+  }, [orgId, editing, role, expense]);
   const isInvoice = expense === 'invoice';
   const [isExpense, setIsExpense]   = useState(expense === 'forced' || isInvoice);
   const [inv, setInv] = useState(initial?.invoice || { supplier: '', invoiceNo: '', dueDate: '', paymentRef: '' });
@@ -109,7 +119,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
     const lines = form.lines.map(l => ({ id: l.id, categoryId: l.categoryId, amount: parseFloat(l.amount), projectId: l.projectId || null }));
     if (isInvoice && !inv.supplier.trim()) { setSaveError(t('Ange leverantör.')); return; }
     if (isInvoice && inv.dueDate && !isValidIsoDate(inv.dueDate)) { setSaveError(t('Ange ett giltigt förfallodatum på formatet YYYY-MM-DD.')); return; }
-    const payload = { date: form.date, description: form.description, comment: form.comment, lines, ...(isInvoice ? { invoice: { ...inv } } : {}) };
+    const payload = { date: form.date, description: form.description, comment: form.comment, lines, ...(isInvoice ? { invoice: { ...inv } } : {}), ...(isExpense && !isInvoice && forUser && forUser !== session?.user?.id ? { forUser } : {}) };
     setSaving(true);
     setSaveError('');
     try {
@@ -197,6 +207,17 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
                     </span>
                   </span>
                 </label>
+              </div>
+            </div>
+          )}
+          {isExpense && !isInvoice && !editing && members.length > 1 && (
+            <div className="form-row">
+              <div>
+                <label>{t('Utlägget avser')}</label>
+                <select value={forUser || session?.user?.id || ''} onChange={e => setForUser(e.target.value)}>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.id === session?.user?.id ? `${t('Mig själv')} (${m.name})` : m.name}</option>)}
+                </select>
+                <div style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 4 }}>{t('Välj en annan medlem om du registrerar utlägget åt hen. Pengarna betalas då ut till den personen.')}</div>
               </div>
             </div>
           )}

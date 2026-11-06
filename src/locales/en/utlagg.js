@@ -1,5 +1,12 @@
 // Utlägg (expense claims)
 export default {
+  'registrerat av': 'registered by',
+  'dig': 'you',
+  'Utlägget avser': 'Expense is for',
+  'Mig själv': 'Myself',
+  'Välj en annan medlem om du registrerar utlägget åt hen. Pengarna betalas då ut till den personen.': 'Choose another member if you are registering the expense on their behalf. The money is then paid out to that person.',
+  'Bara ägare och medlemmar kan registrera utlägg åt andra.': 'Only owners and members can register expenses for others.',
+  'Personen är inte medlem i föreningen.': 'That person is not a member of the association.',
   'Utlägg': 'Expenses',
   'Registrera, godkänn och betala ut utlägg': 'Submit, approve and pay out expenses',
   'Registrera utlägg': 'Submit an expense',

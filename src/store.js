@@ -482,7 +482,7 @@ const dbAttachments = {
 export const claimFolder = id => `claim_${id}`
 
 const claimFromRow = r => ({
-  id: r.id, userId: r.user_id, date: r.date, description: r.description || '', comment: r.comment || '',
+  id: r.id, userId: r.user_id, registeredBy: r.registered_by || null, date: r.date, description: r.description || '', comment: r.comment || '',
   lines: (r.lines || []).map(l => ({ categoryId: l.categoryId, amount: Number(l.amount), projectId: l.projectId || null })),
   total: Number(r.total), status: r.status, rejectReason: r.reject_reason || '',
   kind: r.kind || 'expense', supplier: r.supplier || '', invoiceNo: r.invoice_no || '', dueDate: r.due_date || null, paymentRef: r.payment_ref || '',
@@ -508,7 +508,7 @@ const dbExpenses = {
         })
       : await supabase.rpc('submit_expense_claim', {
           p_id: id, p_org: orgId, p_date: claim.date, p_description: claim.description || '', p_comment: claim.comment || '',
-          p_lines: cleanLines(claim.lines),
+          p_lines: cleanLines(claim.lines), p_for_user: claim.forUser || null,
         })
     if (error) throw error
     let uploadError = null

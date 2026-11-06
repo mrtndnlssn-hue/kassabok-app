@@ -30,6 +30,16 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const [attachTx, setAttachTx]       = useState(null); // {tx, verNum}
   const [filterCat, setFilterCat]     = useState('all');
   const [filterProject, setFilterProject] = useState('all');   // 'all' | 'none' | projekt-id
+  const [sort, setSort] = useState({ key: 'date', dir: 'desc' });
+  const toggleSort = key => setSort(s => s.key === key
+    ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+    : { key, dir: key === 'category' || key === 'type' ? 'asc' : (key === 'ver' ? 'asc' : 'desc') });
+  const sortTh = (key, label, extra = {}) => (
+    <th className={extra.className} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...extra.style }}
+      onClick={() => toggleSort(key)} aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      {label}{sort.key === key ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+    </th>
+  );
 
   // "+" i mobilens flikmeny ber om ett nytt verifikat
   useEffect(() => {
@@ -42,8 +52,19 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
   const yearTxs = useMemo(() => txsForPeriod([...transactions, ...voidedTxs], period), [transactions, voidedTxs, period]);
   const catMap   = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories]);
 
+  // De rader av ett verifikat som matchar filtren (så att summorna stämmer när man filtrerar på ett konto)
+  const shownLines = tx => txLines(tx).filter(l =>
+    (filterCat === 'all' || l.categoryId === filterCat) &&
+    (filterType === 'all' || catMap[l.categoryId]?.type === filterType) &&
+    matchesProject(l));
+  const sumType = (lines, type) => lines.filter(l => catMap[l.categoryId]?.type === type).reduce((s, l) => s + Number(l.amount), 0);
+
+  // Verifikatnumret följer grundordningen (datum, nyast först) och ändras inte av filter eller sortering
+  const baseOrder = useMemo(() => [...yearTxs].sort((a, b) => b.date?.localeCompare(a.date)), [yearTxs]);
+  const verMap = useMemo(() => Object.fromEntries(baseOrder.map((x, i) => [x.id, i + 1])), [baseOrder]);
+
   const filtered = useMemo(() => {
-    let txs = [...yearTxs].sort((a, b) => b.date?.localeCompare(a.date));
+    let txs = [...baseOrder];
     if (search) {
       const q = search.toLowerCase();
       txs = txs.filter(x =>
@@ -60,19 +81,32 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
     if (filterProject !== 'all') {
       txs = txs.filter(x => txLines(x).some(l => matchesProject(l)));
     }
+    if (sort.key !== 'date' || sort.dir !== 'desc') {
+      const firstCat = x => { const l = txLines(x)[0]; return String(l?.categoryId ?? ''); };
+      const isInc = x => (catMap[txLines(x)[0]?.categoryId]?.type === 'income' ? 0 : 1);
+      const sum = (x, type) => sumType(shownLines(x), type);
+      const val = {
+        ver: x => verMap[x.id],
+        date: x => x.date || '',
+        category: firstCat,
+        type: isInc,
+        income: x => sum(x, 'income'),
+        expense: x => sum(x, 'expense'),
+      }[sort.key];
+      const m = sort.dir === 'asc' ? 1 : -1;
+      txs.sort((a, b) => {
+        const va = val(a), vb = val(b);
+        const c = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'sv', { numeric: true });
+        return c * m || verMap[a.id] - verMap[b.id];
+      });
+    }
     return txs;
-  }, [yearTxs, search, filterType, filterCat, filterProject, catMap]);
+  }, [baseOrder, verMap, sort, search, filterType, filterCat, filterProject, catMap]);
 
   function matchesProject(l) {
     return filterProject === 'all' || (filterProject === 'none' ? !l.projectId : l.projectId === filterProject);
   }
 
-  // De rader av ett verifikat som matchar filtren (så att summorna stämmer när man filtrerar på ett konto)
-  const shownLines = tx => txLines(tx).filter(l =>
-    (filterCat === 'all' || l.categoryId === filterCat) &&
-    (filterType === 'all' || catMap[l.categoryId]?.type === filterType) &&
-    matchesProject(l));
-  const sumType = (lines, type) => lines.filter(l => catMap[l.categoryId]?.type === type).reduce((s, l) => s + Number(l.amount), 0);
 
   const active = filtered.filter(x => !x.voidedAt);
   const totalIncome  = active.reduce((s, x) => s + sumType(shownLines(x), 'income'), 0);
@@ -159,6 +193,15 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
             .sort((a, b) => String(a.id).localeCompare(String(b.id), 'sv', { numeric: true }))
             .map(c => <option key={c.id} value={c.id}>{c.id} – {c.name}</option>)}
         </select>
+        {isMobile && (
+          <select value={`${sort.key}:${sort.dir}`} aria-label={t('Sortera')} style={{ width: '100%' }}
+            onChange={e => { const [key, dir] = e.target.value.split(':'); setSort({ key, dir }); }}>
+            {[['date', t('Datum')], ['ver', t('Verifikat')], ['category', t('Kategori')], ['type', t('Typ')], ['income', t('Inkomst')], ['expense', t('Utgift')]].flatMap(([k, l]) => [
+              <option key={k + 'a'} value={`${k}:asc`}>{t('Sortera')}: {l} ▲</option>,
+              <option key={k + 'd'} value={`${k}:desc`}>{t('Sortera')}: {l} ▼</option>,
+            ])}
+          </select>
+        )}
         {showProjects && (
           <select value={filterProject} onChange={e => setFilterProject(e.target.value)} style={{ width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? 'none' : 220 }}>
             <option value="all">{t('Alla {namn}', { namn: lower(labels.many) })}</option>
@@ -208,7 +251,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
             return (
               <div className="m-card" key={tx.id} style={tx.voidedAt ? { opacity: 0.6 } : undefined}>
                 <div className="m-card-top">
-                  <span className="m-date">{tx.date} · {String(i + 1).padStart(3, '0')}{lockBadge(tx)}</span>
+                  <span className="m-date">{tx.date} · {String(verMap[tx.id]).padStart(3, '0')}{lockBadge(tx)}</span>
                   <span className={`m-amount ${incAmt ? 'positive' : 'negative'}`}>{incAmt ? `+${fmt(incAmt)}` : `−${fmt(expAmt)}`}</span>
                 </div>
                 <div className="m-card-desc" style={tx.voidedAt ? { textDecoration: 'line-through' } : undefined}>{tx.description || '–'}</div>
@@ -226,7 +269,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                 })}
                 {tx.comment && <div className="m-card-comment">{tx.comment}</div>}
                 <div className="m-card-actions">
-                  <button className="btn btn-secondary" onClick={() => setAttachTx({ tx, verNum: i + 1 })} aria-label={t('Bilagor')}><Paperclip size={15} /> {t('Bilagor')}</button>
+                  <button className="btn btn-secondary" onClick={() => setAttachTx({ tx, verNum: verMap[tx.id] })} aria-label={t('Bilagor')}><Paperclip size={15} /> {t('Bilagor')}</button>
                   {actionButtons(tx, true)}
                 </div>
               </div>
@@ -238,13 +281,13 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
         <table>
           <thead>
             <tr>
-              <th>#</th>
-              <th>{t('Datum')}</th>
+              {sortTh('ver', '#')}
+              {sortTh('date', t('Datum'))}
               <th>{t('Beskrivning')}</th>
-              <th>{t('Kategori')}</th>
-              <th>{t('Typ')}</th>
-              <th className="text-right">{t('Inkomst')}</th>
-              <th className="text-right">{t('Utgift')}</th>
+              {sortTh('category', t('Kategori'))}
+              {sortTh('type', t('Typ'))}
+              {sortTh('income', t('Inkomst'), { className: 'text-right' })}
+              {sortTh('expense', t('Utgift'), { className: 'text-right' })}
               <th>{t('Kommentar')}</th>
               <th style={{textAlign:'center'}}>{t('Bilagor')}</th>
               <th></th>
@@ -264,7 +307,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
               const expAmt = sumType(shown, 'expense');
               return (
                 <tr key={tx.id} style={tx.voidedAt ? { opacity: 0.55 } : undefined}>
-                  <td className="mono" style={{ color: 'var(--ink-muted)' }}>{String(i + 1).padStart(3, '0')}{lockBadge(tx)}</td>
+                  <td className="mono" style={{ color: 'var(--ink-muted)' }}>{String(verMap[tx.id]).padStart(3, '0')}{lockBadge(tx)}</td>
                   <td className="mono">{tx.date}</td>
                   <td>
                     <span style={tx.voidedAt ? { textDecoration: 'line-through' } : undefined}>{tx.description || <em style={{ color: 'var(--ink-muted)' }}>–</em>}</span>
@@ -297,7 +340,7 @@ export default function Kassabok({ orgId, transactions, categories, onAdd, onUpd
                     <button
                       className="btn btn-sm btn-secondary"
                       title={t('Bilagor')}
-                      onClick={() => setAttachTx({ tx, verNum: i + 1 })}
+                      onClick={() => setAttachTx({ tx, verNum: verMap[tx.id] })}
                       style={{ padding:'4px 8px' }}
                     >
                       <Paperclip size={12}/>

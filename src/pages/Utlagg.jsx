@@ -53,7 +53,7 @@ export default function Utlagg({ orgId, orgName, claims, categories, fiscalPerio
   const nameOf = c => names[c.userId] || t('Tidigare medlem');
   const isInv = view === 'invoice';
   const list = claims.filter(c => (c.kind || 'expense') === view);
-  const mine = list.filter(c => c.userId === myId);
+  const mine = list.filter(c => c.userId === myId || c.registeredBy === myId);
   // Fakturor sorteras på förfallodatum så att den som snart förfaller hamnar överst
   const byDue = (a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
   const toHandle = list.filter(c => (isInv ? c.status === 'submitted' : (c.status === 'submitted' || c.status === 'approved'))).sort(isInv ? byDue : () => 0);
@@ -69,7 +69,7 @@ export default function Utlagg({ orgId, orgName, claims, categories, fiscalPerio
 
   // Den som lagt ut pengarna får inte godkänna sitt eget utlägg (utom huvudägaren). Fakturor betalas till en leverantör, så där gäller det inte.
   const ownBlocked = c => c.kind !== 'invoice' && c.userId === myId && !isMain && !isDemoMode();
-  const editable = c => c.userId === myId && (c.status === 'submitted' || c.status === 'rejected');
+  const editable = c => (c.userId === myId || c.registeredBy === myId) && (c.status === 'submitted' || c.status === 'rejected');
 
   async function run(fn) {
     setBusy(true); setError('');
@@ -230,7 +230,7 @@ export default function Utlagg({ orgId, orgName, claims, categories, fiscalPerio
                     </div>
                     {invoice && c.description && <div style={{ fontSize: '0.85rem', color: 'var(--ink-soft)' }}>{c.description}</div>}
                     <div style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginTop: 2 }}>
-                      {invoice ? t('Fakturadatum') : ''} {c.date} · {own ? t('Du') : nameOf(c)}
+                      {invoice ? t('Fakturadatum') : ''} {c.date} · {own ? t('Du') : nameOf(c)}{c.registeredBy && c.registeredBy !== c.userId ? ` · ${t('registrerat av')} ${c.registeredBy === myId ? t('dig') : (names[c.registeredBy] || t('Tidigare medlem'))}` : ''}
                     </div>
                     {invoice && (c.dueDate || c.paymentRef) && (
                       <div style={{ fontSize: '0.82rem', marginTop: 4, display: 'flex', gap: 14, flexWrap: 'wrap' }}>

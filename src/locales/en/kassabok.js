@@ -1,5 +1,6 @@
 // Engelska översättningar: kassaboken (verifikatlistan och formuläret)
 export default {
+  'Sortera': 'Sort',
   'Förslag ifyllt. Kontrollera uppgifterna innan du sparar.': 'Suggestion filled in. Check the details before you save.',
   'Förslag ifyllt, men avläsningen är osäker. Kontrollera datum och belopp noga.': 'Suggestion filled in, but the reading is uncertain. Check the date and amount carefully.',
   'Ange ett giltigt datum på formatet YYYY-MM-DD.': 'Enter a valid date in the format YYYY-MM-DD.',
