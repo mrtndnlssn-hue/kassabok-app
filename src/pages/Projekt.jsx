@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { useI18n } from '../i18n';
 import { useProjects, cap, lower } from '../ProjectsContext';
 import DateInput from '../components/DateInput';
+import { clickable } from '../a11y';
 import { exportProjectPdf, exportProjectExcel } from '../projectExport';
 import { downloadBlob } from '../excelExport';
 
@@ -307,7 +308,7 @@ export default function Projekt({ orgId, orgName, transactions, categories }) {
           {shown.map(p => {
             const tot = totalsById[p.id];
             return (
-              <div key={p.id} className="project-card clickable" onClick={() => openProject(p.id)}>
+              <div key={p.id} className="project-card clickable" aria-label={p.name} {...clickable(() => openProject(p.id))}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <h4 style={{ overflowWrap: 'anywhere' }}>{p.name}</h4>{statusBadge(p)}
                 </div>

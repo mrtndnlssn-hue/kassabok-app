@@ -3,6 +3,7 @@ import { Plus, Trash2, X, Check, Upload, FileText, Sparkles, Camera } from 'luci
 import { getReceiptUsage, readReceipt, canReadWithAi, buildHistory } from '../receiptAi';
 import { fmt, todayStr, isValidIsoDate, txLines, isDemoMode } from '../store';
 import DateInput from './DateInput';
+import { clickable } from '../a11y';
 import { useI18n } from '../i18n';
 import { useAuth } from '../auth/AuthProvider';
 import { supabase } from '../supabase';
@@ -427,7 +428,7 @@ export default function VoucherModal({ orgId, categories, initial, editing = fal
                 {newFiles.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
                     {newFiles.map((f, i) => (
-                      <div key={i} onClick={() => setPreviewIdx(i)}
+                      <div key={i} {...clickable(() => setPreviewIdx(i))} aria-label={f.file.name}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 'var(--r)', cursor: 'pointer',
                           background: preview === f ? 'var(--accent-3)' : 'var(--paper-2)', border: '1px solid var(--border)', fontSize: '0.85rem' }}>
                         <FileText size={14} style={{ flexShrink: 0, color: 'var(--ink-soft)' }} />

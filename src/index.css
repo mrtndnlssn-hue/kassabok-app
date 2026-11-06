@@ -200,3 +200,13 @@ tfoot td{padding:11px 14px;font-weight:600;background:var(--paper-2);border-top:
   .budget-stats .stat-label{margin-bottom:0;}
 }
 thead button:focus-visible{outline-color:#fff;}
+
+/* Tryckytor: minst ca 44 px på pekskärmar, så att knappar och fält går att träffa med tummen */
+@media (pointer: coarse) {
+  .btn, .btn-sm, .nav-btn { min-height: 44px; }
+  .modal-close { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea { min-height: 44px; }
+  input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; }
+  .m-sheet-item { min-height: 48px; }
+  .m-period { min-height: 40px; }
+}

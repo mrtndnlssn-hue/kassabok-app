@@ -113,3 +113,15 @@ export function initA11y() {
   }).observe(document.body, { childList: true, subtree: true })
   scan([document.body])
 }
+
+// Gör ett element som inte är en knapp (kort, rad) användbart med tangentbord: fokuserbart, aktiveras med Enter och mellanslag.
+// Användning: <div {...clickable(() => öppna(id))}>
+export const clickable = fn => ({
+  role: 'button',
+  tabIndex: 0,
+  onClick: fn,
+  onKeyDown: e => {
+    if (e.target !== e.currentTarget) return   // bara när själva elementet har fokus, inte en knapp i det
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(e) }
+  },
+})

@@ -33,11 +33,11 @@ export default function DateInput({ value, onChange, required, disabled, style, 
         required={required} disabled={disabled}
         onChange={e => onChange(maskDate(e.target.value))}
         onBlur={() => setTouched(true)}
-        style={{ fontFamily: 'var(--font-mono)', paddingRight: 34, borderColor: invalid ? 'var(--red)' : undefined, ...style }}
+        style={{ fontFamily: 'var(--font-mono)', paddingRight: 44, borderColor: invalid ? 'var(--red)' : undefined, ...style }}
         {...rest}
       />
-      <button type="button" onClick={openPicker} disabled={disabled} tabIndex={-1} title={t('Välj i kalender')}
-        style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex' }}>
+      <button type="button" onClick={openPicker} disabled={disabled} tabIndex={-1} title={t('Välj i kalender')} aria-label={t('Välj i kalender')}
+        style={{ position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', padding: 10, cursor: 'pointer', color: 'var(--ink-muted)', display: 'flex' }}>
         <CalendarDays size={15} />
       </button>
       <input ref={pickerRef} type="date" tabIndex={-1} aria-hidden="true"

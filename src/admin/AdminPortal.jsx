@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ArrowLeft, Loader, FileDown, RefreshCw, Mail } from 'lucide-react'
+import { clickable } from '../a11y'
 import { supabase } from '../supabase'
 import { buildInvoicePdf, money } from './invoicePdf'
 import { fmtDate, isoDate, isoDateTime, todayStr } from '../store'
@@ -309,7 +310,7 @@ function Orders({ plans }) {
     <>
       <Table head={['Nr', 'Datum', 'Förening', 'Plan', 'Belopp (kr)', 'Kontakt', 'Kopplad förening', 'Status']}
         rows={orders.map(o => (
-          <tr key={o.id} onClick={() => setOpen(o)} style={{ cursor: 'pointer' }}>
+          <tr key={o.id} {...clickable(() => setOpen(o))} aria-label={`Beställning ${o.order_no}`} style={{ cursor: 'pointer' }}>
             <td style={{ fontFamily: 'var(--font-mono)' }}>{o.order_no}</td>
             <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>{day(o.created_at)}</td>
             <td><strong>{o.org_name}</strong><div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>{o.org_number}</div></td>
